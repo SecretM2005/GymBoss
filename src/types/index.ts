@@ -54,6 +54,19 @@ export type Kunde = {
   notizen?: string;
 };
 
+export type MitgliedschaftTyp = 'Basic' | 'Premium';
+export type MitgliedschaftStatus = 'aktiv' | 'abgelaufen' | 'gekuendigt';
+
+export type Mitgliedschaft = {
+  id: string;
+  kundeId: string;
+  typ: MitgliedschaftTyp;
+  preis: number;      // monatlicher Preis in EUR
+  startdatum: string; // ISO: YYYY-MM-DD
+  enddatum: string;   // ISO: YYYY-MM-DD
+  status: MitgliedschaftStatus;
+};
+
 export type RootStackParamList = {
   Main: undefined;
 };
@@ -80,7 +93,7 @@ export type KalenderStackParamList = {
 export type MitgliedschaftenStackParamList = {
   MitgliedschaftenList: undefined;
   MitgliedschaftDetail: { mitgliedschaftId: string };
-  MitgliedschaftAnlegen: undefined;
+  MitgliedschaftForm: { kundeId?: string }; // kundeId = Kunde vorausgewählt
 };
 
 export type TrainingsplaeneStackParamList = {
