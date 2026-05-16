@@ -43,6 +43,17 @@ export type WorkoutTemplate = {
   exercises: Omit<WorkoutExercise, 'id'>[];
 };
 
+export type Kunde = {
+  id: string;
+  vorname: string;
+  nachname: string;
+  email: string;
+  telefon: string;
+  status: 'aktiv' | 'inaktiv';
+  eintrittsdatum: string; // ISO-Datum: YYYY-MM-DD
+  notizen?: string;
+};
+
 export type RootStackParamList = {
   Main: undefined;
 };
@@ -57,7 +68,7 @@ export type BottomTabParamList = {
 export type KundenStackParamList = {
   KundenList: undefined;
   KundenDetail: { kundeId: string };
-  KundeAnlegen: undefined;
+  KundeForm: { kundeId?: string }; // undefined = Anlegen, gesetzt = Bearbeiten
 };
 
 export type KalenderStackParamList = {
