@@ -43,16 +43,61 @@ export type WorkoutTemplate = {
   exercises: Omit<WorkoutExercise, 'id'>[];
 };
 
+export type Kunde = {
+  id: string;
+  vorname: string;
+  nachname: string;
+  email: string;
+  telefon: string;
+  status: 'aktiv' | 'inaktiv';
+  eintrittsdatum: string; // ISO-Datum: YYYY-MM-DD
+  notizen?: string;
+};
+
+export type MitgliedschaftTyp = 'Basic' | 'Premium';
+export type MitgliedschaftStatus = 'aktiv' | 'abgelaufen' | 'gekuendigt';
+
+export type Mitgliedschaft = {
+  id: string;
+  kundeId: string;
+  typ: MitgliedschaftTyp;
+  preis: number;      // monatlicher Preis in EUR
+  startdatum: string; // ISO: YYYY-MM-DD
+  enddatum: string;   // ISO: YYYY-MM-DD
+  status: MitgliedschaftStatus;
+};
+
 export type RootStackParamList = {
   Main: undefined;
-  WorkoutDetail: { workoutId: string };
-  AddExercise: { workoutId: string };
-  ExerciseLibrary: undefined;
 };
 
 export type BottomTabParamList = {
-  Dashboard: undefined;
-  Workouts: undefined;
-  Progress: undefined;
-  Profile: undefined;
+  Kunden: undefined;
+  Kalender: undefined;
+  Mitgliedschaften: undefined;
+  Trainingsplaene: undefined;
+};
+
+export type KundenStackParamList = {
+  KundenList: undefined;
+  KundenDetail: { kundeId: string };
+  KundeForm: { kundeId?: string }; // undefined = Anlegen, gesetzt = Bearbeiten
+};
+
+export type KalenderStackParamList = {
+  KalenderOverview: undefined;
+  TerminDetail: { terminId: string };
+  TerminAnlegen: undefined;
+};
+
+export type MitgliedschaftenStackParamList = {
+  MitgliedschaftenList: undefined;
+  MitgliedschaftDetail: { mitgliedschaftId: string };
+  MitgliedschaftForm: { kundeId?: string }; // kundeId = Kunde vorausgewählt
+};
+
+export type TrainingsplaeneStackParamList = {
+  TrainingsplaeneList: undefined;
+  TrainingsplanDetail: { planId: string };
+  TrainingsplanAnlegen: undefined;
 };
