@@ -45,14 +45,35 @@ export type WorkoutTemplate = {
 
 export type RootStackParamList = {
   Main: undefined;
-  WorkoutDetail: { workoutId: string };
-  AddExercise: { workoutId: string };
-  ExerciseLibrary: undefined;
 };
 
 export type BottomTabParamList = {
-  Dashboard: undefined;
-  Workouts: undefined;
-  Progress: undefined;
-  Profile: undefined;
+  Kunden: undefined;
+  Kalender: undefined;
+  Mitgliedschaften: undefined;
+  Trainingsplaene: undefined;
+};
+
+export type KundenStackParamList = {
+  KundenList: undefined;
+  KundenDetail: { kundeId: string };
+  KundeAnlegen: undefined;
+};
+
+export type KalenderStackParamList = {
+  KalenderOverview: undefined;
+  TerminDetail: { terminId: string };
+  TerminAnlegen: undefined;
+};
+
+export type MitgliedschaftenStackParamList = {
+  MitgliedschaftenList: undefined;
+  MitgliedschaftDetail: { mitgliedschaftId: string };
+  MitgliedschaftAnlegen: undefined;
+};
+
+export type TrainingsplaeneStackParamList = {
+  TrainingsplaeneList: undefined;
+  TrainingsplanDetail: { planId: string };
+  TrainingsplanAnlegen: undefined;
 };
