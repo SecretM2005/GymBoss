@@ -1,8 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { BottomTabParamList } from '../types';
-import { C, FONT, SP } from '../theme';
+import { C, FONT } from '../theme';
 import KundenNavigator from './KundenNavigator';
 import KalenderNavigator from './KalenderNavigator';
 import MitgliedschaftenNavigator from './MitgliedschaftenNavigator';
@@ -10,33 +11,34 @@ import TrainingsplaeneNavigator from './TrainingsplaeneNavigator';
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
-type TabConfig = {
-  icon: string;
-  label: string;
-};
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
-const TABS: Record<keyof BottomTabParamList, TabConfig> = {
-  Kunden:          { icon: '👥', label: 'Kunden' },
-  Kalender:        { icon: '📅', label: 'Kalender' },
-  Mitgliedschaften:{ icon: '🏷️', label: 'Mitglieder' },
-  Trainingsplaene: { icon: '📋', label: 'Pläne' },
+type TabCfg = { icon: IoniconsName; iconActive: IoniconsName; label: string };
+
+const TABS: Record<keyof BottomTabParamList, TabCfg> = {
+  Kunden:           { icon: 'people-outline',    iconActive: 'people',    label: 'Kunden' },
+  Kalender:         { icon: 'calendar-outline',  iconActive: 'calendar',  label: 'Kalender' },
+  Mitgliedschaften: { icon: 'card-outline',      iconActive: 'card',      label: 'Mitglieder' },
+  Trainingsplaene:  { icon: 'barbell-outline',   iconActive: 'barbell',   label: 'Pläne' },
 };
 
 export default function BottomTabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => {
-        const { icon, label } = TABS[route.name];
+        const cfg = TABS[route.name];
         return {
           headerShown: false,
           tabBarIcon: ({ focused }) => (
-            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <Text style={[styles.icon, !focused && styles.iconInactive]}>{icon}</Text>
-            </View>
+            <Ionicons
+              name={focused ? cfg.iconActive : cfg.icon}
+              size={22}
+              color={focused ? C.accent : C.textDim}
+            />
           ),
           tabBarLabel: ({ focused }) => (
             <Text style={[styles.label, focused && styles.labelActive]}>
-              {label}
+              {cfg.label}
             </Text>
           ),
           tabBarStyle: styles.tabBar,
@@ -53,25 +55,13 @@ export default function BottomTabNavigator() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: C.white,
+    backgroundColor: C.surface,
     borderTopColor: C.border,
     borderTopWidth: 1,
-    height: 64,
-    paddingBottom: SP.sm,
-    paddingTop: SP.xs,
+    height: 72,
+    paddingBottom: 16,
+    paddingTop: 8,
   },
-  iconWrap: {
-    width: 36,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-  },
-  iconWrapActive: {
-    backgroundColor: C.primaryLight,
-  },
-  icon: { fontSize: 20 },
-  iconInactive: { opacity: 0.45 },
-  label: { fontSize: FONT.xs, color: C.textMuted, fontWeight: '500', marginTop: 2 },
-  labelActive: { color: C.primary, fontWeight: '700' },
+  label: { fontSize: FONT.xs, color: C.textDim, fontWeight: '600', marginTop: 2 },
+  labelActive: { color: C.accent },
 });

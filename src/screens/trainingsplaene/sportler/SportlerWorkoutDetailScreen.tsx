@@ -1,17 +1,50 @@
-import React, { useLayoutEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
+import Svg, { Circle } from 'react-native-svg';
 import { TrainingsplaeneStackParamList } from '../../../types';
 import { useTrainingsplanStore } from '../../../store/trainingsplanStore';
 import { useFeedbackStore } from '../../../store/feedbackStore';
 import { useRoleStore } from '../../../store/roleStore';
-import { C, SP, R, FONT, SHADOW_SM, SHADOW_MD } from '../../../theme';
+import TopBar from '../../../components/TopBar';
+import TypeChip from '../../../components/TypeChip';
+import { IconBtn, GBIcon } from '../../../components/GBIcon';
+import { C, SP, R, FONT, FONT_MONO } from '../../../theme';
 
 type Props = {
   navigation: StackNavigationProp<TrainingsplaeneStackParamList, 'SportlerWorkoutDetail'>;
   route: RouteProp<TrainingsplaeneStackParamList, 'SportlerWorkoutDetail'>;
 };
+
+const RING_SIZE = 120;
+const STROKE = 8;
+const RADIUS = (RING_SIZE - STROKE) / 2;
+const CIRC = 2 * Math.PI * RADIUS;
+
+function ProgressRing({ pct, label }: { pct: number; label: string }) {
+  const stroke = CIRC * (1 - pct);
+  return (
+    <View style={ring.wrap}>
+      <Svg width={RING_SIZE} height={RING_SIZE}>
+        <Circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RADIUS} stroke={C.border} strokeWidth={STROKE} fill="none" />
+        <Circle
+          cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RADIUS}
+          stroke={C.accent} strokeWidth={STROKE} fill="none"
+          strokeDasharray={`${CIRC}`}
+          strokeDashoffset={stroke}
+          strokeLinecap="round"
+          rotation="-90"
+          origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+        />
+      </Svg>
+      <View style={ring.center}>
+        <Text style={ring.pct}>{Math.round(pct * 100)}%</Text>
+        <Text style={ring.label}>{label}</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function SportlerWorkoutDetailScreen({ navigation, route }: Props) {
   const { planId, wocheId, workoutId } = route.params;
@@ -24,177 +57,213 @@ export default function SportlerWorkoutDetailScreen({ navigation, route }: Props
   const workout = woche?.workouts.find((wo) => wo.id === workoutId);
   const feedback = getFeedbackForWorkout(workoutId, currentUser.id);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: workout?.name ?? 'Workout' });
-  }, [navigation, workout?.name]);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const toggleCheck = (setKey: string) =>
+    setChecked((prev) => { const next = new Set(prev); next.has(setKey) ? next.delete(setKey) : next.add(setKey); return next; });
 
   if (!workout) {
     return (
-      <View style={styles.notFound}>
-        <Text style={styles.notFoundText}>Workout nicht gefunden.</Text>
+      <View style={styles.root}>
+        <TopBar title="Workout" leading={<IconBtn name="chevronLeft" onPress={() => navigation.goBack()} />} />
+        <View style={styles.notFound}>
+          <Text style={styles.notFoundText}>Workout nicht gefunden.</Text>
+        </View>
       </View>
     );
   }
 
   const totalSaetze = workout.uebungen.reduce((acc, u) => acc + u.saetze, 0);
-  const estDauer = workout.uebungen.reduce((acc, u) => acc + (u.saetze * (u.pause + 45)), 0);
-  const estMin = Math.round(estDauer / 60);
+  const checkedSaetze = checked.size;
+  const progressPct = totalSaetze > 0 ? checkedSaetze / totalSaetze : 0;
+  const estMin = Math.round(workout.uebungen.reduce((acc, u) => acc + u.saetze * (u.pause + 45), 0) / 60);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Hero */}
-      <View style={styles.hero}>
-        <View style={styles.heroTop}>
-          <View>
-            <Text style={styles.heroName}>{workout.name}</Text>
-            <Text style={styles.heroTyp}>{workout.typ} · {workout.wochentag}</Text>
-          </View>
-          {feedback?.abgeschlossen && (
-            <View style={styles.doneBadge}>
-              <Text style={styles.doneBadgeText}>✓ Erledigt</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.heroStats}>
-          <View style={styles.heroStat}>
-            <Text style={styles.heroStatVal}>{workout.uebungen.length}</Text>
-            <Text style={styles.heroStatLabel}>Übungen</Text>
-          </View>
-          <View style={[styles.heroStat, styles.heroStatDivider]}>
-            <Text style={styles.heroStatVal}>{totalSaetze}</Text>
-            <Text style={styles.heroStatLabel}>Sätze</Text>
-          </View>
-          <View style={[styles.heroStat, styles.heroStatDivider]}>
-            <Text style={styles.heroStatVal}>~{estMin}'</Text>
-            <Text style={styles.heroStatLabel}>Est. Dauer</Text>
-          </View>
-        </View>
-      </View>
+    <View style={styles.root}>
+      <TopBar
+        large
+        subtitle={`${workout.typ} · ${workout.wochentag}`}
+        title={workout.name}
+        leading={<IconBtn name="chevronLeft" onPress={() => navigation.goBack()} />}
+      />
 
-      {/* Exercises */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Übungen</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+
+        {/* Hero stats + progress ring */}
+        <View style={styles.hero}>
+          <View style={styles.heroLeft}>
+            <TypeChip typ={workout.typ} />
+            <View style={styles.heroStats}>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatVal}>{workout.uebungen.length}</Text>
+                <Text style={styles.heroStatLabel}>Übungen</Text>
+              </View>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatVal}>{totalSaetze}</Text>
+                <Text style={styles.heroStatLabel}>Sätze</Text>
+              </View>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatVal}>~{estMin}'</Text>
+                <Text style={styles.heroStatLabel}>Dauer</Text>
+              </View>
+            </View>
+            {feedback?.abgeschlossen && (
+              <View style={styles.doneBadge}>
+                <GBIcon name="check" size={12} color={C.success} />
+                <Text style={styles.doneBadgeText}>Erledigt</Text>
+              </View>
+            )}
+          </View>
+          <ProgressRing pct={progressPct} label="Sets" />
+        </View>
+
+        {/* Exercise cards */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionLabel}>Übungen · {workout.uebungen.length}</Text>
+        </View>
+
         {workout.uebungen.map((u, i) => (
-          <View key={u.id} style={styles.uebungCard}>
-            <View style={styles.uebungHeader}>
-              <View style={styles.uebungNum}>
-                <Text style={styles.uebungNumText}>{i + 1}</Text>
+          <View key={u.id} style={styles.exCard}>
+            <View style={styles.exHeader}>
+              <View style={styles.exNum}>
+                <Text style={styles.exNumText}>{String(i + 1).padStart(2, '0')}</Text>
               </View>
-              <Text style={styles.uebungName}>{u.name}</Text>
+              <Text style={styles.exName}>{u.name}</Text>
             </View>
 
-            <View style={styles.uebungStats}>
-              <View style={styles.uebungStat}>
-                <Text style={styles.uebungStatVal}>{u.saetze}</Text>
-                <Text style={styles.uebungStatLabel}>Sätze</Text>
-              </View>
-              <View style={[styles.uebungStat, styles.uebungStatDivider]}>
-                <Text style={styles.uebungStatVal}>{u.wiederholungen}</Text>
-                <Text style={styles.uebungStatLabel}>Wdh.</Text>
-              </View>
-              {u.gewicht !== undefined && (
-                <View style={[styles.uebungStat, styles.uebungStatDivider]}>
-                  <Text style={styles.uebungStatVal}>{u.gewicht} kg</Text>
-                  <Text style={styles.uebungStatLabel}>Gewicht</Text>
-                </View>
-              )}
-              <View style={[styles.uebungStat, styles.uebungStatDivider]}>
-                <Text style={styles.uebungStatVal}>{u.pause}s</Text>
-                <Text style={styles.uebungStatLabel}>Pause</Text>
-              </View>
+            {/* Set rows */}
+            <View style={styles.setList}>
+              {Array.from({ length: u.saetze }, (_, si) => {
+                const key = `${u.id}-s${si}`;
+                const done = checked.has(key);
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.setRow, done && styles.setRowDone]}
+                    onPress={() => toggleCheck(key)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.setCheck, done && styles.setCheckDone]}>
+                      {done && <GBIcon name="check" size={12} color={C.accentContrast} />}
+                    </View>
+                    <Text style={[styles.setLabel, done && styles.setLabelDone]}>
+                      Satz {si + 1}
+                    </Text>
+                    <Text style={[styles.setVal, done && styles.setValDone]}>
+                      {u.wiederholungen} Wdh.{u.gewicht ? `  ·  ${u.gewicht} kg` : ''}
+                    </Text>
+                    <Text style={styles.setPause}>{u.pause}s</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {u.notizen ? (
-              <View style={styles.uebungNotiz}>
-                <Text style={styles.uebungNotizText}>💡 {u.notizen}</Text>
+              <View style={styles.notizRow}>
+                <GBIcon name="bolt" size={12} color={C.accent} />
+                <Text style={styles.notizText}>{u.notizen}</Text>
               </View>
             ) : null}
           </View>
         ))}
-      </View>
 
-      {/* Feedback section */}
-      {feedback ? (
-        <View style={styles.feedbackCard}>
-          <Text style={styles.feedbackTitle}>Dein Feedback</Text>
-          <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((s) => (
-              <Text key={s} style={[styles.star, s <= feedback.bewertung && styles.starActive]}>★</Text>
-            ))}
-          </View>
-          <View style={styles.feedbackMeta}>
-            <View style={styles.rpeBadge}>
-              <Text style={styles.rpeLabel}>RPE</Text>
-              <Text style={styles.rpeVal}>{feedback.rpe}/10</Text>
+        {/* Feedback / Complete button */}
+        {feedback ? (
+          <View style={styles.feedbackCard}>
+            <Text style={styles.feedbackTitle}>Dein Feedback</Text>
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Text key={s} style={[styles.star, s <= feedback.bewertung && styles.starActive]}>★</Text>
+              ))}
             </View>
+            <Text style={styles.rpeText}>RPE {feedback.rpe}/10</Text>
             {feedback.notiz ? <Text style={styles.feedbackNotiz}>{feedback.notiz}</Text> : null}
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() => navigation.navigate('SportlerFeedback', { planId, wocheId, workoutId })}
+            >
+              <Text style={styles.editBtnText}>Feedback bearbeiten</Text>
+            </TouchableOpacity>
           </View>
+        ) : (
           <TouchableOpacity
-            style={styles.editFeedbackBtn}
+            style={styles.completeBtn}
             onPress={() => navigation.navigate('SportlerFeedback', { planId, wocheId, workoutId })}
+            activeOpacity={0.85}
           >
-            <Text style={styles.editFeedbackBtnText}>Feedback bearbeiten</Text>
+            <GBIcon name="check" size={18} color={C.accentContrast} />
+            <Text style={styles.completeBtnText}>Workout abschließen</Text>
           </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={styles.feedbackBtn}
-          onPress={() => navigation.navigate('SportlerFeedback', { planId, wocheId, workoutId })}
-        >
-          <Text style={styles.feedbackBtnText}>⭐  Workout abschließen & Feedback geben</Text>
-        </TouchableOpacity>
-      )}
-    </ScrollView>
+        )}
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
   );
 }
 
+const ring = StyleSheet.create({
+  wrap: { width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' },
+  center: { position: 'absolute', alignItems: 'center' },
+  pct: { fontFamily: FONT_MONO, fontSize: FONT.md, fontWeight: '700', color: C.accent },
+  label: { fontSize: 10, color: C.textMuted, fontWeight: '600' },
+});
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
-  content: { padding: SP.lg, gap: SP.md, paddingBottom: SP.xxxl },
+  root: { flex: 1, backgroundColor: C.bg },
+  content: { paddingHorizontal: SP.xl, paddingTop: SP.sm, gap: SP.md },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   notFoundText: { color: C.textMuted },
 
-  hero: { backgroundColor: C.primary, borderRadius: R.lg, padding: SP.lg, gap: SP.md, ...SHADOW_MD },
-  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  heroName: { fontSize: FONT.lg, fontWeight: '800', color: C.white },
-  heroTyp: { fontSize: FONT.sm, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  doneBadge: { backgroundColor: C.successBg, borderRadius: R.full, paddingHorizontal: SP.md, paddingVertical: SP.xs },
-  doneBadgeText: { color: C.success, fontWeight: '700', fontSize: FONT.sm },
-  heroStats: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: R.md },
-  heroStat: { flex: 1, alignItems: 'center', paddingVertical: SP.md },
-  heroStatDivider: { borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.15)' },
-  heroStatVal: { fontWeight: '800', fontSize: FONT.md, color: C.white },
-  heroStatLabel: { fontSize: FONT.xs, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  hero: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: C.surface, borderRadius: R.xl, padding: SP.xl,
+    borderWidth: 1, borderColor: C.border,
+  },
+  heroLeft: { flex: 1, gap: SP.md },
+  heroStats: { flexDirection: 'row', gap: SP.xl },
+  heroStat: { gap: 2 },
+  heroStatVal: { fontFamily: FONT_MONO, fontSize: 20, fontWeight: '700', color: C.text },
+  heroStatLabel: { fontSize: FONT.xs, color: C.textMuted },
+  doneBadge: { flexDirection: 'row', alignItems: 'center', gap: SP.xs, backgroundColor: C.successBg, borderRadius: R.full, paddingHorizontal: SP.sm, paddingVertical: 3, alignSelf: 'flex-start' },
+  doneBadgeText: { fontSize: FONT.xs, color: C.success, fontWeight: '600' },
 
-  section: { backgroundColor: C.card, borderRadius: R.md, padding: SP.lg, gap: SP.md, ...SHADOW_SM },
-  sectionTitle: { fontWeight: '700', fontSize: FONT.base, color: C.text },
+  sectionHead: {},
+  sectionLabel: { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted, letterSpacing: 1.6, textTransform: 'uppercase' },
 
-  uebungCard: { backgroundColor: C.bg, borderRadius: R.md, padding: SP.md, gap: SP.sm },
-  uebungHeader: { flexDirection: 'row', alignItems: 'center', gap: SP.md },
-  uebungNum: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
-  uebungNumText: { color: C.white, fontWeight: '700', fontSize: FONT.sm },
-  uebungName: { fontWeight: '700', fontSize: FONT.base, color: C.text, flex: 1 },
-  uebungStats: { flexDirection: 'row', backgroundColor: C.card, borderRadius: R.sm, overflow: 'hidden' },
-  uebungStat: { flex: 1, alignItems: 'center', paddingVertical: SP.sm },
-  uebungStatDivider: { borderLeftWidth: 1, borderLeftColor: C.border },
-  uebungStatVal: { fontWeight: '700', fontSize: FONT.sm, color: C.primary },
-  uebungStatLabel: { fontSize: FONT.xs, color: C.textMuted, marginTop: 1 },
-  uebungNotiz: { backgroundColor: C.warningBg, borderRadius: R.sm, padding: SP.sm },
-  uebungNotizText: { fontSize: FONT.xs, color: C.warning, fontWeight: '500' },
+  exCard: { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  exHeader: { flexDirection: 'row', alignItems: 'center', gap: SP.md, padding: SP.md },
+  exNum: { width: 36, height: 36, borderRadius: R.sm, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  exNumText: { fontFamily: FONT_MONO, fontSize: FONT.xs, fontWeight: '700', color: C.accent },
+  exName: { flex: 1, fontSize: FONT.base, fontWeight: '600', color: C.text },
 
-  feedbackCard: { backgroundColor: C.card, borderRadius: R.md, padding: SP.lg, gap: SP.md, ...SHADOW_SM },
-  feedbackTitle: { fontWeight: '700', fontSize: FONT.base, color: C.text },
+  setList: { paddingHorizontal: SP.md, paddingBottom: SP.md, gap: SP.xs },
+  setRow: { flexDirection: 'row', alignItems: 'center', gap: SP.sm, padding: SP.sm, borderRadius: R.sm },
+  setRowDone: { backgroundColor: C.accentLight },
+  setCheck: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: C.borderStrong, alignItems: 'center', justifyContent: 'center' },
+  setCheckDone: { backgroundColor: C.accent, borderColor: C.accent },
+  setLabel: { fontSize: FONT.xs, color: C.textMuted, fontWeight: '600', width: 48 },
+  setLabelDone: { color: C.accentDark },
+  setVal: { flex: 1, fontSize: FONT.sm, fontWeight: '600', color: C.text },
+  setValDone: { color: C.accentDark },
+  setPause: { fontSize: FONT.xs, color: C.textDim },
+
+  notizRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.xs, paddingHorizontal: SP.md, paddingBottom: SP.md },
+  notizText: { flex: 1, fontSize: FONT.xs, color: C.textMuted, fontStyle: 'italic' },
+
+  feedbackCard: { backgroundColor: C.surface, borderRadius: R.lg, padding: SP.xl, borderWidth: 1, borderColor: C.border, gap: SP.md },
+  feedbackTitle: { fontSize: FONT.base, fontWeight: '700', color: C.text },
   starsRow: { flexDirection: 'row', gap: SP.xs },
-  star: { fontSize: 28, color: C.border },
+  star: { fontSize: 24, color: C.border },
   starActive: { color: C.accent },
-  feedbackMeta: { gap: SP.sm },
-  rpeBadge: { flexDirection: 'row', alignItems: 'center', gap: SP.sm },
-  rpeLabel: { fontSize: FONT.sm, color: C.textMuted },
-  rpeVal: { fontWeight: '700', fontSize: FONT.base, color: C.primary },
+  rpeText: { fontSize: FONT.sm, color: C.textMuted },
   feedbackNotiz: { fontSize: FONT.sm, color: C.textSub, fontStyle: 'italic' },
-  editFeedbackBtn: { borderWidth: 1.5, borderColor: C.primary, borderRadius: R.sm, paddingVertical: SP.md - 2, alignItems: 'center' },
-  editFeedbackBtnText: { color: C.primary, fontWeight: '700', fontSize: FONT.sm },
+  editBtn: { borderWidth: 1.5, borderColor: C.accent, borderRadius: R.full, paddingVertical: SP.sm, alignItems: 'center' },
+  editBtnText: { fontSize: FONT.sm, fontWeight: '700', color: C.accent },
 
-  feedbackBtn: { backgroundColor: C.accent, borderRadius: R.md, paddingVertical: SP.lg, alignItems: 'center', ...SHADOW_SM },
-  feedbackBtnText: { color: C.white, fontWeight: '700', fontSize: FONT.base },
+  completeBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: SP.sm, backgroundColor: C.accent, borderRadius: R.full,
+    paddingVertical: SP.md + 2,
+  },
+  completeBtnText: { fontSize: FONT.base, fontWeight: '700', color: C.accentContrast },
 });

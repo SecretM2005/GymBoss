@@ -2,9 +2,9 @@ import { create } from 'zustand';
 import { AppUser, UserRole } from '../types';
 
 const USERS: AppUser[] = [
-  { id: 'u1', name: 'Max Müller',  role: 'trainer'  },
-  { id: 'u2', name: 'Anna Bauer',  role: 'sportler' },
-  { id: 'u3', name: 'Jonas Weber', role: 'sportler' },
+  { id: 'u1', name: 'Marcus Hoffmann', initials: 'MH', role: 'trainer',  spec: 'Kraft & Kampfsport' },
+  { id: 'u2', name: 'Anna Berger',     initials: 'AB', role: 'sportler', alter: 28, ziel: 'Kraftaufbau' },
+  { id: 'u3', name: 'Lukas Reiter',    initials: 'LR', role: 'sportler', alter: 24, ziel: 'Wettkampfvorber.' },
 ];
 
 type RoleState = {
@@ -12,7 +12,7 @@ type RoleState = {
   users: AppUser[];
   setCurrentUser: (userId: string) => void;
   getSportler: () => AppUser[];
-  getTrainer: () => AppUser[];
+  getTrainer:  () => AppUser[];
   getUserById: (id: string) => AppUser | undefined;
 };
 

@@ -14,14 +14,10 @@ export const useFeedbackStore = create<FeedbackState>((set, get) => ({
   feedbacks: INITIAL_FEEDBACKS,
 
   addFeedback: (f) =>
-    set((s) => ({
-      feedbacks: [...s.feedbacks, { ...f, id: Date.now().toString() }],
-    })),
+    set((s) => ({ feedbacks: [...s.feedbacks, { ...f, id: Date.now().toString() }] })),
 
   updateFeedback: (id, updates) =>
-    set((s) => ({
-      feedbacks: s.feedbacks.map((f) => (f.id === id ? { ...f, ...updates } : f)),
-    })),
+    set((s) => ({ feedbacks: s.feedbacks.map((f) => (f.id === id ? { ...f, ...updates } : f)) })),
 
   deleteFeedback: (id) =>
     set((s) => ({ feedbacks: s.feedbacks.filter((f) => f.id !== id) })),
@@ -34,24 +30,7 @@ export const useFeedbackStore = create<FeedbackState>((set, get) => ({
 }));
 
 const INITIAL_FEEDBACKS: WorkoutFeedback[] = [
-  {
-    id: 'fb1',
-    workoutId: 'wo1',
-    sportlerId: 'u2',
-    datum: '2026-04-07',
-    bewertung: 4,
-    rpe: 7,
-    notiz: 'Gut gelaufen, Kniebeugen fühlen sich besser an.',
-    abgeschlossen: true,
-  },
-  {
-    id: 'fb2',
-    workoutId: 'wo2',
-    sportlerId: 'u2',
-    datum: '2026-04-09',
-    bewertung: 5,
-    rpe: 8,
-    notiz: 'Super Session! Bankdrücken neues Gewicht geschafft.',
-    abgeschlossen: true,
-  },
+  { id: 'f1', workoutId: 'wo1', sportlerId: 'u2', datum: '2026-05-11', bewertung: 4, rpe: 7, notiz: 'Bankdrücken sauber, letzte Wdh schwer.', abgeschlossen: true },
+  { id: 'f2', workoutId: 'wo2', sportlerId: 'u2', datum: '2026-05-12', bewertung: 5, rpe: 8, notiz: 'Klimmzüge stärker als erwartet!', abgeschlossen: true },
+  { id: 'f3', workoutId: 'wo11', sportlerId: 'u3', datum: '2026-05-11', bewertung: 5, rpe: 9, notiz: 'Top Sparring, Kombi sitzt.', abgeschlossen: true },
 ];
