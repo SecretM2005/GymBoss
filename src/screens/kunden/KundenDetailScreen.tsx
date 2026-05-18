@@ -1,16 +1,10 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { KundenStackParamList, Kunde } from '../../types';
 import { useKundenStore } from '../../store/kundenStore';
+import { C, SP, R, FONT, SHADOW_SM } from '../../theme';
 
 type Props = {
   navigation: StackNavigationProp<KundenStackParamList, 'KundenDetail'>;
@@ -21,57 +15,33 @@ function initials(k: Kunde) {
   return `${k.vorname.charAt(0)}${k.nachname.charAt(0)}`.toUpperCase();
 }
 
-function formatDatum(iso: string) {
-  return new Date(iso).toLocaleDateString('de-DE', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 export default function KundenDetailScreen({ navigation, route }: Props) {
   const { getKundeById, deleteKunde, updateKunde } = useKundenStore();
   const kunde = getKundeById(route.params.kundeId);
 
-  if (!kunde) {
-    return (
-      <View style={styles.notFound}>
-        <Text style={styles.notFoundText}>Kunde nicht gefunden.</Text>
-      </View>
-    );
-  }
-
-  const handleDelete = () => {
-    Alert.alert(
-      'Kunde löschen',
-      `Möchtest du ${kunde.vorname} ${kunde.nachname} wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Löschen',
-          style: 'destructive',
-          onPress: () => {
-            deleteKunde(kunde.id);
-            navigation.goBack();
-          },
-        },
-      ]
-    );
-  };
-
-  const handleToggleStatus = () => {
-    const neuerStatus = kunde.status === 'aktiv' ? 'inaktiv' : 'aktiv';
-    Alert.alert(
-      'Status ändern',
-      `Mitgliedschaft auf "${neuerStatus}" setzen?`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Ändern', onPress: () => updateKunde(kunde.id, { status: neuerStatus }) },
-      ]
-    );
-  };
+  if (!kunde) return (
+    <View style={styles.notFound}>
+      <Text style={styles.notFoundText}>Kunde nicht gefunden.</Text>
+    </View>
+  );
 
   const isAktiv = kunde.status === 'aktiv';
+
+  const handleToggleStatus = () =>
+    Alert.alert('Status ändern', `Mitgliedschaft auf "${isAktiv ? 'inaktiv' : 'aktiv'}" setzen?`, [
+      { text: 'Abbrechen', style: 'cancel' },
+      { text: 'Ändern', onPress: () => updateKunde(kunde.id, { status: isAktiv ? 'inaktiv' : 'aktiv' }) },
+    ]);
+
+  const handleDelete = () =>
+    Alert.alert('Kunde löschen', `${kunde.vorname} ${kunde.nachname} wirklich löschen?`, [
+      { text: 'Abbrechen', style: 'cancel' },
+      { text: 'Löschen', style: 'destructive', onPress: () => { deleteKunde(kunde.id); navigation.goBack(); } },
+    ]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -82,22 +52,22 @@ export default function KundenDetailScreen({ navigation, route }: Props) {
         </View>
         <Text style={styles.heroName}>{kunde.vorname} {kunde.nachname}</Text>
         <TouchableOpacity
-          style={[styles.statusBadge, isAktiv ? styles.statusAktiv : styles.statusInaktiv]}
           onPress={handleToggleStatus}
+          style={[styles.statusBadge, isAktiv ? styles.statusAktiv : styles.statusInaktiv]}
         >
           <Text style={[styles.statusText, isAktiv ? styles.statusTextAktiv : styles.statusTextInaktiv]}>
-            {isAktiv ? '● Aktiv' : '○ Inaktiv'}
+            {isAktiv ? '● Aktiv' : '○ Inaktiv'}  –  antippen zum Wechseln
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Kontaktdaten */}
+      {/* Kontakt */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Kontakt</Text>
+        <Text style={styles.sectionLabel}>Kontakt</Text>
         {[
-          { icon: '✉️', label: 'E-Mail', value: kunde.email },
-          { icon: '📱', label: 'Telefon', value: kunde.telefon },
-          { icon: '📅', label: 'Mitglied seit', value: formatDatum(kunde.eintrittsdatum) },
+          { icon: '✉️', label: 'E-Mail',        value: kunde.email },
+          { icon: '📱', label: 'Telefon',       value: kunde.telefon },
+          { icon: '📅', label: 'Mitglied seit', value: formatDate(kunde.eintrittsdatum) },
         ].map((row) => (
           <View key={row.label} style={styles.infoRow}>
             <Text style={styles.infoIcon}>{row.icon}</Text>
@@ -112,91 +82,56 @@ export default function KundenDetailScreen({ navigation, route }: Props) {
       {/* Notizen */}
       {kunde.notizen ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notizen</Text>
+          <Text style={styles.sectionLabel}>Notizen</Text>
           <Text style={styles.notizen}>{kunde.notizen}</Text>
         </View>
       ) : null}
 
       {/* Aktionen */}
-      <View style={styles.actionsSection}>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => navigation.navigate('KundeForm', { kundeId: kunde.id })}
-        >
-          <Text style={styles.editButtonText}>✏️  Bearbeiten</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-          <Text style={styles.deleteButtonText}>Kunde löschen</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        style={styles.editBtn}
+        onPress={() => navigation.navigate('KundeForm', { kundeId: kunde.id })}
+      >
+        <Text style={styles.editBtnText}>✏️  Bearbeiten</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
+        <Text style={styles.deleteBtnText}>Kunde löschen</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f9fafb' },
-  content: { padding: 16, gap: 16, paddingBottom: 32 },
+  container: { flex: 1, backgroundColor: C.bg },
+  content: { padding: SP.lg, gap: SP.md, paddingBottom: SP.xxxl },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  notFoundText: { color: '#9ca3af', fontSize: 16 },
+  notFoundText: { color: C.textMuted },
 
-  hero: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    gap: 10,
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#ede9fe',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  avatarInaktiv: { backgroundColor: '#f3f4f6' },
-  avatarText: { fontSize: 28, fontWeight: '800', color: '#6366f1' },
-  heroName: { fontSize: 22, fontWeight: '800', color: '#111827' },
-  statusBadge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
-  statusAktiv: { backgroundColor: '#dcfce7' },
-  statusInaktiv: { backgroundColor: '#f3f4f6' },
-  statusText: { fontSize: 13, fontWeight: '700' },
-  statusTextAktiv: { color: '#16a34a' },
-  statusTextInaktiv: { color: '#9ca3af' },
+  hero: { backgroundColor: C.card, borderRadius: R.lg, padding: SP.xl, alignItems: 'center', gap: SP.sm, ...SHADOW_SM },
+  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: SP.xs },
+  avatarInaktiv: { backgroundColor: C.bg },
+  avatarText: { fontSize: 28, fontWeight: '800', color: C.primary },
+  heroName: { fontSize: FONT.xl, fontWeight: '800', color: C.text },
+  statusBadge: { borderRadius: R.full, paddingHorizontal: SP.lg, paddingVertical: SP.xs + 2 },
+  statusAktiv: { backgroundColor: C.successBg },
+  statusInaktiv: { backgroundColor: C.bg },
+  statusText: { fontSize: FONT.sm, fontWeight: '600' },
+  statusTextAktiv: { color: C.success },
+  statusTextInaktiv: { color: C.textMuted },
 
-  section: { backgroundColor: '#fff', borderRadius: 12, padding: 16, gap: 4 },
-  sectionTitle: { fontWeight: '700', color: '#111827', fontSize: 14, marginBottom: 8 },
+  section: { backgroundColor: C.card, borderRadius: R.md, padding: SP.lg, gap: 2, ...SHADOW_SM },
+  sectionLabel: { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: SP.sm },
 
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f9fafb',
-  },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingVertical: SP.sm, borderBottomWidth: 1, borderBottomColor: C.bg },
   infoIcon: { fontSize: 18, width: 24, textAlign: 'center' },
   infoContent: { flex: 1 },
-  infoLabel: { fontSize: 11, color: '#9ca3af', fontWeight: '500' },
-  infoValue: { fontSize: 15, color: '#111827', fontWeight: '500', marginTop: 1 },
+  infoLabel: { fontSize: FONT.xs, color: C.textMuted },
+  infoValue: { fontSize: FONT.base, color: C.text, fontWeight: '500', marginTop: 1 },
 
-  notizen: { fontSize: 14, color: '#374151', lineHeight: 22 },
+  notizen: { fontSize: FONT.base, color: C.textSub, lineHeight: 22 },
 
-  actionsSection: { gap: 10 },
-  editButton: {
-    backgroundColor: '#6366f1',
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  editButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  deleteButton: {
-    borderWidth: 1.5,
-    borderColor: '#ef4444',
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  deleteButtonText: { color: '#ef4444', fontWeight: '600', fontSize: 15 },
+  editBtn: { backgroundColor: C.accent, borderRadius: R.md, paddingVertical: SP.lg - 2, alignItems: 'center', ...SHADOW_SM },
+  editBtnText: { color: C.white, fontWeight: '700', fontSize: FONT.base },
+  deleteBtn: { paddingVertical: SP.md, alignItems: 'center' },
+  deleteBtnText: { color: C.textMuted, fontSize: FONT.sm },
 });

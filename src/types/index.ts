@@ -1,47 +1,4 @@
-export type Exercise = {
-  id: string;
-  name: string;
-  muscleGroup: MuscleGroup;
-  description?: string;
-};
-
-export type MuscleGroup =
-  | 'chest'
-  | 'back'
-  | 'shoulders'
-  | 'arms'
-  | 'legs'
-  | 'core'
-  | 'full_body';
-
-export type Set = {
-  id: string;
-  reps: number;
-  weight: number;
-  unit: 'kg' | 'lbs';
-  completed: boolean;
-};
-
-export type WorkoutExercise = {
-  id: string;
-  exercise: Exercise;
-  sets: Set[];
-};
-
-export type Workout = {
-  id: string;
-  name: string;
-  date: string;
-  exercises: WorkoutExercise[];
-  duration?: number;
-  notes?: string;
-};
-
-export type WorkoutTemplate = {
-  id: string;
-  name: string;
-  exercises: Omit<WorkoutExercise, 'id'>[];
-};
+// ─── Kunden ─────────────────────────────────────────────────────────────────
 
 export type Kunde = {
   id: string;
@@ -50,9 +7,11 @@ export type Kunde = {
   email: string;
   telefon: string;
   status: 'aktiv' | 'inaktiv';
-  eintrittsdatum: string; // ISO-Datum: YYYY-MM-DD
+  eintrittsdatum: string; // ISO: YYYY-MM-DD
   notizen?: string;
 };
+
+// ─── Mitgliedschaften ────────────────────────────────────────────────────────
 
 export type MitgliedschaftTyp = 'Basic' | 'Premium';
 export type MitgliedschaftStatus = 'aktiv' | 'abgelaufen' | 'gekuendigt';
@@ -66,6 +25,43 @@ export type Mitgliedschaft = {
   enddatum: string;   // ISO: YYYY-MM-DD
   status: MitgliedschaftStatus;
 };
+
+// ─── Termine ─────────────────────────────────────────────────────────────────
+
+export type Termin = {
+  id: string;
+  kundeId: string;
+  titel: string;
+  datum: string;    // ISO: YYYY-MM-DD
+  uhrzeit: string;  // HH:MM
+  dauer: number;    // Minuten
+  notizen?: string;
+};
+
+// ─── Trainingspläne ──────────────────────────────────────────────────────────
+
+export type Schwierigkeitsgrad = 'Anfänger' | 'Fortgeschritten' | 'Profi';
+
+export type PlanUebung = {
+  id: string;
+  name: string;
+  saetze: number;
+  wiederholungen: number;
+  gewicht?: number; // kg, optional
+  pause: number;    // Sekunden
+};
+
+export type Trainingsplan = {
+  id: string;
+  name: string;
+  kundeId?: string; // optional – kein Kunde = Template
+  schwierigkeitsgrad: Schwierigkeitsgrad;
+  uebungen: PlanUebung[];
+  erstellt: string; // ISO: YYYY-MM-DD
+  notizen?: string;
+};
+
+// ─── Navigation ──────────────────────────────────────────────────────────────
 
 export type RootStackParamList = {
   Main: undefined;
@@ -81,23 +77,23 @@ export type BottomTabParamList = {
 export type KundenStackParamList = {
   KundenList: undefined;
   KundenDetail: { kundeId: string };
-  KundeForm: { kundeId?: string }; // undefined = Anlegen, gesetzt = Bearbeiten
+  KundeForm: { kundeId?: string };
 };
 
 export type KalenderStackParamList = {
   KalenderOverview: undefined;
   TerminDetail: { terminId: string };
-  TerminAnlegen: undefined;
+  TerminForm: { terminId?: string; datum?: string };
 };
 
 export type MitgliedschaftenStackParamList = {
   MitgliedschaftenList: undefined;
   MitgliedschaftDetail: { mitgliedschaftId: string };
-  MitgliedschaftForm: { kundeId?: string }; // kundeId = Kunde vorausgewählt
+  MitgliedschaftForm: { kundeId?: string };
 };
 
 export type TrainingsplaeneStackParamList = {
   TrainingsplaeneList: undefined;
   TrainingsplanDetail: { planId: string };
-  TrainingsplanAnlegen: undefined;
+  TrainingsplanForm: { planId?: string };
 };

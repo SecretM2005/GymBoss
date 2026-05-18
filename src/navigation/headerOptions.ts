@@ -1,9 +1,10 @@
 import { StackNavigationOptions } from '@react-navigation/stack';
+import { C, FONT } from '../theme';
 
 export const HEADER_OPTIONS: StackNavigationOptions = {
-  headerStyle: { backgroundColor: '#fff' },
-  headerTitleStyle: { color: '#111827', fontWeight: '700' },
-  headerTintColor: '#6366f1',
+  headerStyle: { backgroundColor: C.primary },
+  headerTitleStyle: { color: C.white, fontWeight: '700', fontSize: FONT.base },
+  headerTintColor: C.white,
   headerShadowVisible: false,
   headerBackTitle: '',
 };
