@@ -38,9 +38,19 @@ export type Termin = {
   notizen?: string;
 };
 
+// ─── Rollen & Nutzer ─────────────────────────────────────────────────────────
+
+export type UserRole = 'trainer' | 'sportler';
+
+export type AppUser = {
+  id: string;
+  name: string;
+  role: UserRole;
+};
+
 // ─── Trainingspläne ──────────────────────────────────────────────────────────
 
-export type Schwierigkeitsgrad = 'Anfänger' | 'Fortgeschritten' | 'Profi';
+export type Wochentag = 'Mo' | 'Di' | 'Mi' | 'Do' | 'Fr' | 'Sa' | 'So';
 
 export type PlanUebung = {
   id: string;
@@ -49,16 +59,44 @@ export type PlanUebung = {
   wiederholungen: number;
   gewicht?: number; // kg, optional
   pause: number;    // Sekunden
+  notizen?: string;
 };
 
-export type Trainingsplan = {
+export type PlanWorkout = {
   id: string;
   name: string;
-  kundeId?: string; // optional – kein Kunde = Template
-  schwierigkeitsgrad: Schwierigkeitsgrad;
+  wochentag: Wochentag;
+  typ: string;
   uebungen: PlanUebung[];
-  erstellt: string; // ISO: YYYY-MM-DD
+};
+
+export type PlanWoche = {
+  id: string;
+  wochennummer: number;
   notizen?: string;
+  workouts: PlanWorkout[];
+};
+
+export type TrainingsPlan = {
+  id: string;
+  name: string;
+  beschreibung?: string;
+  ziel?: string;
+  sportlerId: string;
+  trainerId: string;
+  startdatum: string; // ISO: YYYY-MM-DD
+  wochen: PlanWoche[];
+};
+
+export type WorkoutFeedback = {
+  id: string;
+  workoutId: string;
+  sportlerId: string;
+  datum: string;       // ISO: YYYY-MM-DD
+  bewertung: number;   // 1–5 Sterne
+  rpe: number;         // 1–10 gefühlte Anstrengung
+  notiz?: string;
+  abgeschlossen: boolean;
 };
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
@@ -93,7 +131,15 @@ export type MitgliedschaftenStackParamList = {
 };
 
 export type TrainingsplaeneStackParamList = {
-  TrainingsplaeneList: undefined;
-  TrainingsplanDetail: { planId: string };
-  TrainingsplanForm: { planId?: string };
+  TrainingsplaeneHome: undefined;
+  // Trainer
+  TrainerPlanList: undefined;
+  TrainerPlanForm: { planId?: string };
+  TrainerWoche: { planId: string; wocheId: string };
+  TrainerWorkout: { planId: string; wocheId: string; workoutId?: string; wochentag?: Wochentag };
+  // Sportler
+  SportlerPlanList: undefined;
+  SportlerWochenansicht: { planId: string };
+  SportlerWorkoutDetail: { planId: string; wocheId: string; workoutId: string };
+  SportlerFeedback: { planId: string; wocheId: string; workoutId: string };
 };
