@@ -20,9 +20,9 @@ export type Mitgliedschaft = {
   id: string;
   kundeId: string;
   typ: MitgliedschaftTyp;
-  preis: number;      // monatlicher Preis in EUR
-  startdatum: string; // ISO: YYYY-MM-DD
-  enddatum: string;   // ISO: YYYY-MM-DD
+  preis: number;
+  startdatum: string;
+  enddatum: string;
   status: MitgliedschaftStatus;
 };
 
@@ -32,9 +32,9 @@ export type Termin = {
   id: string;
   kundeId: string;
   titel: string;
-  datum: string;    // ISO: YYYY-MM-DD
-  uhrzeit: string;  // HH:MM
-  dauer: number;    // Minuten
+  datum: string;
+  uhrzeit: string;
+  dauer: number;
   notizen?: string;
 };
 
@@ -45,7 +45,11 @@ export type UserRole = 'trainer' | 'sportler';
 export type AppUser = {
   id: string;
   name: string;
+  initials: string;
   role: UserRole;
+  alter?: number;    // Sportler: Alter in Jahren
+  ziel?: string;     // Sportler: Trainingsziel
+  spec?: string;     // Trainer: Spezialisierung
 };
 
 // ─── Trainingspläne ──────────────────────────────────────────────────────────
@@ -57,8 +61,8 @@ export type PlanUebung = {
   name: string;
   saetze: number;
   wiederholungen: number;
-  gewicht?: number; // kg, optional
-  pause: number;    // Sekunden
+  gewicht?: number;
+  pause: number;
   notizen?: string;
 };
 
@@ -84,7 +88,7 @@ export type TrainingsPlan = {
   ziel?: string;
   sportlerId: string;
   trainerId: string;
-  startdatum: string; // ISO: YYYY-MM-DD
+  startdatum: string;
   wochen: PlanWoche[];
 };
 
@@ -92,9 +96,9 @@ export type WorkoutFeedback = {
   id: string;
   workoutId: string;
   sportlerId: string;
-  datum: string;       // ISO: YYYY-MM-DD
-  bewertung: number;   // 1–5 Sterne
-  rpe: number;         // 1–10 gefühlte Anstrengung
+  datum: string;
+  bewertung: number;  // 1–5
+  rpe: number;        // 1–10
   notiz?: string;
   abgeschlossen: boolean;
 };
