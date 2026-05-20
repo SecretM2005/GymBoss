@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "start": "NODE_OPTIONS=\"--require ./polyfill.cjs\" expo start",
+    "android": "NODE_OPTIONS=\"--require ./polyfill.cjs\" expo start --android",
+    "ios": "NODE_OPTIONS=\"--require ./polyfill.cjs\" expo start --ios",
+    "web": "NODE_OPTIONS=\"--require ./polyfill.cjs\" expo start --web"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
