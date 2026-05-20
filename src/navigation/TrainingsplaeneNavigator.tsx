@@ -7,6 +7,8 @@ import TrainerPlanListScreen            from '../screens/trainingsplaene/trainer
 import TrainerPlanFormScreen            from '../screens/trainingsplaene/trainer/TrainerPlanFormScreen';
 import TrainerWocheScreen               from '../screens/trainingsplaene/trainer/TrainerWocheScreen';
 import TrainerWorkoutScreen             from '../screens/trainingsplaene/trainer/TrainerWorkoutScreen';
+import TrainerSportlerListScreen        from '../screens/trainingsplaene/trainer/TrainerSportlerListScreen';
+import TrainerSportlerFormScreen        from '../screens/trainingsplaene/trainer/TrainerSportlerFormScreen';
 import SportlerPlanListScreen           from '../screens/trainingsplaene/sportler/SportlerPlanListScreen';
 import SportlerWochenansichtScreen      from '../screens/trainingsplaene/sportler/SportlerWochenansichtScreen';
 import SportlerWorkoutDetailScreen      from '../screens/trainingsplaene/sportler/SportlerWorkoutDetailScreen';
@@ -22,6 +24,8 @@ export default function TrainingsplaeneNavigator() {
       <Stack.Screen name="TrainerPlanForm"       component={TrainerPlanFormScreen} />
       <Stack.Screen name="TrainerWoche"          component={TrainerWocheScreen} />
       <Stack.Screen name="TrainerWorkout"        component={TrainerWorkoutScreen} />
+      <Stack.Screen name="TrainerSportlerList"   component={TrainerSportlerListScreen} />
+      <Stack.Screen name="TrainerSportlerForm"   component={TrainerSportlerFormScreen} />
       <Stack.Screen name="SportlerPlanList"      component={SportlerPlanListScreen} />
       <Stack.Screen name="SportlerWochenansicht" component={SportlerWochenansichtScreen} />
       <Stack.Screen name="SportlerWorkoutDetail" component={SportlerWorkoutDetailScreen} />

@@ -65,6 +65,17 @@ export default function TrainingsplaeneHomeScreen({ navigation }: Props) {
             <GBIcon name="chevronRight" size={20} color={C.textDim} />
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.navCard} onPress={() => navigation.navigate('TrainerSportlerList')} activeOpacity={0.75}>
+            <View style={[styles.navIconBox, { backgroundColor: 'rgba(203,255,62,0.08)' }]}>
+              <GBIcon name="users" size={22} color={C.accent} />
+            </View>
+            <View style={styles.navInfo}>
+              <Text style={styles.navTitle}>Sportlerverwaltung</Text>
+              <Text style={styles.navSub}>Athleten hinzufügen & verwalten</Text>
+            </View>
+            <GBIcon name="chevronRight" size={20} color={C.textDim} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.navCard} onPress={() => navigation.navigate('SportlerPlanList')} activeOpacity={0.75}>
             <View style={[styles.navIconBox, { backgroundColor: 'rgba(122,191,255,0.14)' }]}>
               <GBIcon name="bolt" size={22} color="#7ABFFF" />

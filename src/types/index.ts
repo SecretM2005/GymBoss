@@ -49,6 +49,7 @@ export type AppUser = {
   role: UserRole;
   alter?: number;    // Sportler: Alter in Jahren
   ziel?: string;     // Sportler: Trainingsziel
+  sportart?: string; // Sportler: Sportart
   spec?: string;     // Trainer: Spezialisierung
 };
 
@@ -141,6 +142,8 @@ export type TrainingsplaeneStackParamList = {
   TrainerPlanForm: { planId?: string };
   TrainerWoche: { planId: string; wocheId: string };
   TrainerWorkout: { planId: string; wocheId: string; workoutId?: string; wochentag?: Wochentag };
+  TrainerSportlerList: undefined;
+  TrainerSportlerForm: { sportlerId?: string };
   // Sportler
   SportlerPlanList: undefined;
   SportlerWochenansicht: { planId: string };
