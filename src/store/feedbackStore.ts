@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { WorkoutFeedback } from '../types';
 
+const INITIAL_FEEDBACKS: WorkoutFeedback[] = [
+  { id: 'f1', workoutId: 'wo1',  sportlerId: 'u2', datum: '2026-05-11', bewertung: 4, rpe: 7, notiz: 'Bankdrücken sauber, letzte Wdh schwer.', abgeschlossen: true },
+  { id: 'f2', workoutId: 'wo2',  sportlerId: 'u2', datum: '2026-05-12', bewertung: 5, rpe: 8, notiz: 'Klimmzüge stärker als erwartet!',         abgeschlossen: true },
+  { id: 'f3', workoutId: 'wo11', sportlerId: 'u3', datum: '2026-05-11', bewertung: 5, rpe: 9, notiz: 'Top Sparring, Kombi sitzt.',               abgeschlossen: true },
+];
+
 type FeedbackState = {
   feedbacks: WorkoutFeedback[];
   addFeedback: (f: Omit<WorkoutFeedback, 'id'>) => void;
@@ -28,9 +34,3 @@ export const useFeedbackStore = create<FeedbackState>((set, get) => ({
   getFeedbacksBySpotler: (sportlerId) =>
     get().feedbacks.filter((f) => f.sportlerId === sportlerId),
 }));
-
-const INITIAL_FEEDBACKS: WorkoutFeedback[] = [
-  { id: 'f1', workoutId: 'wo1', sportlerId: 'u2', datum: '2026-05-11', bewertung: 4, rpe: 7, notiz: 'Bankdrücken sauber, letzte Wdh schwer.', abgeschlossen: true },
-  { id: 'f2', workoutId: 'wo2', sportlerId: 'u2', datum: '2026-05-12', bewertung: 5, rpe: 8, notiz: 'Klimmzüge stärker als erwartet!', abgeschlossen: true },
-  { id: 'f3', workoutId: 'wo11', sportlerId: 'u3', datum: '2026-05-11', bewertung: 5, rpe: 9, notiz: 'Top Sparring, Kombi sitzt.', abgeschlossen: true },
-];
