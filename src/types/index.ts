@@ -1,59 +1,24 @@
-// ─── Kunden ─────────────────────────────────────────────────────────────────
-
-export type Kunde = {
-  id: string;
-  vorname: string;
-  nachname: string;
-  email: string;
-  telefon: string;
-  status: 'aktiv' | 'inaktiv';
-  eintrittsdatum: string; // ISO: YYYY-MM-DD
-  notizen?: string;
-};
-
-// ─── Mitgliedschaften ────────────────────────────────────────────────────────
-
-export type MitgliedschaftTyp = 'Basic' | 'Premium';
-export type MitgliedschaftStatus = 'aktiv' | 'abgelaufen' | 'gekuendigt';
-
-export type Mitgliedschaft = {
-  id: string;
-  kundeId: string;
-  typ: MitgliedschaftTyp;
-  preis: number;
-  startdatum: string;
-  enddatum: string;
-  status: MitgliedschaftStatus;
-};
-
-// ─── Termine ─────────────────────────────────────────────────────────────────
-
-export type Termin = {
-  id: string;
-  kundeId: string;
-  titel: string;
-  datum: string;
-  uhrzeit: string;
-  dauer: number;
-  notizen?: string;
-};
-
-// ─── Rollen & Nutzer ─────────────────────────────────────────────────────────
+// ─── Users & Roles ────────────────────────────────────────────────────────────
 
 export type UserRole = 'trainer' | 'sportler';
 
-export type AppUser = {
+export type Sportler = {
   id: string;
   name: string;
   initials: string;
-  role: UserRole;
-  alter?: number;    // Sportler: Alter in Jahren
-  ziel?: string;     // Sportler: Trainingsziel
-  sportart?: string; // Sportler: Sportart
-  spec?: string;     // Trainer: Spezialisierung
+  alter?: number;
+  sportart?: string;
+  ziel?: string;
 };
 
-// ─── Trainingspläne ──────────────────────────────────────────────────────────
+export type Trainer = {
+  id: string;
+  name: string;
+  initials: string;
+  spec?: string;
+};
+
+// ─── Training Plans ──────────────────────────────────────────────────────────
 
 export type Wochentag = 'Mo' | 'Di' | 'Mi' | 'Do' | 'Fr' | 'Sa' | 'So';
 
@@ -98,8 +63,8 @@ export type WorkoutFeedback = {
   workoutId: string;
   sportlerId: string;
   datum: string;
-  bewertung: number;  // 1–5
-  rpe: number;        // 1–10
+  bewertung: number;
+  rpe: number;
   notiz?: string;
   abgeschlossen: boolean;
 };
@@ -111,42 +76,20 @@ export type RootStackParamList = {
 };
 
 export type BottomTabParamList = {
-  Kunden: undefined;
-  Kalender: undefined;
-  Mitgliedschaften: undefined;
-  Trainingsplaene: undefined;
+  Dashboard: undefined;
+  Plaene: undefined;
+  Sportler: undefined;
+  Mehr: undefined;
 };
 
-export type KundenStackParamList = {
-  KundenList: undefined;
-  KundenDetail: { kundeId: string };
-  KundeForm: { kundeId?: string };
+export type SportlerStackParamList = {
+  SportlerList: undefined;
+  SportlerForm: { sportlerId?: string };
 };
 
-export type KalenderStackParamList = {
-  KalenderOverview: undefined;
-  TerminDetail: { terminId: string };
-  TerminForm: { terminId?: string; datum?: string };
-};
-
-export type MitgliedschaftenStackParamList = {
-  MitgliedschaftenList: undefined;
-  MitgliedschaftDetail: { mitgliedschaftId: string };
-  MitgliedschaftForm: { kundeId?: string };
-};
-
-export type TrainingsplaeneStackParamList = {
-  TrainingsplaeneHome: undefined;
-  // Trainer
-  TrainerPlanList: undefined;
-  TrainerPlanForm: { planId?: string };
-  TrainerWoche: { planId: string; wocheId: string };
-  TrainerWorkout: { planId: string; wocheId: string; workoutId?: string; wochentag?: Wochentag };
-  TrainerSportlerList: undefined;
-  TrainerSportlerForm: { sportlerId?: string };
-  // Sportler
-  SportlerPlanList: undefined;
-  SportlerWochenansicht: { planId: string };
-  SportlerWorkoutDetail: { planId: string; wocheId: string; workoutId: string };
-  SportlerFeedback: { planId: string; wocheId: string; workoutId: string };
+export type PlaeneStackParamList = {
+  PlanList: undefined;
+  PlanForm: { planId?: string };
+  PlanWoche: { planId: string; wocheId: string };
+  PlanWorkout: { planId: string; wocheId: string; workoutId?: string; wochentag?: Wochentag };
 };

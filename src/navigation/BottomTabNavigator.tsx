@@ -1,67 +1,51 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabParamList } from '../types';
-import { C, FONT } from '../theme';
-import KundenNavigator from './KundenNavigator';
-import KalenderNavigator from './KalenderNavigator';
-import MitgliedschaftenNavigator from './MitgliedschaftenNavigator';
-import TrainingsplaeneNavigator from './TrainingsplaeneNavigator';
+import { C } from '../theme';
+
+import DashboardScreen   from '../screens/dashboard/DashboardScreen';
+import PlaeneScreen      from '../screens/plaene/PlaeneScreen';
+import SportlerNavigator from './SportlerNavigator';
+import MehrScreen        from '../screens/mehr/MehrScreen';
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
-type TabCfg = { icon: IoniconsName; iconActive: IoniconsName; label: string };
-
-const TABS: Record<keyof BottomTabParamList, TabCfg> = {
-  Kunden:           { icon: 'people-outline',    iconActive: 'people',    label: 'Kunden' },
-  Kalender:         { icon: 'calendar-outline',  iconActive: 'calendar',  label: 'Kalender' },
-  Mitgliedschaften: { icon: 'card-outline',      iconActive: 'card',      label: 'Mitglieder' },
-  Trainingsplaene:  { icon: 'barbell-outline',   iconActive: 'barbell',   label: 'Pläne' },
+const TAB_ICONS: Record<string, { active: IoniconsName; inactive: IoniconsName }> = {
+  Dashboard: { active: 'home',                inactive: 'home-outline' },
+  Plaene:    { active: 'barbell',             inactive: 'barbell-outline' },
+  Sportler:  { active: 'people',              inactive: 'people-outline' },
+  Mehr:      { active: 'ellipsis-horizontal', inactive: 'ellipsis-horizontal-outline' },
 };
 
 export default function BottomTabNavigator() {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => {
-        const cfg = TABS[route.name];
-        return {
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name={focused ? cfg.iconActive : cfg.icon}
-              size={22}
-              color={focused ? C.accent : C.textDim}
-            />
-          ),
-          tabBarLabel: ({ focused }) => (
-            <Text style={[styles.label, focused && styles.labelActive]}>
-              {cfg.label}
-            </Text>
-          ),
-          tabBarStyle: styles.tabBar,
-        };
-      }}
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: '#0F0F11',
+          borderTopColor: C.border,
+          borderTopWidth: 1,
+          paddingBottom: 8,
+          paddingTop: 6,
+          height: 62,
+        },
+        tabBarActiveTintColor: C.accent,
+        tabBarInactiveTintColor: C.textDim,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', letterSpacing: 0.1 },
+        tabBarIcon: ({ focused, color }) => {
+          const icons = TAB_ICONS[route.name];
+          return <Ionicons name={focused ? icons.active : icons.inactive} size={22} color={color} />;
+        },
+      })}
     >
-      <Tab.Screen name="Kunden"           component={KundenNavigator} />
-      <Tab.Screen name="Kalender"         component={KalenderNavigator} />
-      <Tab.Screen name="Mitgliedschaften" component={MitgliedschaftenNavigator} />
-      <Tab.Screen name="Trainingsplaene"  component={TrainingsplaeneNavigator} />
+      <Tab.Screen name="Dashboard" component={DashboardScreen}   options={{ title: 'Home' }} />
+      <Tab.Screen name="Plaene"    component={PlaeneScreen}      options={{ title: 'Pläne' }} />
+      <Tab.Screen name="Sportler"  component={SportlerNavigator} options={{ title: 'Sportler' }} />
+      <Tab.Screen name="Mehr"      component={MehrScreen}        options={{ title: 'Mehr' }} />
     </Tab.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: C.surface,
-    borderTopColor: C.border,
-    borderTopWidth: 1,
-    height: 72,
-    paddingBottom: 16,
-    paddingTop: 8,
-  },
-  label: { fontSize: FONT.xs, color: C.textDim, fontWeight: '600', marginTop: 2 },
-  labelActive: { color: C.accent },
-});
