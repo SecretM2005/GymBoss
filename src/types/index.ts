@@ -64,7 +64,9 @@ export type EinheitTemplate = {
 };
 
 export type Einheit = EinheitTemplate & {
-  templateId?: string; // set when imported from EinheitTemplate library
+  templateId?: string;
+  datum?: string; // ISO date "2026-05-21" for calendar placement
+  sportlerOverrides?: Record<string, EinheitTemplate>; // sportlerId → per-athlete override
 };
 
 // ─── Training Plans ──────────────────────────────────────────────────────────
@@ -115,6 +117,7 @@ export type SportlerStackParamList = {
   SportlerList: undefined;
   SportlerDetail: { sportlerId: string };
   SportlerForm: { sportlerId?: string };
+  SportlerEinheitDetail: { planId: string; wocheId: string; einheitId: string; sportlerId: string };
 };
 
 export type PlaeneStackParamList = {
@@ -123,5 +126,5 @@ export type PlaeneStackParamList = {
   PlanForm: { planId?: string };
   PlanWocheForm: { planId: string; wocheId?: string };
   PlanWocheDetail: { planId: string; wocheId: string };
-  EinheitDetail: { planId: string; wocheId: string; einheitId?: string };
+  EinheitDetail: { planId: string; wocheId: string; einheitId?: string; datum?: string };
 };

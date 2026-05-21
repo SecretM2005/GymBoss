@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { GBIcon } from './GBIcon';
 import { C, SP, R, FONT, FONT_MONO } from '../theme';
@@ -18,16 +18,36 @@ function getDaysInMonth(year: number, month: number): number {
 type Props = {
   markedDays?: Set<number>;
   legendLabel?: string;
+  onDayPress?: (year: number, month: number, day: number) => void;
+  selectedIso?: string | null;
+  onMonthChange?: (year: number, month: number) => void;
 };
 
-export default function MonthCalendar({ markedDays = new Set<number>(), legendLabel = 'Training geplant' }: Props) {
+export default function MonthCalendar({
+  markedDays = new Set<number>(),
+  legendLabel = 'Training geplant',
+  onDayPress,
+  selectedIso,
+  onMonthChange,
+}: Props) {
   const today = new Date();
   const [year, setYear]   = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
 
+  useEffect(() => {
+    onMonthChange?.(year, month);
+  }, [year, month]);
+
   const firstWD   = getFirstWeekday(year, month);
   const daysCount = getDaysInMonth(year, month);
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
+
+  const selectedDay = (() => {
+    if (!selectedIso) return null;
+    const d = new Date(selectedIso);
+    if (d.getFullYear() === year && d.getMonth() === month) return d.getDate();
+    return null;
+  })();
 
   const prevMonth = () => {
     if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1);
@@ -63,26 +83,43 @@ export default function MonthCalendar({ markedDays = new Set<number>(), legendLa
       {Array.from({ length: cells.length / 7 }).map((_, rowIdx) => (
         <View key={rowIdx} style={s.weekRow}>
           {cells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => {
-            const isToday  = isCurrentMonth && day === today.getDate();
-            const hasTrain = day !== null && markedDays.has(day);
-            const isPast   = day !== null && (
+            const isToday    = isCurrentMonth && day === today.getDate();
+            const isSelected = day !== null && day === selectedDay;
+            const hasTrain   = day !== null && markedDays.has(day);
+            const isPast     = day !== null && (
               year < today.getFullYear() ||
               (year === today.getFullYear() && month < today.getMonth()) ||
               (isCurrentMonth && day < today.getDate())
             );
+            const Wrapper = onDayPress && day !== null ? TouchableOpacity : View;
             return (
-              <View key={colIdx} style={s.cell}>
+              <Wrapper
+                key={colIdx}
+                style={s.cell}
+                {...(onDayPress && day !== null
+                  ? { onPress: () => onDayPress(year, month, day!), activeOpacity: 0.7 }
+                  : {})}
+              >
                 {day !== null && (
                   <>
-                    <View style={[s.dayCircle, isToday && s.dayCircleToday]}>
-                      <Text style={[s.dayText, isToday && s.dayTextToday, isPast && !isToday && s.dayTextPast]}>
+                    <View style={[
+                      s.dayCircle,
+                      isToday && s.dayCircleToday,
+                      isSelected && !isToday && s.dayCircleSelected,
+                    ]}>
+                      <Text style={[
+                        s.dayText,
+                        isToday && s.dayTextToday,
+                        isSelected && !isToday && s.dayTextSelected,
+                        isPast && !isToday && !isSelected && s.dayTextPast,
+                      ]}>
                         {day}
                       </Text>
                     </View>
-                    {hasTrain && <View style={[s.dot, isToday && s.dotToday]} />}
+                    {hasTrain && <View style={[s.dot, isToday && s.dotToday, isSelected && !isToday && s.dotSelected]} />}
                   </>
                 )}
-              </View>
+              </Wrapper>
             );
           })}
         </View>
@@ -93,6 +130,9 @@ export default function MonthCalendar({ markedDays = new Set<number>(), legendLa
           <View style={[s.dot, { position: 'relative', top: 0 }]} />
           <Text style={s.legendText}>{legendLabel}</Text>
         </View>
+        {onDayPress && (
+          <Text style={s.legendText}>· Tag antippen zum Hinzufügen</Text>
+        )}
       </View>
     </View>
   );
@@ -108,12 +148,15 @@ const s = StyleSheet.create({
   cell:           { flex: 1, alignItems: 'center', paddingVertical: 3 },
   dayCircle:      { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   dayCircleToday: { backgroundColor: C.accent },
+  dayCircleSelected: { borderWidth: 1.5, borderColor: C.accent },
   dayText:        { fontFamily: FONT_MONO, fontSize: 13, fontWeight: '600', color: C.text },
   dayTextToday:   { color: C.accentContrast, fontWeight: '800' },
+  dayTextSelected: { color: C.accent, fontWeight: '700' },
   dayTextPast:    { color: C.textDim },
   dot:            { position: 'absolute', bottom: 0, width: 5, height: 5, borderRadius: 3, backgroundColor: C.accent },
   dotToday:       { backgroundColor: C.accentContrast },
-  legend:         { flexDirection: 'row', gap: SP.md, marginTop: SP.md, paddingTop: SP.sm, borderTopWidth: 1, borderTopColor: C.border },
+  dotSelected:    { backgroundColor: C.accent },
+  legend:         { flexDirection: 'row', gap: SP.md, marginTop: SP.md, paddingTop: SP.sm, borderTopWidth: 1, borderTopColor: C.border, flexWrap: 'wrap' },
   legendItem:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendText:     { fontSize: 11, color: C.textDim },
 });

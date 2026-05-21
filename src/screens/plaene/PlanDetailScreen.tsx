@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert,
@@ -6,18 +6,22 @@ import {
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PlaeneStackParamList } from '../../types';
+import { PlaeneStackParamList, TrainingsPlan, Einheit } from '../../types';
 import { usePlanStore } from '../../store/planStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import MonthCalendar from '../../components/MonthCalendar';
+import { buildSuffix } from './EinheitDetailScreen';
 import { C, SP, R, FONT, FONT_MONO } from '../../theme';
 
 type Props = {
   navigation: StackNavigationProp<PlaeneStackParamList, 'PlanDetail'>;
   route: RouteProp<PlaeneStackParamList, 'PlanDetail'>;
 };
+
+const MONATE_KURZ = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const WOCHENTAGE_LANG = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
 
 const SPORTART_COLORS: Record<string, { bg: string; fg: string; dot: string }> = {
   'Kraftsport':      { bg: 'rgba(203,255,62,0.14)',  fg: '#CBFF3E', dot: '#CBFF3E' },
@@ -30,11 +34,54 @@ const SPORTART_COLORS: Record<string, { bg: string; fg: string; dot: string }> =
 
 type ViewMode = 'wochen' | 'kalender';
 
+function parseDatum(str: string): Date | null {
+  const parts = str.split('.');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  }
+  return null;
+}
+
+function getWocheIdForDate(plan: TrainingsPlan, year: number, month: number, day: number): string | null {
+  if (plan.wochen.length === 0) return null;
+  if (plan.wochen.length === 1) return plan.wochen[0].id;
+  if (plan.startdatum) {
+    const start = parseDatum(plan.startdatum);
+    if (start) {
+      const target = new Date(year, month, day);
+      const diffDays = Math.floor((target.getTime() - start.getTime()) / 86400000);
+      if (diffDays >= 0) {
+        const wocheNr = Math.floor(diffDays / 7) + 1;
+        const woche = plan.wochen.find((w) => w.wochennummer === wocheNr);
+        if (woche) return woche.id;
+      }
+    }
+  }
+  return plan.wochen[0].id;
+}
+
+function isoDate(year: number, month: number, day: number): string {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function dayOfWeek(iso: string): string {
+  const d = new Date(iso);
+  return WOCHENTAGE_LANG[(d.getDay() + 6) % 7];
+}
+
+function formatDay(iso: string): string {
+  const d = new Date(iso);
+  return `${WOCHENTAGE_LANG[(d.getDay() + 6) % 7]}, ${d.getDate()}. ${MONATE_KURZ[d.getMonth()]}`;
+}
+
 export default function PlanDetailScreen({ navigation, route }: Props) {
   const { getPlanById, deletePlan, deleteWoche } = usePlanStore();
   const { sportler } = useAthletenStore();
   const insets = useSafeAreaInsets();
   const [viewMode, setViewMode] = useState<ViewMode>('wochen');
+  const [calYear, setCalYear]   = useState(new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [selectedIso, setSelectedIso] = useState<string | null>(null);
 
   const plan = getPlanById(route.params.planId);
 
@@ -45,6 +92,48 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
 
   const assignedSportler = sportler.filter((s) => plan.sportlerIds.includes(s.id));
   const sc = SPORTART_COLORS[plan.sportart ?? ''] ?? { bg: 'rgba(255,255,255,0.08)', fg: C.textMuted, dot: C.textDim };
+
+  // Compute marked days from einheiten with datum in current calendar month
+  const markedDays = useMemo(() => {
+    const days = new Set<number>();
+    plan.wochen.flatMap((w) => w.einheiten).forEach((e) => {
+      if (e.datum) {
+        const d = new Date(e.datum);
+        if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
+          days.add(d.getDate());
+        }
+      }
+    });
+    return days;
+  }, [plan, calYear, calMonth]);
+
+  // Einheiten for selected day
+  const dayEinheiten = useMemo((): Array<{ einheit: Einheit; wocheId: string }> => {
+    if (!selectedIso) return [];
+    const result: Array<{ einheit: Einheit; wocheId: string }> = [];
+    plan.wochen.forEach((w) => {
+      w.einheiten.forEach((e) => {
+        if (e.datum === selectedIso) result.push({ einheit: e, wocheId: w.id });
+      });
+    });
+    return result;
+  }, [plan, selectedIso]);
+
+  const handleDayPress = (year: number, month: number, day: number) => {
+    const iso = isoDate(year, month, day);
+    setSelectedIso((prev) => (prev === iso ? null : iso));
+  };
+
+  const handleAddOnDay = () => {
+    if (!selectedIso) return;
+    const [yr, mo, dy] = selectedIso.split('-').map(Number);
+    const wocheId = getWocheIdForDate(plan, yr, mo - 1, dy);
+    if (!wocheId) {
+      Alert.alert('Keine Woche', 'Lege zuerst eine Trainingswoche an, bevor du Einheiten hinzufügst.');
+      return;
+    }
+    navigation.navigate('EinheitDetail', { planId: plan.id, wocheId, datum: selectedIso });
+  };
 
   const handleDelete = () => {
     Alert.alert('Plan löschen', `„${plan.name}" wirklich löschen?`, [
@@ -202,7 +291,6 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
               ))
             )}
 
-            {/* Add Week Button */}
             <TouchableOpacity
               style={styles.addWocheBtn}
               onPress={() => navigation.navigate('PlanWocheForm', { planId: plan.id })}
@@ -216,7 +304,66 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
 
         {/* Kalender View */}
         {viewMode === 'kalender' && (
-          <MonthCalendar legendLabel="Einheit geplant" />
+          <View style={styles.kalenderSection}>
+            <MonthCalendar
+              markedDays={markedDays}
+              legendLabel="Einheit geplant"
+              onDayPress={handleDayPress}
+              selectedIso={selectedIso}
+              onMonthChange={(y, m) => { setCalYear(y); setCalMonth(m); setSelectedIso(null); }}
+            />
+
+            {/* Day detail panel */}
+            {selectedIso && (
+              <View style={styles.dayPanel}>
+                <View style={styles.dayPanelHeader}>
+                  <Text style={styles.dayPanelTitle}>{formatDay(selectedIso)}</Text>
+                  <TouchableOpacity style={styles.dayAddBtn} onPress={handleAddOnDay} activeOpacity={0.8}>
+                    <GBIcon name="plus" size={16} color={C.accentContrast} />
+                    <Text style={styles.dayAddBtnText}>Einheit</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {dayEinheiten.length === 0 ? (
+                  <View style={styles.dayEmpty}>
+                    <Text style={styles.dayEmptyText}>Keine Einheiten an diesem Tag</Text>
+                  </View>
+                ) : (
+                  dayEinheiten.map(({ einheit, wocheId }) => {
+                    const totalEx = einheit.warmup.length + einheit.haupteinheit.length + einheit.cooldown.length;
+                    return (
+                      <TouchableOpacity
+                        key={einheit.id}
+                        style={styles.dayEinheitCard}
+                        activeOpacity={0.75}
+                        onPress={() => navigation.navigate('EinheitDetail', { planId: plan.id, wocheId, einheitId: einheit.id })}
+                      >
+                        <View style={styles.dayEinheitDot} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.dayEinheitName}>{einheit.name}</Text>
+                          {einheit.haupteinheit.length > 0 && (
+                            <Text style={styles.dayEinheitSub} numberOfLines={1}>
+                              {buildSuffix(einheit.haupteinheit[0].parameter) || `${totalEx} Übungen`}
+                            </Text>
+                          )}
+                        </View>
+                        <GBIcon name="chevronRight" size={14} color={C.textDim} />
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+            {plan.wochen.length === 0 && (
+              <View style={styles.kalenderHint}>
+                <GBIcon name="layers" size={20} color={C.textDim} />
+                <Text style={styles.kalenderHintText}>
+                  Lege Wochen an und setze ein Startdatum, um Einheiten im Kalender zu planen.
+                </Text>
+              </View>
+            )}
+          </View>
         )}
 
         {/* Delete Plan */}
@@ -289,6 +436,22 @@ const styles = StyleSheet.create({
 
   addWocheBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.lg, borderRadius: R.lg, borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.accent, backgroundColor: 'rgba(203,255,62,0.04)' },
   addWocheBtnText: { fontSize: FONT.base, fontWeight: '700', color: C.accent },
+
+  kalenderSection: { gap: SP.md },
+  kalenderHint:    { flexDirection: 'row', alignItems: 'flex-start', gap: SP.sm, backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: SP.md },
+  kalenderHintText: { flex: 1, fontSize: FONT.sm, color: C.textMuted, lineHeight: 20 },
+
+  dayPanel:       { backgroundColor: C.surface, borderRadius: R.xl, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  dayPanelHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  dayPanelTitle:  { fontSize: FONT.base, fontWeight: '700', color: C.text },
+  dayAddBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.accent, paddingHorizontal: SP.md, paddingVertical: SP.sm - 1, borderRadius: R.full },
+  dayAddBtnText:  { fontSize: FONT.xs, fontWeight: '700', color: C.accentContrast },
+  dayEmpty:       { padding: SP.lg, alignItems: 'center' },
+  dayEmptyText:   { fontSize: FONT.sm, color: C.textDim, fontStyle: 'italic' },
+  dayEinheitCard: { flexDirection: 'row', alignItems: 'center', gap: SP.md, padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  dayEinheitDot:  { width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent, flexShrink: 0 },
+  dayEinheitName: { fontSize: FONT.base, fontWeight: '600', color: C.text },
+  dayEinheitSub:  { fontFamily: FONT_MONO, fontSize: 11, color: C.textMuted, marginTop: 2 },
 
   deleteBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.lg, borderRadius: R.lg, borderWidth: 1, borderColor: 'rgba(255,106,61,0.25)', backgroundColor: 'rgba(255,106,61,0.06)' },
   deleteBtnText: { fontSize: FONT.base, fontWeight: '600', color: C.warn },
