@@ -2,18 +2,75 @@ import { create } from 'zustand';
 import { UebungTemplate } from '../types';
 
 const INITIAL_UEBUNGEN: UebungTemplate[] = [
-  { id: 'ut1', name: 'Bankdrücken',     saetze: 4, wiederholungen: 8,  serienpause: 120 },
-  { id: 'ut2', name: 'Kniebeuge',       saetze: 4, wiederholungen: 5,  serienpause: 180 },
-  { id: 'ut3', name: 'Kreuzheben',      saetze: 3, wiederholungen: 5,  serienpause: 180 },
-  { id: 'ut4', name: 'Schulterdrücken', saetze: 3, wiederholungen: 10, serienpause: 90  },
-  { id: 'ut5', name: 'Klimmzüge',       saetze: 3, wiederholungen: 8,  serienpause: 120 },
-  { id: 'ut6', name: 'Rudern (Kabel)',  saetze: 4, wiederholungen: 10, serienpause: 90  },
-  { id: 'ut7', name: 'Liegestütze',     saetze: 3, wiederholungen: 15, serienpause: 60  },
-  { id: 'ut8', name: 'Laufen',          dauer: 600, beschreibung: '10 Min Aufwärmen'    },
-  { id: 'ut9', name: 'Rad fahren',      dauer: 900, beschreibung: 'Ergometer'           },
-  { id: 'ut10', name: 'Stretching',     dauer: 300                                       },
-  { id: 'ut11', name: 'Schattenboxen',  saetze: 5, dauer: 180, serienpause: 60          },
-  { id: 'ut12', name: 'Springseil',     saetze: 3, dauer: 120, serienpause: 60          },
+  { id: 'ut1', name: 'Bankdrücken', parameter: [
+    { typ: 'serien', wert: '4' },
+    { typ: 'wiederholungen', wert: '8' },
+    { typ: 'gewicht', wert: '80', einheit: 'kg' },
+    { typ: 'serienpause', wert: '120', einheit: 's' },
+  ]},
+  { id: 'ut2', name: 'Kniebeuge', parameter: [
+    { typ: 'serien', wert: '4' },
+    { typ: 'wiederholungen', wert: '5' },
+    { typ: 'gewicht', wert: '100', einheit: 'kg' },
+    { typ: 'serienpause', wert: '180', einheit: 's' },
+  ]},
+  { id: 'ut3', name: 'Kreuzheben', parameter: [
+    { typ: 'serien', wert: '3' },
+    { typ: 'wiederholungen', wert: '5' },
+    { typ: 'gewicht', wert: '120', einheit: 'kg' },
+    { typ: 'serienpause', wert: '180', einheit: 's' },
+  ]},
+  { id: 'ut4', name: 'Schulterdrücken', parameter: [
+    { typ: 'serien', wert: '3' },
+    { typ: 'wiederholungen', wert: '10' },
+    { typ: 'gewicht', wert: '50', einheit: 'kg' },
+    { typ: 'serienpause', wert: '90', einheit: 's' },
+  ]},
+  { id: 'ut5', name: 'Klimmzüge', parameter: [
+    { typ: 'serien', wert: '3' },
+    { typ: 'wiederholungen', wert: '8' },
+    { typ: 'serienpause', wert: '120', einheit: 's' },
+  ]},
+  { id: 'ut6', name: 'Liegestütze', parameter: [
+    { typ: 'serien', wert: '3' },
+    { typ: 'wiederholungen', wert: '15' },
+    { typ: 'serienpause', wert: '60', einheit: 's' },
+  ]},
+  { id: 'ut7', name: 'Laufen (Aufwärmen)', parameter: [
+    { typ: 'dauer', wert: '10', einheit: 'min' },
+  ]},
+  { id: 'ut8', name: 'Stretching', parameter: [
+    { typ: 'dauer', wert: '5', einheit: 'min' },
+  ]},
+  { id: 'ut9', name: '400m Intervall', parameter: [
+    { typ: 'serien', wert: '6' },
+    { typ: 'distanz', wert: '400', einheit: 'm' },
+    { typ: 'dauer', wert: '63', einheit: 's' },
+    { typ: 'pause', wert: '30', einheit: 's', bezeichnung: 'Trabpause' },
+  ]},
+  { id: 'ut10', name: 'VO2 Max Intervall', parameter: [
+    { typ: 'serien', wert: '5' },
+    { typ: 'distanz', wert: '1', einheit: 'km' },
+    { typ: 'pause', wert: '3', einheit: 'min', bezeichnung: 'Gehpause' },
+  ]},
+  { id: 'ut11', name: 'Schattenboxen', parameter: [
+    { typ: 'serien', wert: '5' },
+    { typ: 'dauer', wert: '3', einheit: 'min' },
+    { typ: 'serienpause', wert: '60', einheit: 's' },
+  ]},
+  { id: 'ut12', name: 'Springseil', parameter: [
+    { typ: 'serien', wert: '3' },
+    { typ: 'dauer', wert: '2', einheit: 'min' },
+    { typ: 'serienpause', wert: '60', einheit: 's' },
+  ]},
+  { id: 'ut13', name: 'Radfahren', parameter: [
+    { typ: 'dauer', wert: '45', einheit: 'min' },
+  ]},
+  { id: 'ut14', name: 'Aufschlag (Tennis)', parameter: [
+    { typ: 'serien', wert: '4' },
+    { typ: 'wiederholungen', wert: '10' },
+    { typ: 'pause', wert: '90', einheit: 's' },
+  ]},
 ];
 
 let _uid = 300;

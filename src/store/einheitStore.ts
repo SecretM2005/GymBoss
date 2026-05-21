@@ -6,43 +6,60 @@ const INITIAL_EINHEITEN: EinheitTemplate[] = [
     id: 'et1',
     name: 'Oberkörper A',
     warmup: [
-      { id: 'eu1', name: 'Laufen', dauer: 600 },
+      { id: 'eu1', name: 'Laufen (Aufwärmen)', parameter: [{ typ: 'dauer', wert: '10', einheit: 'min' }] },
     ],
     haupteinheit: [
-      { id: 'eu2', name: 'Bankdrücken',     saetze: 4, wiederholungen: 8,  serienpause: 120 },
-      { id: 'eu3', name: 'Schulterdrücken', saetze: 3, wiederholungen: 10, serienpause: 90  },
-      { id: 'eu4', name: 'Klimmzüge',       saetze: 3, wiederholungen: 8,  serienpause: 120 },
+      { id: 'eu2', name: 'Bankdrücken', parameter: [
+        { typ: 'serien', wert: '4' }, { typ: 'wiederholungen', wert: '8' },
+        { typ: 'gewicht', wert: '80', einheit: 'kg' }, { typ: 'serienpause', wert: '120', einheit: 's' },
+      ]},
+      { id: 'eu3', name: 'Schulterdrücken', parameter: [
+        { typ: 'serien', wert: '3' }, { typ: 'wiederholungen', wert: '10' },
+        { typ: 'gewicht', wert: '50', einheit: 'kg' }, { typ: 'serienpause', wert: '90', einheit: 's' },
+      ]},
+      { id: 'eu4', name: 'Klimmzüge', parameter: [
+        { typ: 'serien', wert: '3' }, { typ: 'wiederholungen', wert: '8' },
+        { typ: 'serienpause', wert: '120', einheit: 's' },
+      ]},
     ],
     cooldown: [
-      { id: 'eu5', name: 'Stretching', dauer: 300 },
+      { id: 'eu5', name: 'Stretching', parameter: [{ typ: 'dauer', wert: '5', einheit: 'min' }] },
     ],
   },
   {
     id: 'et2',
     name: 'Unterkörper A',
     warmup: [
-      { id: 'eu6', name: 'Rad fahren', dauer: 600 },
+      { id: 'eu6', name: 'Radfahren', parameter: [{ typ: 'dauer', wert: '10', einheit: 'min' }] },
     ],
     haupteinheit: [
-      { id: 'eu7', name: 'Kniebeuge',  saetze: 4, wiederholungen: 5, serienpause: 180 },
-      { id: 'eu8', name: 'Kreuzheben', saetze: 3, wiederholungen: 5, serienpause: 180 },
+      { id: 'eu7', name: 'Kniebeuge', parameter: [
+        { typ: 'serien', wert: '4' }, { typ: 'wiederholungen', wert: '5' },
+        { typ: 'gewicht', wert: '100', einheit: 'kg' }, { typ: 'serienpause', wert: '180', einheit: 's' },
+      ]},
+      { id: 'eu8', name: 'Kreuzheben', parameter: [
+        { typ: 'serien', wert: '3' }, { typ: 'wiederholungen', wert: '5' },
+        { typ: 'gewicht', wert: '120', einheit: 'kg' }, { typ: 'serienpause', wert: '180', einheit: 's' },
+      ]},
     ],
     cooldown: [
-      { id: 'eu9', name: 'Stretching', dauer: 300 },
+      { id: 'eu9', name: 'Stretching', parameter: [{ typ: 'dauer', wert: '5', einheit: 'min' }] },
     ],
   },
   {
     id: 'et3',
-    name: 'Kampfsport Kondition',
+    name: 'Intervall-Lauf',
     warmup: [
-      { id: 'eu10', name: 'Springseil', saetze: 3, dauer: 120, serienpause: 60 },
+      { id: 'eu10', name: 'Laufen (Aufwärmen)', parameter: [{ typ: 'dauer', wert: '10', einheit: 'min' }] },
     ],
     haupteinheit: [
-      { id: 'eu11', name: 'Schattenboxen', saetze: 5, dauer: 180, serienpause: 60 },
-      { id: 'eu12', name: 'Liegestütze',   saetze: 3, wiederholungen: 15, serienpause: 60 },
+      { id: 'eu11', name: '400m Intervall', parameter: [
+        { typ: 'serien', wert: '6' }, { typ: 'distanz', wert: '400', einheit: 'm' },
+        { typ: 'dauer', wert: '63', einheit: 's' }, { typ: 'pause', wert: '30', einheit: 's', bezeichnung: 'Trabpause' },
+      ]},
     ],
     cooldown: [
-      { id: 'eu13', name: 'Stretching', dauer: 300 },
+      { id: 'eu12', name: 'Stretching', parameter: [{ typ: 'dauer', wert: '5', einheit: 'min' }] },
     ],
   },
 ];

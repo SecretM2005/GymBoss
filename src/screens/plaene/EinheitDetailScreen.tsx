@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Alert, KeyboardAvoidingView, Platform,
+  TouchableOpacity, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PlaeneStackParamList, Phase, EinheitUebung, EinheitTemplate, UebungTemplate, Einheit } from '../../types';
+import {
+  PlaeneStackParamList, Phase, EinheitUebung, EinheitTemplate,
+  UebungTemplate, Einheit, UebungParam, UebungParamTyp,
+} from '../../types';
 import { usePlanStore } from '../../store/planStore';
 import { useUebungStore } from '../../store/uebungStore';
 import { useEinheitStore } from '../../store/einheitStore';
@@ -18,87 +21,432 @@ type Props = {
   route: RouteProp<PlaeneStackParamList, 'EinheitDetail'>;
 };
 
-// ─── Phase config ─────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const PHASE_CFG: Record<Phase, { label: string; color: string; icon: string }> = {
-  warmup:       { label: 'Warm-up',     color: '#FF8A66', icon: 'fire' },
-  haupteinheit: { label: 'Haupteinheit', color: '#CBFF3E', icon: 'dumbbell' },
-  cooldown:     { label: 'Cool-down',   color: '#7ABFFF', icon: 'timer' },
+const PHASE_CFG: Record<Phase, { label: string; color: string }> = {
+  warmup:       { label: 'Warm-up',     color: '#FF8A66' },
+  haupteinheit: { label: 'Haupteinheit', color: '#CBFF3E' },
+  cooldown:     { label: 'Cool-down',   color: '#7ABFFF' },
 };
 const PHASES: Phase[] = ['warmup', 'haupteinheit', 'cooldown'];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+type ParamCfg = {
+  label: string;
+  icon: string;
+  placeholder: string;
+  defaultUnit: string;
+  units: string[];
+  hasBez: boolean; // has custom "bezeichnung" field
+};
+
+const PARAM_CFG: Record<UebungParamTyp, ParamCfg> = {
+  serien:         { label: 'Serien',         icon: 'layers',    placeholder: 'z.B. 3',    defaultUnit: '',    units: [],                  hasBez: false },
+  wiederholungen: { label: 'Wiederholungen', icon: 'repeat',    placeholder: 'z.B. 6-8',  defaultUnit: '',    units: [],                  hasBez: false },
+  gewicht:        { label: 'Gewicht',        icon: 'dumbbell',  placeholder: 'z.B. 80',   defaultUnit: 'kg',  units: ['kg', 'lbs'],       hasBez: false },
+  distanz:        { label: 'Distanz',        icon: 'flag',      placeholder: 'z.B. 400',  defaultUnit: 'm',   units: ['m', 'km', 'mi'],   hasBez: false },
+  dauer:          { label: 'Dauer',          icon: 'timer',     placeholder: 'z.B. 63',   defaultUnit: 's',   units: ['s', 'min', 'h'],   hasBez: false },
+  pause:          { label: 'Pause',          icon: 'clock',     placeholder: 'z.B. 30',   defaultUnit: 's',   units: ['s', 'min'],        hasBez: true  },
+  serienpause:    { label: 'Serienpause',    icon: 'stopwatch', placeholder: 'z.B. 120',  defaultUnit: 's',   units: ['s', 'min'],        hasBez: false },
+};
+
+const ALL_TYPES: UebungParamTyp[] = ['serien', 'wiederholungen', 'gewicht', 'distanz', 'dauer', 'pause', 'serienpause'];
+
+// ─── Natural-language preview ─────────────────────────────────────────────────
+
+export function buildSuffix(params: UebungParam[]): string {
+  const get = (t: UebungParamTyp) => params.find((p) => p.typ === t);
+  const serien = get('serien');
+  const wdh    = get('wiederholungen');
+  const kg     = get('gewicht');
+  const dist   = get('distanz');
+  const dauer  = get('dauer');
+  const pause  = get('pause');
+  const sp     = get('serienpause');
+
+  const inner: string[] = [];
+  if (wdh)   inner.push(`${wdh.wert}x`);
+  if (kg)    inner.push(`${kg.wert} ${kg.einheit ?? 'kg'}`);
+  if (dist)  inner.push(`${dist.wert} ${dist.einheit ?? 'm'}`);
+  if (dauer) inner.push(`in ${dauer.wert}${dauer.einheit ?? 's'}`);
+  if (pause) inner.push(`mit ${pause.wert}${pause.einheit ?? 's'} ${pause.bezeichnung?.trim() || 'Pause'}`);
+  if (sp)    inner.push(`${sp.wert}${sp.einheit ?? 's'} Serienpause`);
+
+  const innerStr = inner.join(' ');
+  if (serien && innerStr) return `${serien.wert} Serien: ${innerStr}`;
+  if (serien) return `${serien.wert} Serien`;
+  return innerStr;
+}
+
+function buildPreview(name: string, params: UebungParam[]): string {
+  if (!name.trim()) return '';
+  const suffix = buildSuffix(params);
+  return suffix ? `${name.trim()} (${suffix})` : name.trim();
+}
+
+function formatParamChip(p: UebungParam): string {
+  switch (p.typ) {
+    case 'serien':         return `${p.wert} Ser.`;
+    case 'wiederholungen': return `${p.wert}×`;
+    case 'gewicht':        return `${p.wert} ${p.einheit ?? 'kg'}`;
+    case 'distanz':        return `${p.wert} ${p.einheit ?? 'm'}`;
+    case 'dauer':          return `${p.wert} ${p.einheit ?? 's'}`;
+    case 'pause':          return `${p.wert}${p.einheit ?? 's'} ${p.bezeichnung || 'Pause'}`;
+    case 'serienpause':    return `${p.wert}${p.einheit ?? 's'} S-Pause`;
+  }
+}
+
+// ─── ID helpers ───────────────────────────────────────────────────────────────
 
 let _euId = 1000;
 const newUebId = () => `eu_${++_euId}`;
 let _eId = 2000;
 const newEId = () => `e_${++_eId}`;
 
-function formatParams(u: EinheitUebung): string {
-  const parts: string[] = [];
-  if (u.saetze && (u.wiederholungen || u.dauer)) {
-    if (u.wiederholungen) parts.push(`${u.saetze} × ${u.wiederholungen} Wdh.`);
-    else if (u.dauer)     parts.push(`${u.saetze} × ${u.dauer}s`);
-  } else {
-    if (u.saetze)        parts.push(`${u.saetze} Sätze`);
-    if (u.wiederholungen) parts.push(`${u.wiederholungen} Wdh.`);
-    if (u.dauer)          parts.push(`${u.dauer}s`);
-  }
-  if (u.pause)       parts.push(`${u.pause}s Pause`);
-  if (u.serienpause) parts.push(`${u.serienpause}s Serienpause`);
-  return parts.join(' · ') || '—';
+// ─── ParamChip ────────────────────────────────────────────────────────────────
+
+function ParamChip({ param, onEdit, onDelete }: {
+  param: UebungParam;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <View style={chip.wrap}>
+      <TouchableOpacity onPress={onEdit} style={chip.inner} activeOpacity={0.7}>
+        <Text style={chip.type}>{PARAM_CFG[param.typ].label}</Text>
+        <Text style={chip.value}>{formatParamChip(param)}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onDelete} style={chip.del} activeOpacity={0.7}>
+        <GBIcon name="close" size={10} color={C.textDim} />
+      </TouchableOpacity>
+    </View>
+  );
 }
 
-// ─── Inline exercise form state ───────────────────────────────────────────────
+const chip = StyleSheet.create({
+  wrap:  { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceAlt, borderRadius: R.full, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  inner: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: SP.sm, paddingVertical: 5, paddingRight: SP.xs },
+  type:  { fontSize: 9, fontWeight: '700', color: C.textDim, textTransform: 'uppercase', letterSpacing: 0.6 },
+  value: { fontFamily: FONT_MONO, fontSize: FONT.sm, fontWeight: '700', color: C.text },
+  del:   { paddingHorizontal: 6, paddingVertical: 5, borderLeftWidth: 1, borderLeftColor: C.border },
+});
 
-type Typ = 'wdh' | 'zeit';
+// ─── Inline exercise form ─────────────────────────────────────────────────────
 
-type UebForm = {
-  name: string;
-  typ: Typ;
-  saetze: string;
-  wdh: string;
-  dauer: string;
-  pause: string;
-  serienpause: string;
-  saveToLib: boolean;
-  showLibPicker: boolean;
-};
+type AddMode = null | 'picking' | UebungParamTyp;
 
-const EMPTY_FORM: UebForm = {
-  name: '', typ: 'wdh', saetze: '', wdh: '', dauer: '',
-  pause: '', serienpause: '', saveToLib: false, showLibPicker: false,
-};
+function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubmit, onCancel }: {
+  phase: Phase;
+  phaseColor: string;
+  initialUebung?: EinheitUebung;
+  uebungLib: UebungTemplate[];
+  onSubmit: (u: EinheitUebung, saveToLib: boolean) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName]           = useState(initialUebung?.name ?? '');
+  const [params, setParams]       = useState<UebungParam[]>(initialUebung?.parameter ?? []);
+  const [addMode, setAddMode]     = useState<AddMode>(null);
+  const [newWert, setNewWert]     = useState('');
+  const [newUnit, setNewUnit]     = useState('');
+  const [newBez, setNewBez]       = useState('');
+  const [saveToLib, setSaveToLib] = useState(false);
+  const [showLib, setShowLib]     = useState(false);
+  const [nameErr, setNameErr]     = useState('');
 
-function formFromUebung(u: EinheitUebung): UebForm {
-  return {
-    name:        u.name,
-    typ:         u.dauer ? 'zeit' : 'wdh',
-    saetze:      u.saetze        != null ? String(u.saetze)        : '',
-    wdh:         u.wiederholungen != null ? String(u.wiederholungen) : '',
-    dauer:       u.dauer         != null ? String(u.dauer)         : '',
-    pause:       u.pause         != null ? String(u.pause)         : '',
-    serienpause: u.serienpause   != null ? String(u.serienpause)   : '',
-    saveToLib: false,
-    showLibPicker: false,
+  const selectType = (typ: UebungParamTyp) => {
+    const existing = params.find((p) => p.typ === typ);
+    setNewWert(existing?.wert ?? '');
+    setNewUnit(existing?.einheit ?? PARAM_CFG[typ].defaultUnit);
+    setNewBez(existing?.bezeichnung ?? '');
+    setAddMode(typ);
   };
-}
 
-function formToUebung(f: UebForm, id: string, templateId?: string): EinheitUebung {
-  const n = (s: string) => (s.trim() ? Number(s) : undefined);
-  return {
-    id,
-    name:           f.name.trim(),
-    templateId,
-    saetze:         n(f.saetze),
-    wiederholungen: f.typ === 'wdh'  ? n(f.wdh)   : undefined,
-    dauer:          f.typ === 'zeit' ? n(f.dauer)  : undefined,
-    pause:          n(f.pause),
-    serienpause:    n(f.serienpause),
+  const confirmParam = () => {
+    if (typeof addMode !== 'string' || addMode === 'picking' || !newWert.trim()) return;
+    const p: UebungParam = {
+      typ: addMode, wert: newWert.trim(),
+      einheit: newUnit || undefined,
+      bezeichnung: newBez.trim() || undefined,
+    };
+    setParams((prev) =>
+      prev.some((x) => x.typ === addMode)
+        ? prev.map((x) => x.typ === addMode ? p : x)
+        : [...prev, p]
+    );
+    setAddMode(null);
+    setNewWert(''); setNewUnit(''); setNewBez('');
   };
+
+  const removeParam = (typ: UebungParamTyp) =>
+    setParams((prev) => prev.filter((p) => p.typ !== typ));
+
+  const pickLib = (tpl: UebungTemplate) => {
+    setName(tpl.name);
+    setParams(tpl.parameter);
+    setShowLib(false);
+  };
+
+  const handleSubmit = () => {
+    if (!name.trim()) { setNameErr('Name erforderlich'); return; }
+    onSubmit({
+      id: initialUebung?.id ?? newUebId(),
+      name: name.trim(),
+      templateId: initialUebung?.templateId,
+      parameter: params,
+    }, saveToLib);
+  };
+
+  const cfg = typeof addMode === 'string' && addMode !== 'picking' ? PARAM_CFG[addMode] : null;
+  const preview = buildPreview(name, params);
+
+  return (
+    <View style={[form.wrap, { borderColor: `${phaseColor}55` }]}>
+      <Text style={[form.title, { color: phaseColor }]}>
+        {PHASE_CFG[phase].label} · {initialUebung ? 'Übung bearbeiten' : 'Neue Übung'}
+      </Text>
+
+      {/* Name + library */}
+      <View style={form.nameRow}>
+        <TextInput
+          style={[form.nameInput, nameErr ? form.inputErr : null]}
+          value={name}
+          onChangeText={(v) => { setName(v); setNameErr(''); }}
+          placeholder="Übungsname…"
+          placeholderTextColor={C.textDim}
+          autoCapitalize="words"
+          autoFocus={!initialUebung}
+        />
+        <TouchableOpacity
+          style={[form.libBtn, showLib && form.libBtnOn]}
+          onPress={() => setShowLib((v) => !v)}
+          activeOpacity={0.7}
+        >
+          <GBIcon name="search" size={15} color={showLib ? C.accentContrast : C.textMuted} />
+        </TouchableOpacity>
+      </View>
+      {nameErr ? <Text style={form.errText}>{nameErr}</Text> : null}
+
+      {/* Library picker */}
+      {showLib && (
+        <View style={form.libList}>
+          {uebungLib.length === 0
+            ? <Text style={form.libEmpty}>Keine gespeicherten Übungen</Text>
+            : uebungLib.map((tpl) => (
+              <TouchableOpacity key={tpl.id} style={form.libItem} onPress={() => pickLib(tpl)} activeOpacity={0.7}>
+                <Text style={form.libItemName}>{tpl.name}</Text>
+                {tpl.parameter.length > 0 && (
+                  <Text style={form.libItemParams}>{buildSuffix(tpl.parameter)}</Text>
+                )}
+              </TouchableOpacity>
+            ))
+          }
+        </View>
+      )}
+
+      {/* Param chips */}
+      {params.length > 0 && (
+        <View style={form.chips}>
+          {params.map((p) => (
+            <ParamChip
+              key={p.typ}
+              param={p}
+              onEdit={() => selectType(p.typ)}
+              onDelete={() => removeParam(p.typ)}
+            />
+          ))}
+        </View>
+      )}
+
+      {/* Add param button / type picker / value input */}
+      {addMode === null && params.length < 7 && (
+        <TouchableOpacity
+          style={[form.addParamBtn, { borderColor: `${phaseColor}66` }]}
+          onPress={() => setAddMode('picking')}
+          activeOpacity={0.8}
+        >
+          <GBIcon name="plus" size={14} color={phaseColor} />
+          <Text style={[form.addParamText, { color: phaseColor }]}>Element hinzufügen</Text>
+        </TouchableOpacity>
+      )}
+
+      {addMode === 'picking' && (
+        <View style={form.picker}>
+          <Text style={form.pickerTitle}>Element wählen</Text>
+          <View style={form.pickerGrid}>
+            {ALL_TYPES.map((typ) => {
+              const c = PARAM_CFG[typ];
+              const added = params.some((p) => p.typ === typ);
+              return (
+                <TouchableOpacity
+                  key={typ}
+                  style={[form.pickerBtn, added && form.pickerBtnAdded]}
+                  onPress={() => selectType(typ)}
+                  activeOpacity={0.75}
+                >
+                  <GBIcon name={c.icon as any} size={18} color={added ? C.accent : C.text} />
+                  <Text style={[form.pickerLabel, added && form.pickerLabelAdded]}>{c.label}</Text>
+                  {added && <View style={form.pickerCheck}><GBIcon name="check" size={9} color={C.accentContrast} /></View>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <TouchableOpacity onPress={() => setAddMode(null)} style={form.cancelPickBtn}>
+            <Text style={form.cancelPickText}>Abbrechen</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {cfg && addMode !== 'picking' && (
+        <View style={form.paramInput}>
+          <Text style={form.paramInputTitle}>{cfg.label}</Text>
+          <View style={form.paramInputRow}>
+            <TextInput
+              style={[form.paramInputField, { flex: 1 }]}
+              value={newWert}
+              onChangeText={setNewWert}
+              placeholder={cfg.placeholder}
+              placeholderTextColor={C.textDim}
+              autoFocus
+              onSubmitEditing={confirmParam}
+            />
+            {cfg.units.length > 0 && (
+              <View style={form.unitRow}>
+                {cfg.units.map((u) => (
+                  <TouchableOpacity
+                    key={u}
+                    style={[form.unitBtn, newUnit === u && form.unitBtnOn]}
+                    onPress={() => setNewUnit(u)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[form.unitText, newUnit === u && form.unitTextOn]}>{u}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+          {cfg.hasBez && (
+            <TextInput
+              style={form.paramInputField}
+              value={newBez}
+              onChangeText={setNewBez}
+              placeholder='Bezeichnung (z.B. "Trabpause")'
+              placeholderTextColor={C.textDim}
+              autoCapitalize="words"
+            />
+          )}
+          <View style={form.paramBtns}>
+            <TouchableOpacity style={form.backBtn} onPress={() => setAddMode('picking')}>
+              <Text style={form.backBtnText}>← Zurück</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[form.confirmBtn, { backgroundColor: newWert.trim() ? phaseColor : C.surfaceAlt }]}
+              onPress={confirmParam}
+            >
+              <Text style={[form.confirmBtnText, { color: newWert.trim() ? C.accentContrast : C.textDim }]}>
+                Übernehmen
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Preview */}
+      {preview.length > 0 && (
+        <View style={form.preview}>
+          <Text style={form.previewLabel}>Vorschau</Text>
+          <Text style={form.previewText}>{preview}</Text>
+        </View>
+      )}
+
+      {/* Save to library */}
+      <TouchableOpacity style={form.libToggle} onPress={() => setSaveToLib((v) => !v)} activeOpacity={0.7}>
+        <View style={[form.check, saveToLib && form.checkOn]}>
+          {saveToLib && <GBIcon name="check" size={11} color={C.accentContrast} />}
+        </View>
+        <Text style={form.libToggleLabel}>In Übungsbibliothek speichern</Text>
+      </TouchableOpacity>
+
+      {/* Form action buttons */}
+      <View style={form.btns}>
+        <TouchableOpacity style={form.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
+          <Text style={form.cancelBtnText}>Abbrechen</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[form.submitBtn, { backgroundColor: phaseColor }]}
+          onPress={handleSubmit}
+          activeOpacity={0.8}
+        >
+          <Text style={form.submitBtnText}>{initialUebung ? 'Aktualisieren' : 'Hinzufügen'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
 
-// ─── Main screen ──────────────────────────────────────────────────────────────
+const form = StyleSheet.create({
+  wrap:        { backgroundColor: C.surface, borderRadius: R.xl, borderWidth: 1.5, padding: SP.lg, gap: SP.md },
+  title:       { fontSize: FONT.xs, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.4 },
+
+  nameRow:     { flexDirection: 'row', gap: SP.sm, alignItems: 'center' },
+  nameInput:   { flex: 1, backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: SP.md, paddingVertical: SP.sm + 1, fontSize: FONT.base, fontWeight: '700', color: C.text },
+  inputErr:    { borderColor: C.warn },
+  errText:     { fontSize: FONT.xs, color: C.warn },
+  libBtn:      { width: 38, height: 38, borderRadius: R.md, backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  libBtnOn:    { backgroundColor: C.accent, borderColor: C.accent },
+
+  libList:     { backgroundColor: C.surfaceAlt, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, maxHeight: 200, overflow: 'hidden' },
+  libEmpty:    { padding: SP.md, fontSize: FONT.sm, color: C.textDim, fontStyle: 'italic' },
+  libItem:     { padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  libItemName: { fontSize: FONT.sm, fontWeight: '700', color: C.text },
+  libItemParams: { fontFamily: FONT_MONO, fontSize: 11, color: C.textMuted, marginTop: 2 },
+
+  chips:       { flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm },
+
+  addParamBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.sm + 2, borderRadius: R.lg, borderWidth: 1.5, borderStyle: 'dashed' },
+  addParamText: { fontSize: FONT.sm, fontWeight: '700' },
+
+  picker:       { backgroundColor: C.surfaceAlt, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: SP.md, gap: SP.sm },
+  pickerTitle:  { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1.2 },
+  pickerGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm },
+  pickerBtn:    { width: '30%', flexGrow: 1, flexDirection: 'column', alignItems: 'center', gap: 4, paddingVertical: SP.sm + 2, borderRadius: R.md, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
+  pickerBtnAdded: { borderColor: C.accent, backgroundColor: 'rgba(203,255,62,0.06)' },
+  pickerLabel:  { fontSize: 10, fontWeight: '700', color: C.textSub, textAlign: 'center' },
+  pickerLabelAdded: { color: C.accent },
+  pickerCheck:  { position: 'absolute', top: 4, right: 4, width: 14, height: 14, borderRadius: 7, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  cancelPickBtn: { alignItems: 'center', paddingVertical: SP.sm },
+  cancelPickText: { fontSize: FONT.xs, fontWeight: '700', color: C.textDim },
+
+  paramInput:       { backgroundColor: C.surfaceAlt, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: SP.md, gap: SP.sm },
+  paramInputTitle:  { fontSize: FONT.xs, fontWeight: '800', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1.2 },
+  paramInputRow:    { flexDirection: 'row', gap: SP.sm, alignItems: 'center' },
+  paramInputField:  { backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, fontSize: FONT.base, color: C.text, fontFamily: FONT_MONO },
+  unitRow:          { flexDirection: 'row', gap: 4 },
+  unitBtn:          { paddingHorizontal: SP.sm, paddingVertical: SP.sm - 1, borderRadius: R.full, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
+  unitBtnOn:        { borderColor: C.accent, backgroundColor: 'rgba(203,255,62,0.10)' },
+  unitText:         { fontSize: FONT.xs, fontWeight: '700', color: C.textSub },
+  unitTextOn:       { color: C.accent },
+  paramBtns:        { flexDirection: 'row', gap: SP.sm },
+  backBtn:          { flex: 1, paddingVertical: SP.sm, borderRadius: R.md, alignItems: 'center', backgroundColor: C.surface },
+  backBtnText:      { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted },
+  confirmBtn:       { flex: 2, paddingVertical: SP.sm, borderRadius: R.md, alignItems: 'center' },
+  confirmBtnText:   { fontSize: FONT.sm, fontWeight: '800' },
+
+  preview:      { backgroundColor: 'rgba(203,255,62,0.06)', borderRadius: R.lg, borderWidth: 1, borderColor: 'rgba(203,255,62,0.15)', padding: SP.md, gap: 4 },
+  previewLabel: { fontSize: 9, fontWeight: '800', color: C.accent, textTransform: 'uppercase', letterSpacing: 1.4 },
+  previewText:  { fontSize: FONT.sm, color: C.text, fontWeight: '600', lineHeight: 20 },
+
+  libToggle:      { flexDirection: 'row', alignItems: 'center', gap: SP.sm },
+  libToggleLabel: { fontSize: FONT.xs, color: C.textMuted, fontWeight: '600' },
+  check:          { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  checkOn:        { borderColor: C.accent, backgroundColor: C.accent },
+
+  btns:          { flexDirection: 'row', gap: SP.sm },
+  cancelBtn:     { flex: 1, paddingVertical: SP.md, borderRadius: R.md, backgroundColor: C.surfaceAlt, alignItems: 'center' },
+  cancelBtnText: { fontSize: FONT.sm, fontWeight: '700', color: C.textMuted },
+  submitBtn:     { flex: 2, paddingVertical: SP.md, borderRadius: R.md, alignItems: 'center' },
+  submitBtnText: { fontSize: FONT.sm, fontWeight: '800', color: C.accentContrast },
+});
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 type Phases = Record<Phase, EinheitUebung[]>;
 
@@ -106,40 +454,79 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
   const { planId, wocheId, einheitId } = route.params;
   const { getPlanById, saveEinheit } = usePlanStore();
   const { addUebung: saveUebToLib } = useUebungStore();
-  const { einheiten: einheitLib, addEinheit: saveEinheitToLib } = useEinheitStore();
   const { uebungen: uebungLib } = useUebungStore();
+  const { einheiten: einheitLib, addEinheit: saveEinheitToLib } = useEinheitStore();
   const insets = useSafeAreaInsets();
 
   const plan = getPlanById(planId);
   const woche = plan?.wochen.find((w) => w.id === wocheId);
   const existing = einheitId ? woche?.einheiten.find((e) => e.id === einheitId) : undefined;
 
-  const [name, setName] = useState(existing?.name ?? '');
-  const [nameError, setNameError] = useState('');
-  const [phases, setPhases] = useState<Phases>({
+  const [name, setName]                 = useState(existing?.name ?? '');
+  const [nameError, setNameError]       = useState('');
+  const [phases, setPhases]             = useState<Phases>({
     warmup:       existing?.warmup       ?? [],
     haupteinheit: existing?.haupteinheit ?? [],
     cooldown:     existing?.cooldown     ?? [],
   });
   const [saveEinheitLib, setSaveEinheitLib] = useState(false);
   const [showEinheitLib, setShowEinheitLib] = useState(false);
+  const [activePhase, setActivePhase]   = useState<Phase | null>(null);
+  const [editingUebId, setEditingUebId] = useState<string | null>(null);
 
-  // Inline exercise form
-  const [activePhase, setActivePhase]       = useState<Phase | null>(null);
-  const [editingId, setEditingId]           = useState<string | null>(null);
-  const [uebForm, setUebForm]               = useState<UebForm>(EMPTY_FORM);
-  const [uebNameError, setUebNameError]     = useState('');
+  const editingUeb = editingUebId && activePhase
+    ? phases[activePhase].find((u) => u.id === editingUebId)
+    : undefined;
 
-  // ─── Handlers ───────────────────────────────────────────────────────────────
+  const openAdd = (phase: Phase) => {
+    setActivePhase(phase);
+    setEditingUebId(null);
+  };
+
+  const openEdit = (phase: Phase, uid: string) => {
+    setActivePhase(phase);
+    setEditingUebId(uid);
+  };
+
+  const closeForm = () => {
+    setActivePhase(null);
+    setEditingUebId(null);
+  };
+
+  const handleUebSubmit = (ueb: EinheitUebung, saveToLib: boolean) => {
+    if (saveToLib) {
+      saveUebToLib({ name: ueb.name, parameter: ueb.parameter });
+    }
+    setPhases((prev) => ({
+      ...prev,
+      [activePhase!]: editingUebId
+        ? prev[activePhase!].map((u) => (u.id === editingUebId ? ueb : u))
+        : [...prev[activePhase!], ueb],
+    }));
+    closeForm();
+  };
+
+  const deleteUeb = (phase: Phase, uid: string) => {
+    if (editingUebId === uid) closeForm();
+    setPhases((prev) => ({ ...prev, [phase]: prev[phase].filter((u) => u.id !== uid) }));
+  };
+
+  const pickEinheitLib = (tpl: EinheitTemplate) => {
+    setName(tpl.name);
+    const remap = (arr: EinheitUebung[]) =>
+      arr.map((u) => ({ ...u, id: newUebId(), templateId: u.id }));
+    setPhases({ warmup: remap(tpl.warmup), haupteinheit: remap(tpl.haupteinheit), cooldown: remap(tpl.cooldown) });
+    setShowEinheitLib(false);
+  };
 
   const handleSaveEinheit = () => {
     if (!name.trim()) { setNameError('Name ist erforderlich'); return; }
     const einheit: Einheit = {
-      id:           existing?.id ?? newEId(),
-      name:         name.trim(),
-      warmup:       phases.warmup,
+      id: existing?.id ?? newEId(),
+      name: name.trim(),
+      warmup: phases.warmup,
       haupteinheit: phases.haupteinheit,
-      cooldown:     phases.cooldown,
+      cooldown: phases.cooldown,
     };
     if (saveEinheitLib) {
       const { id: _id, ...tpl } = einheit;
@@ -148,80 +535,6 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
     saveEinheit(planId, wocheId, einheit);
     navigation.goBack();
   };
-
-  const openAdd = (phase: Phase) => {
-    setActivePhase(phase);
-    setEditingId(null);
-    setUebForm(EMPTY_FORM);
-    setUebNameError('');
-  };
-
-  const openEdit = (phase: Phase, u: EinheitUebung) => {
-    setActivePhase(phase);
-    setEditingId(u.id);
-    setUebForm(formFromUebung(u));
-    setUebNameError('');
-  };
-
-  const cancelUebForm = () => {
-    setActivePhase(null);
-    setEditingId(null);
-    setUebForm(EMPTY_FORM);
-    setUebNameError('');
-  };
-
-  const submitUebForm = () => {
-    if (!uebForm.name.trim()) { setUebNameError('Name erforderlich'); return; }
-    if (!activePhase) return;
-
-    const id = editingId ?? newUebId();
-    const uebung = formToUebung(uebForm, id);
-
-    if (uebForm.saveToLib) {
-      const { id: _id, templateId: _t, ...libData } = uebung;
-      saveUebToLib(libData);
-    }
-
-    setPhases((prev) => ({
-      ...prev,
-      [activePhase]: editingId
-        ? prev[activePhase].map((u) => (u.id === editingId ? uebung : u))
-        : [...prev[activePhase], uebung],
-    }));
-    cancelUebForm();
-  };
-
-  const deleteUebung = (phase: Phase, uid: string) => {
-    if (editingId === uid) cancelUebForm();
-    setPhases((prev) => ({ ...prev, [phase]: prev[phase].filter((u) => u.id !== uid) }));
-  };
-
-  const pickFromEinheitLib = (tpl: EinheitTemplate) => {
-    setName(tpl.name);
-    const remap = (arr: EinheitUebung[]) =>
-      arr.map((u) => ({ ...u, id: newUebId(), templateId: u.id }));
-    setPhases({ warmup: remap(tpl.warmup), haupteinheit: remap(tpl.haupteinheit), cooldown: remap(tpl.cooldown) });
-    setShowEinheitLib(false);
-  };
-
-  const pickFromUebungLib = (tpl: UebungTemplate) => {
-    setUebForm((f) => ({
-      ...f,
-      name:        tpl.name,
-      typ:         tpl.dauer ? 'zeit' : 'wdh',
-      saetze:      tpl.saetze        != null ? String(tpl.saetze)        : '',
-      wdh:         tpl.wiederholungen != null ? String(tpl.wiederholungen) : '',
-      dauer:       tpl.dauer         != null ? String(tpl.dauer)         : '',
-      pause:       tpl.pause         != null ? String(tpl.pause)         : '',
-      serienpause: tpl.serienpause   != null ? String(tpl.serienpause)   : '',
-      showLibPicker: false,
-    }));
-  };
-
-  const setU = (key: keyof UebForm, val: string | boolean) =>
-    setUebForm((f) => ({ ...f, [key]: val }));
-
-  // ─── Render ─────────────────────────────────────────────────────────────────
 
   const totalEx = phases.warmup.length + phases.haupteinheit.length + phases.cooldown.length;
 
@@ -245,7 +558,7 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
-          {/* Name + Library */}
+          {/* Einheit name + library */}
           <View style={styles.nameSection}>
             <View style={styles.nameRow}>
               <TextInput
@@ -257,33 +570,27 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
                 autoCapitalize="words"
               />
               <TouchableOpacity
-                style={styles.libBtn}
+                style={[styles.libBtn, showEinheitLib && styles.libBtnOn]}
                 onPress={() => setShowEinheitLib((v) => !v)}
                 activeOpacity={0.7}
               >
                 <GBIcon name="layers" size={16} color={showEinheitLib ? C.accentContrast : C.textMuted} />
-                <Text style={[styles.libBtnText, showEinheitLib && styles.libBtnTextActive]}>Bibliothek</Text>
+                <Text style={[styles.libBtnText, showEinheitLib && styles.libBtnTextOn]}>Einheit</Text>
               </TouchableOpacity>
             </View>
-            {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+            {nameError ? <Text style={styles.errText}>{nameError}</Text> : null}
 
-            {/* Einheit library picker */}
             {showEinheitLib && (
-              <View style={styles.libPicker}>
-                <Text style={styles.libPickerTitle}>Aus Bibliothek laden</Text>
+              <View style={styles.einheitLibList}>
+                <Text style={styles.einheitLibTitle}>Aus Einheitenbibliothek</Text>
                 {einheitLib.map((tpl) => (
-                  <TouchableOpacity
-                    key={tpl.id}
-                    style={styles.libItem}
-                    onPress={() => pickFromEinheitLib(tpl)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.libItemIcon}>
+                  <TouchableOpacity key={tpl.id} style={styles.einheitLibItem} onPress={() => pickEinheitLib(tpl)} activeOpacity={0.7}>
+                    <View style={styles.einheitLibIcon}>
                       <GBIcon name="dumbbell" size={14} color={C.accent} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.libItemName}>{tpl.name}</Text>
-                      <Text style={styles.libItemSub}>
+                      <Text style={styles.einheitLibName}>{tpl.name}</Text>
+                      <Text style={styles.einheitLibSub}>
                         {tpl.warmup.length + tpl.haupteinheit.length + tpl.cooldown.length} Übungen
                       </Text>
                     </View>
@@ -294,23 +601,15 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
             )}
           </View>
 
-          {/* Stats bar */}
-          <View style={styles.statsBar}>
-            <Text style={styles.statsBarText}>
-              {totalEx} {totalEx === 1 ? 'Übung' : 'Übungen'} · 3 Phasen
-            </Text>
-            <View style={styles.saveLibRow}>
-              <TouchableOpacity
-                style={styles.saveLibToggle}
-                onPress={() => setSaveEinheitLib((v) => !v)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.checkBox, saveEinheitLib && styles.checkBoxOn]}>
-                  {saveEinheitLib && <GBIcon name="check" size={12} color={C.accentContrast} />}
-                </View>
-                <Text style={styles.saveLibLabel}>In Bibliothek speichern</Text>
-              </TouchableOpacity>
-            </View>
+          {/* Stats + save-to-lib toggle */}
+          <View style={styles.statsRow}>
+            <Text style={styles.statsText}>{totalEx} Übungen · 3 Phasen</Text>
+            <TouchableOpacity style={styles.libToggle} onPress={() => setSaveEinheitLib((v) => !v)} activeOpacity={0.7}>
+              <View style={[styles.check, saveEinheitLib && styles.checkOn]}>
+                {saveEinheitLib && <GBIcon name="check" size={11} color={C.accentContrast} />}
+              </View>
+              <Text style={styles.libToggleLabel}>In Bibliothek</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Phase sections */}
@@ -327,129 +626,50 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
                   <Text style={styles.phaseCount}>{exercises.length} Übungen</Text>
                 </View>
 
-                {/* Exercises */}
+                {/* Exercise rows */}
                 {exercises.map((u) => (
-                  <View key={u.id} style={[styles.uebungRow, editingId === u.id && styles.uebungRowEditing]}>
-                    <View style={[styles.uebungDot, { backgroundColor: cfg.color }]} />
-                    <View style={styles.uebungInfo}>
-                      <Text style={styles.uebungName}>{u.name}</Text>
-                      <Text style={styles.uebungParams}>{formatParams(u)}</Text>
+                  <View key={u.id} style={[styles.uebRow, editingUebId === u.id && styles.uebRowActive]}>
+                    <View style={[styles.uebDot, { backgroundColor: cfg.color }]} />
+                    <View style={styles.uebInfo}>
+                      <Text style={styles.uebName}>{u.name}</Text>
+                      {u.parameter.length > 0 && (
+                        <Text style={styles.uebParams}>{buildSuffix(u.parameter)}</Text>
+                      )}
                     </View>
-                    <View style={styles.uebungActions}>
-                      <TouchableOpacity onPress={() => openEdit(phase, u)} style={styles.miniBtn} activeOpacity={0.7}>
+                    <View style={styles.uebActions}>
+                      <TouchableOpacity onPress={() => openEdit(phase, u.id)} style={styles.miniBtn} activeOpacity={0.7}>
                         <GBIcon name="edit" size={13} color={C.textMuted} />
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => deleteUebung(phase, u.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>
+                      <TouchableOpacity onPress={() => deleteUeb(phase, u.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>
                         <GBIcon name="trash" size={13} color={C.warn} />
                       </TouchableOpacity>
                     </View>
                   </View>
                 ))}
 
-                {/* Add button */}
+                {/* Add button (shown when this phase is not active) */}
                 {!isActive && (
-                  <TouchableOpacity style={[styles.addUebBtn, { borderColor: cfg.color }]} onPress={() => openAdd(phase)} activeOpacity={0.8}>
-                    <GBIcon name="plus" size={15} color={cfg.color} />
+                  <TouchableOpacity
+                    style={[styles.addUebBtn, { borderColor: `${cfg.color}55` }]}
+                    onPress={() => openAdd(phase)}
+                    activeOpacity={0.8}
+                  >
+                    <GBIcon name="plus" size={14} color={cfg.color} />
                     <Text style={[styles.addUebText, { color: cfg.color }]}>Übung hinzufügen</Text>
                   </TouchableOpacity>
                 )}
 
-                {/* Inline exercise form */}
+                {/* Inline form */}
                 {isActive && (
-                  <View style={[styles.uebForm, { borderColor: cfg.color }]}>
-                    <Text style={[styles.uebFormTitle, { color: cfg.color }]}>
-                      {editingId ? 'Übung bearbeiten' : `Neue Übung — ${cfg.label}`}
-                    </Text>
-
-                    {/* Name row */}
-                    <View style={styles.uebNameRow}>
-                      <TextInput
-                        style={[styles.input, { flex: 1 }, uebNameError ? styles.inputError : null]}
-                        value={uebForm.name}
-                        onChangeText={(v) => { setU('name', v); setUebNameError(''); }}
-                        placeholder="Übungsname"
-                        placeholderTextColor={C.textDim}
-                        autoCapitalize="words"
-                        autoFocus
-                      />
-                      <TouchableOpacity
-                        style={[styles.libBtnSm, uebForm.showLibPicker && styles.libBtnSmActive]}
-                        onPress={() => setU('showLibPicker', !uebForm.showLibPicker)}
-                        activeOpacity={0.7}
-                      >
-                        <GBIcon name="search" size={14} color={uebForm.showLibPicker ? C.accentContrast : C.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                    {uebNameError ? <Text style={styles.errorText}>{uebNameError}</Text> : null}
-
-                    {/* Library picker */}
-                    {uebForm.showLibPicker && (
-                      <View style={styles.uebLibPicker}>
-                        {uebungLib.map((tpl) => (
-                          <TouchableOpacity
-                            key={tpl.id}
-                            style={styles.uebLibItem}
-                            onPress={() => pickFromUebungLib(tpl)}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.uebLibItemName}>{tpl.name}</Text>
-                            <Text style={styles.uebLibItemParams}>{formatParams({ id: '', ...tpl })}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
-
-                    {/* Type toggle */}
-                    <View style={styles.typToggle}>
-                      <TouchableOpacity
-                        style={[styles.typBtn, uebForm.typ === 'wdh' && styles.typBtnActive]}
-                        onPress={() => setU('typ', 'wdh')}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.typBtnText, uebForm.typ === 'wdh' && styles.typBtnTextActive]}>Wdh.-basiert</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.typBtn, uebForm.typ === 'zeit' && styles.typBtnActive]}
-                        onPress={() => setU('typ', 'zeit')}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.typBtnText, uebForm.typ === 'zeit' && styles.typBtnTextActive]}>Zeitbasiert</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Param grid */}
-                    <View style={styles.paramGrid}>
-                      <ParamInput label="Sätze" value={uebForm.saetze} onChangeText={(v) => setU('saetze', v)} />
-                      {uebForm.typ === 'wdh'
-                        ? <ParamInput label="Wdh." value={uebForm.wdh} onChangeText={(v) => setU('wdh', v)} />
-                        : <ParamInput label="Dauer (s)" value={uebForm.dauer} onChangeText={(v) => setU('dauer', v)} />
-                      }
-                      <ParamInput label="Pause (s)" value={uebForm.pause} onChangeText={(v) => setU('pause', v)} />
-                      <ParamInput label="Serienpause (s)" value={uebForm.serienpause} onChangeText={(v) => setU('serienpause', v)} />
-                    </View>
-
-                    {/* Save to library toggle */}
-                    <TouchableOpacity style={styles.saveLibToggle} onPress={() => setU('saveToLib', !uebForm.saveToLib)} activeOpacity={0.7}>
-                      <View style={[styles.checkBox, uebForm.saveToLib && styles.checkBoxOn]}>
-                        {uebForm.saveToLib && <GBIcon name="check" size={12} color={C.accentContrast} />}
-                      </View>
-                      <Text style={styles.saveLibLabel}>In Übungsbibliothek speichern</Text>
-                    </TouchableOpacity>
-
-                    {/* Form buttons */}
-                    <View style={styles.uebFormBtns}>
-                      <TouchableOpacity style={styles.cancelBtn} onPress={cancelUebForm} activeOpacity={0.7}>
-                        <Text style={styles.cancelBtnText}>Abbrechen</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.addBtn, { backgroundColor: cfg.color }]}
-                        onPress={submitUebForm}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.addBtnText}>{editingId ? 'Aktualisieren' : 'Hinzufügen'}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  <UebungForm
+                    key={`${phase}-${editingUebId ?? 'new'}`}
+                    phase={phase}
+                    phaseColor={cfg.color}
+                    initialUebung={editingUeb}
+                    uebungLib={uebungLib}
+                    onSubmit={handleUebSubmit}
+                    onCancel={closeForm}
+                  />
                 )}
               </View>
             );
@@ -461,31 +681,6 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
     </KeyboardAvoidingView>
   );
 }
-
-// ─── Param number input ───────────────────────────────────────────────────────
-
-function ParamInput({ label, value, onChangeText }: { label: string; value: string; onChangeText: (v: string) => void }) {
-  return (
-    <View style={param.wrap}>
-      <Text style={param.label}>{label}</Text>
-      <TextInput
-        style={param.input}
-        value={value}
-        onChangeText={(v) => onChangeText(v.replace(/\D/g, ''))}
-        placeholder="—"
-        placeholderTextColor={C.textDim}
-        keyboardType="number-pad"
-        maxLength={5}
-      />
-    </View>
-  );
-}
-
-const param = StyleSheet.create({
-  wrap:  { flex: 1, minWidth: '45%', gap: 4 },
-  label: { fontSize: 10, fontWeight: '700', color: C.textDim, textTransform: 'uppercase', letterSpacing: 0.8 },
-  input: { backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, fontSize: FONT.base, color: C.text, fontFamily: FONT_MONO, textAlign: 'center' },
-});
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -505,71 +700,42 @@ const styles = StyleSheet.create({
   nameSection: { gap: SP.sm },
   nameRow:     { flexDirection: 'row', gap: SP.sm, alignItems: 'center' },
   nameInput:   { flex: 1, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: SP.lg, paddingVertical: SP.md, fontSize: FONT.md, fontWeight: '700', color: C.text },
-  libBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: SP.md, paddingVertical: SP.md },
-  libBtnText:  { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 },
-  libBtnTextActive: { color: C.accent },
+  inputError:  { borderColor: C.warn },
+  errText:     { fontSize: FONT.xs, color: C.warn },
+  libBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: SP.sm + 2, paddingVertical: SP.md },
+  libBtnOn:    { backgroundColor: C.accent, borderColor: C.accent },
+  libBtnText:  { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted },
+  libBtnTextOn: { color: C.accentContrast },
 
-  libPicker:      { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
-  libPickerTitle: { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1.4, padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border },
-  libItem:        { flexDirection: 'row', alignItems: 'center', gap: SP.md, padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border },
-  libItemIcon:    { width: 32, height: 32, borderRadius: R.md, backgroundColor: C.accentLight, alignItems: 'center', justifyContent: 'center' },
-  libItemName:    { fontSize: FONT.base, fontWeight: '600', color: C.text },
-  libItemSub:     { fontSize: FONT.xs, color: C.textMuted, marginTop: 2 },
+  einheitLibList:  { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  einheitLibTitle: { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1.2, padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  einheitLibItem:  { flexDirection: 'row', alignItems: 'center', gap: SP.md, padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  einheitLibIcon:  { width: 32, height: 32, borderRadius: R.md, backgroundColor: C.accentLight, alignItems: 'center', justifyContent: 'center' },
+  einheitLibName:  { fontSize: FONT.base, fontWeight: '600', color: C.text },
+  einheitLibSub:   { fontSize: FONT.xs, color: C.textMuted, marginTop: 2 },
 
-  statsBar:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  statsBarText: { fontFamily: FONT_MONO, fontSize: FONT.xs, color: C.textDim, fontWeight: '600' },
-
-  saveLibRow:    { flexDirection: 'row', alignItems: 'center' },
-  saveLibToggle: { flexDirection: 'row', alignItems: 'center', gap: SP.sm },
-  saveLibLabel:  { fontSize: FONT.xs, color: C.textMuted, fontWeight: '600' },
-  checkBox:      { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
-  checkBoxOn:    { borderColor: C.accent, backgroundColor: C.accent },
+  statsRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  statsText:      { fontFamily: FONT_MONO, fontSize: FONT.xs, color: C.textDim, fontWeight: '600' },
+  libToggle:      { flexDirection: 'row', alignItems: 'center', gap: SP.sm },
+  libToggleLabel: { fontSize: FONT.xs, color: C.textMuted, fontWeight: '600' },
+  check:          { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  checkOn:        { borderColor: C.accent, backgroundColor: C.accent },
 
   phaseSection: { gap: SP.sm },
-  phaseHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderLeftWidth: 3, paddingLeft: SP.sm, marginLeft: -SP.sm },
+  phaseHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderLeftWidth: 3, paddingLeft: SP.sm },
   phaseTitle:   { fontSize: FONT.sm, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.2 },
   phaseCount:   { fontFamily: FONT_MONO, fontSize: FONT.xs, color: C.textDim, fontWeight: '600' },
 
-  uebungRow:       { flexDirection: 'row', alignItems: 'center', gap: SP.md, backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: SP.md },
-  uebungRowEditing: { borderColor: C.accent },
-  uebungDot:       { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  uebungInfo:      { flex: 1 },
-  uebungName:      { fontSize: FONT.base, fontWeight: '600', color: C.text },
-  uebungParams:    { fontFamily: FONT_MONO, fontSize: 11, color: C.textMuted, marginTop: 2 },
-  uebungActions:   { flexDirection: 'row', gap: 4 },
-  miniBtn:         { width: 28, height: 28, borderRadius: 14, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
-  miniBtnDanger:   { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,106,61,0.10)', alignItems: 'center', justifyContent: 'center' },
+  uebRow:       { flexDirection: 'row', alignItems: 'center', gap: SP.md, backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: SP.md },
+  uebRowActive: { borderColor: C.accent },
+  uebDot:       { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+  uebInfo:      { flex: 1 },
+  uebName:      { fontSize: FONT.base, fontWeight: '600', color: C.text },
+  uebParams:    { fontFamily: FONT_MONO, fontSize: 11, color: C.textMuted, marginTop: 2, lineHeight: 16 },
+  uebActions:   { flexDirection: 'row', gap: 4 },
+  miniBtn:      { width: 28, height: 28, borderRadius: 14, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  miniBtnDanger: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,106,61,0.10)', alignItems: 'center', justifyContent: 'center' },
 
-  addUebBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.md, borderRadius: R.lg, borderWidth: 1.5, borderStyle: 'dashed', backgroundColor: 'transparent' },
+  addUebBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.md, borderRadius: R.lg, borderWidth: 1.5, borderStyle: 'dashed' },
   addUebText: { fontSize: FONT.sm, fontWeight: '700' },
-
-  uebForm:      { backgroundColor: C.surface, borderRadius: R.xl, borderWidth: 1.5, padding: SP.lg, gap: SP.md },
-  uebFormTitle: { fontSize: FONT.xs, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.4 },
-
-  uebNameRow: { flexDirection: 'row', gap: SP.sm, alignItems: 'center' },
-  input:      { backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, fontSize: FONT.base, color: C.text },
-  inputError: { borderColor: C.warn },
-  errorText:  { fontSize: FONT.xs, color: C.warn },
-
-  libBtnSm:       { width: 36, height: 36, borderRadius: R.md, backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
-  libBtnSmActive: { backgroundColor: C.accent, borderColor: C.accent },
-
-  uebLibPicker:      { backgroundColor: C.surfaceAlt, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, maxHeight: 180, overflow: 'hidden' },
-  uebLibItem:        { padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border },
-  uebLibItemName:    { fontSize: FONT.sm, fontWeight: '600', color: C.text },
-  uebLibItemParams:  { fontFamily: FONT_MONO, fontSize: 11, color: C.textMuted, marginTop: 2 },
-
-  typToggle:       { flexDirection: 'row', backgroundColor: C.surfaceAlt, borderRadius: R.md, padding: 3, gap: 3 },
-  typBtn:          { flex: 1, paddingVertical: SP.sm - 2, borderRadius: R.sm, alignItems: 'center' },
-  typBtnActive:    { backgroundColor: C.accent },
-  typBtnText:      { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted },
-  typBtnTextActive: { color: C.accentContrast },
-
-  paramGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm },
-
-  uebFormBtns: { flexDirection: 'row', gap: SP.sm, marginTop: SP.xs },
-  cancelBtn:   { flex: 1, paddingVertical: SP.md, borderRadius: R.md, backgroundColor: C.surfaceAlt, alignItems: 'center' },
-  cancelBtnText: { fontSize: FONT.sm, fontWeight: '700', color: C.textMuted },
-  addBtn:      { flex: 2, paddingVertical: SP.md, borderRadius: R.md, alignItems: 'center' },
-  addBtnText:  { fontSize: FONT.sm, fontWeight: '800', color: C.accentContrast },
 });
