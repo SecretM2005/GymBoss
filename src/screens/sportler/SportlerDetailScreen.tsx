@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TextInput, TouchableOpacity, Alert,
@@ -9,9 +9,11 @@ import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SportlerStackParamList } from '../../types';
 import { useAthletenStore } from '../../store/athletenStore';
+import { usePlanStore } from '../../store/planStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import MonthCalendar from '../../components/MonthCalendar';
+import { buildSuffix } from '../plaene/EinheitDetailScreen';
 import { C, SP, R, FONT, FONT_MONO } from '../../theme';
 
 type Props = {
@@ -30,10 +32,6 @@ const SPORTART_COLORS: Record<string, { bg: string; fg: string; dot: string }> =
   'Crossfit':        { bg: 'rgba(122,229,130,0.14)', fg: '#7AE582', dot: '#7AE582' },
 };
 
-const DUMMY_TRAINING_TAGE = new Set([3, 5, 8, 10, 12, 15, 17, 19, 22, 24, 26]);
-
-// ─── Formular ────────────────────────────────────────────────────────────────
-
 function makeInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return '?';
@@ -43,10 +41,9 @@ function makeInitials(name: string) {
 
 type Form = { name: string; alter: string; sportart: string; ziel: string };
 
-// ─── Haupt-Screen ─────────────────────────────────────────────────────────────
-
 export default function SportlerDetailScreen({ navigation, route }: Props) {
   const { getSportlerById, updateSportler, deleteSportler } = useAthletenStore();
+  const { getPlaeneForSportler } = usePlanStore();
   const sportler = getSportlerById(route.params.sportlerId);
   const insets = useSafeAreaInsets();
 
@@ -57,12 +54,32 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
     ziel:     sportler?.ziel ?? '',
   });
   const [errors, setErrors] = useState<Partial<Record<keyof Form, string>>>({});
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved]   = useState(false);
+  const [calYear, setCalYear]   = useState(new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
 
   if (!sportler) {
     navigation.goBack();
     return null;
   }
+
+  const plaene = getPlaeneForSportler(sportler.id);
+
+  // Compute real marked days from all plans' einheiten with datum
+  const markedDays = useMemo(() => {
+    const days = new Set<number>();
+    plaene.forEach((plan) => {
+      plan.wochen.flatMap((w) => w.einheiten).forEach((e) => {
+        if (e.datum) {
+          const d = new Date(e.datum);
+          if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
+            days.add(d.getDate());
+          }
+        }
+      });
+    });
+    return days;
+  }, [plaene, calYear, calMonth]);
 
   const set = (key: keyof Form, val: string) => {
     setForm((f) => ({ ...f, [key]: val }));
@@ -197,9 +214,93 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
             />
           </Field>
 
-          {/* ── Kalender ── */}
+          {/* ── Trainingskalender ── */}
           <SectionHead>Trainingskalender</SectionHead>
-          <MonthCalendar markedDays={DUMMY_TRAINING_TAGE} />
+          <MonthCalendar
+            markedDays={markedDays}
+            legendLabel="Einheit geplant"
+            onMonthChange={(y, m) => { setCalYear(y); setCalMonth(m); }}
+          />
+
+          {/* ── Aktive Pläne ── */}
+          <SectionHead>Aktive Pläne</SectionHead>
+
+          {plaene.length === 0 ? (
+            <View style={styles.emptyPlans}>
+              <GBIcon name="layers" size={28} color={C.textDim} />
+              <Text style={styles.emptyPlansText}>Kein Trainingsplan zugewiesen</Text>
+            </View>
+          ) : (
+            plaene.map((plan) => {
+              const allEinheiten = plan.wochen.flatMap((w) =>
+                w.einheiten.map((e) => ({ einheit: e, wocheId: w.id }))
+              );
+              const sc2 = SPORTART_COLORS[plan.sportart ?? ''] ?? { bg: 'rgba(255,255,255,0.08)', fg: C.textMuted, dot: C.textDim };
+
+              return (
+                <View key={plan.id} style={styles.planCard}>
+                  <View style={styles.planCardHeader}>
+                    <Text style={styles.planCardName}>{plan.name}</Text>
+                    {plan.sportart && (
+                      <View style={[styles.planChip, { backgroundColor: sc2.bg }]}>
+                        <View style={[styles.planChipDot, { backgroundColor: sc2.dot }]} />
+                        <Text style={[styles.planChipText, { color: sc2.fg }]}>{plan.sportart}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {allEinheiten.length === 0 ? (
+                    <Text style={styles.planNoEinheiten}>Noch keine Einheiten</Text>
+                  ) : (
+                    allEinheiten.map(({ einheit, wocheId }) => {
+                      const override = einheit.sportlerOverrides?.[sportler.id];
+                      const display = override ? { ...einheit, ...override } : einheit;
+                      const totalEx = display.warmup.length + display.haupteinheit.length + display.cooldown.length;
+                      const hasSuffix = display.haupteinheit[0]?.parameter.length > 0;
+
+                      return (
+                        <View key={einheit.id} style={styles.einheitRow}>
+                          <View style={styles.einheitRowInfo}>
+                            <View style={styles.einheitDot} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.einheitName}>
+                                {display.name}
+                                {override && <Text style={styles.overrideBadge}> ✎</Text>}
+                              </Text>
+                              {hasSuffix ? (
+                                <Text style={styles.einheitParams} numberOfLines={1}>
+                                  {buildSuffix(display.haupteinheit[0].parameter)}
+                                </Text>
+                              ) : (
+                                <Text style={styles.einheitParams}>{totalEx} Übungen</Text>
+                              )}
+                              {einheit.datum && (
+                                <Text style={styles.einheitDatum}>{new Date(einheit.datum).toLocaleDateString('de-DE')}</Text>
+                              )}
+                            </View>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.einheitEditBtn}
+                            activeOpacity={0.7}
+                            onPress={() =>
+                              navigation.navigate('SportlerEinheitDetail', {
+                                planId: plan.id,
+                                wocheId,
+                                einheitId: einheit.id,
+                                sportlerId: sportler.id,
+                              })
+                            }
+                          >
+                            <GBIcon name="edit" size={14} color={C.textMuted} />
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+              );
+            })
+          )}
 
           {/* Löschen */}
           <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn} activeOpacity={0.8}>
@@ -227,8 +328,6 @@ function Field({ label, required, error, children }: { label: string; required?:
     </View>
   );
 }
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
@@ -267,7 +366,26 @@ const styles = StyleSheet.create({
   sportartChipText: { fontSize: FONT.sm, fontWeight: '600', color: C.textSub },
   sportartChipTextActive: { color: C.accent },
 
+  emptyPlans:     { backgroundColor: C.surface, borderRadius: R.xl, borderWidth: 1, borderColor: C.border, padding: SP.xl, alignItems: 'center', gap: SP.sm },
+  emptyPlansText: { fontSize: FONT.sm, color: C.textDim, fontStyle: 'italic' },
+
+  planCard:       { backgroundColor: C.surface, borderRadius: R.xl, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  planCardHeader: { flexDirection: 'row', alignItems: 'center', gap: SP.sm, padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  planCardName:   { flex: 1, fontSize: FONT.base, fontWeight: '700', color: C.text },
+  planChip:       { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.full },
+  planChipDot:    { width: 4, height: 4, borderRadius: 2 },
+  planChipText:   { fontSize: 9, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
+  planNoEinheiten: { padding: SP.md, fontSize: FONT.sm, color: C.textDim, fontStyle: 'italic' },
+
+  einheitRow:     { flexDirection: 'row', alignItems: 'center', padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  einheitRowInfo: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: SP.sm },
+  einheitDot:     { width: 7, height: 7, borderRadius: 4, backgroundColor: C.accent, marginTop: 5, flexShrink: 0 },
+  einheitName:    { fontSize: FONT.base, fontWeight: '600', color: C.text },
+  einheitParams:  { fontFamily: FONT_MONO, fontSize: 11, color: C.textMuted, marginTop: 2 },
+  einheitDatum:   { fontSize: 10, color: C.textDim, marginTop: 2 },
+  overrideBadge:  { color: C.accent },
+  einheitEditBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+
   deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.lg, borderRadius: R.lg, borderWidth: 1, borderColor: 'rgba(255,106,61,0.25)', backgroundColor: 'rgba(255,106,61,0.06)' },
   deleteBtnText: { fontSize: FONT.base, fontWeight: '600', color: C.warn },
 });
-

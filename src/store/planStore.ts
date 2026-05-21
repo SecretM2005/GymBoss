@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { TrainingsPlan, Einheit } from '../types';
+import { TrainingsPlan, Einheit, EinheitTemplate } from '../types';
 
 const INITIAL_PLAENE: TrainingsPlan[] = [
   {
@@ -54,9 +54,9 @@ type PlanState = {
   addWoche: (planId: string, notizen?: string) => string;
   updateWoche: (planId: string, wocheId: string, notizen: string) => void;
   deleteWoche: (planId: string, wocheId: string) => void;
-  // Einheit methods – saveEinheit handles both create and update
   saveEinheit: (planId: string, wocheId: string, einheit: Einheit) => void;
   deleteEinheit: (planId: string, wocheId: string, einheitId: string) => void;
+  saveEinheitOverride: (planId: string, wocheId: string, einheitId: string, sportlerId: string, data: EinheitTemplate) => void;
 };
 
 const mapWoche = (planId: string, wocheId: string, fn: (e: Einheit[]) => Einheit[]) =>
@@ -137,5 +137,15 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   deleteEinheit: (planId, wocheId, einheitId) =>
     set(mapWoche(planId, wocheId, (einheiten) =>
       einheiten.filter((e) => e.id !== einheitId)
+    )),
+
+  saveEinheitOverride: (planId, wocheId, einheitId, sportlerId, data) =>
+    set(mapWoche(planId, wocheId, (einheiten) =>
+      einheiten.map((e) =>
+        e.id !== einheitId ? e : {
+          ...e,
+          sportlerOverrides: { ...(e.sportlerOverrides ?? {}), [sportlerId]: data },
+        }
+      )
     )),
 }));

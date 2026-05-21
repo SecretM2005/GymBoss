@@ -23,12 +23,12 @@ type Props = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PHASE_CFG: Record<Phase, { label: string; color: string }> = {
+export const PHASE_CFG: Record<Phase, { label: string; color: string }> = {
   warmup:       { label: 'Warm-up',     color: '#FF8A66' },
   haupteinheit: { label: 'Haupteinheit', color: '#CBFF3E' },
   cooldown:     { label: 'Cool-down',   color: '#7ABFFF' },
 };
-const PHASES: Phase[] = ['warmup', 'haupteinheit', 'cooldown'];
+export const PHASES: Phase[] = ['warmup', 'haupteinheit', 'cooldown'];
 
 type ParamCfg = {
   label: string;
@@ -39,7 +39,7 @@ type ParamCfg = {
   hasBez: boolean; // has custom "bezeichnung" field
 };
 
-const PARAM_CFG: Record<UebungParamTyp, ParamCfg> = {
+export const PARAM_CFG: Record<UebungParamTyp, ParamCfg> = {
   serien:         { label: 'Serien',         icon: 'layers',    placeholder: 'z.B. 3',    defaultUnit: '',    units: [],                  hasBez: false },
   wiederholungen: { label: 'Wiederholungen', icon: 'repeat',    placeholder: 'z.B. 6-8',  defaultUnit: '',    units: [],                  hasBez: false },
   gewicht:        { label: 'Gewicht',        icon: 'dumbbell',  placeholder: 'z.B. 80',   defaultUnit: 'kg',  units: ['kg', 'lbs'],       hasBez: false },
@@ -49,7 +49,7 @@ const PARAM_CFG: Record<UebungParamTyp, ParamCfg> = {
   serienpause:    { label: 'Serienpause',    icon: 'stopwatch', placeholder: 'z.B. 120',  defaultUnit: 's',   units: ['s', 'min'],        hasBez: false },
 };
 
-const ALL_TYPES: UebungParamTyp[] = ['serien', 'wiederholungen', 'gewicht', 'distanz', 'dauer', 'pause', 'serienpause'];
+export const ALL_TYPES: UebungParamTyp[] = ['serien', 'wiederholungen', 'gewicht', 'distanz', 'dauer', 'pause', 'serienpause'];
 
 // ─── Natural-language preview ─────────────────────────────────────────────────
 
@@ -77,13 +77,13 @@ export function buildSuffix(params: UebungParam[]): string {
   return innerStr;
 }
 
-function buildPreview(name: string, params: UebungParam[]): string {
+export function buildPreview(name: string, params: UebungParam[]): string {
   if (!name.trim()) return '';
   const suffix = buildSuffix(params);
   return suffix ? `${name.trim()} (${suffix})` : name.trim();
 }
 
-function formatParamChip(p: UebungParam): string {
+export function formatParamChip(p: UebungParam): string {
   switch (p.typ) {
     case 'serien':         return `${p.wert} Ser.`;
     case 'wiederholungen': return `${p.wert}×`;
@@ -98,13 +98,13 @@ function formatParamChip(p: UebungParam): string {
 // ─── ID helpers ───────────────────────────────────────────────────────────────
 
 let _euId = 1000;
-const newUebId = () => `eu_${++_euId}`;
+export const newUebId = () => `eu_${++_euId}`;
 let _eId = 2000;
 const newEId = () => `e_${++_eId}`;
 
 // ─── ParamChip ────────────────────────────────────────────────────────────────
 
-function ParamChip({ param, onEdit, onDelete }: {
+export function ParamChip({ param, onEdit, onDelete }: {
   param: UebungParam;
   onEdit: () => void;
   onDelete: () => void;
@@ -134,7 +134,7 @@ const chip = StyleSheet.create({
 
 type AddMode = null | 'picking' | UebungParamTyp;
 
-function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubmit, onCancel }: {
+export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubmit, onCancel }: {
   phase: Phase;
   phaseColor: string;
   initialUebung?: EinheitUebung;
@@ -451,7 +451,7 @@ const form = StyleSheet.create({
 type Phases = Record<Phase, EinheitUebung[]>;
 
 export default function EinheitDetailScreen({ navigation, route }: Props) {
-  const { planId, wocheId, einheitId } = route.params;
+  const { planId, wocheId, einheitId, datum } = route.params;
   const { getPlanById, saveEinheit } = usePlanStore();
   const { addUebung: saveUebToLib } = useUebungStore();
   const { uebungen: uebungLib } = useUebungStore();
@@ -527,6 +527,7 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
       warmup: phases.warmup,
       haupteinheit: phases.haupteinheit,
       cooldown: phases.cooldown,
+      datum: existing?.datum ?? datum,
     };
     if (saveEinheitLib) {
       const { id: _id, ...tpl } = einheit;
