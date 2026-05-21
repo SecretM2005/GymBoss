@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { TrainingsPlan, PlanWoche } from '../types';
+import { TrainingsPlan, Einheit } from '../types';
 
 const INITIAL_PLAENE: TrainingsPlan[] = [
   {
@@ -11,9 +11,9 @@ const INITIAL_PLAENE: TrainingsPlan[] = [
     trainerId: 't1',
     startdatum: '01.05.2026',
     wochen: [
-      { id: 'w1', wochennummer: 1, notizen: 'Eingewöhnung & Technik', workouts: [] },
-      { id: 'w2', wochennummer: 2, notizen: 'Volumen steigern', workouts: [] },
-      { id: 'w3', wochennummer: 3, notizen: '', workouts: [] },
+      { id: 'w1', wochennummer: 1, notizen: 'Eingewöhnung & Technik', einheiten: [] },
+      { id: 'w2', wochennummer: 2, notizen: 'Volumen steigern', einheiten: [] },
+      { id: 'w3', wochennummer: 3, notizen: '', einheiten: [] },
     ],
   },
   {
@@ -25,8 +25,8 @@ const INITIAL_PLAENE: TrainingsPlan[] = [
     trainerId: 't1',
     startdatum: '15.05.2026',
     wochen: [
-      { id: 'w4', wochennummer: 1, notizen: 'Ausdaueraufbau', workouts: [] },
-      { id: 'w5', wochennummer: 2, notizen: 'Technikfokus', workouts: [] },
+      { id: 'w4', wochennummer: 1, notizen: 'Ausdaueraufbau', einheiten: [] },
+      { id: 'w5', wochennummer: 2, notizen: 'Technikfokus', einheiten: [] },
     ],
   },
   {
@@ -54,7 +54,19 @@ type PlanState = {
   addWoche: (planId: string, notizen?: string) => string;
   updateWoche: (planId: string, wocheId: string, notizen: string) => void;
   deleteWoche: (planId: string, wocheId: string) => void;
+  // Einheit methods – saveEinheit handles both create and update
+  saveEinheit: (planId: string, wocheId: string, einheit: Einheit) => void;
+  deleteEinheit: (planId: string, wocheId: string, einheitId: string) => void;
 };
+
+const mapWoche = (planId: string, wocheId: string, fn: (e: Einheit[]) => Einheit[]) =>
+  (s: { plaene: TrainingsPlan[] }) => ({
+    plaene: s.plaene.map((p) =>
+      p.id === planId
+        ? { ...p, wochen: p.wochen.map((w) => w.id === wocheId ? { ...w, einheiten: fn(w.einheiten) } : w) }
+        : p
+    ),
+  });
 
 export const usePlanStore = create<PlanState>((set, get) => ({
   plaene: INITIAL_PLAENE,
@@ -66,9 +78,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   },
 
   updatePlan: (id, data) =>
-    set((s) => ({
-      plaene: s.plaene.map((p) => (p.id === id ? { ...p, ...data } : p)),
-    })),
+    set((s) => ({ plaene: s.plaene.map((p) => (p.id === id ? { ...p, ...data } : p)) })),
 
   deletePlan: (id) =>
     set((s) => ({ plaene: s.plaene.filter((p) => p.id !== id) })),
@@ -86,7 +96,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
     set((s) => ({
       plaene: s.plaene.map((p) =>
         p.id === planId
-          ? { ...p, wochen: [...p.wochen, { id, wochennummer, notizen, workouts: [] }] }
+          ? { ...p, wochen: [...p.wochen, { id, wochennummer, notizen, einheiten: [] }] }
           : p
       ),
     }));
@@ -115,4 +125,17 @@ export const usePlanStore = create<PlanState>((set, get) => ({
           : p
       ),
     })),
+
+  saveEinheit: (planId, wocheId, einheit) =>
+    set(mapWoche(planId, wocheId, (einheiten) => {
+      const exists = einheiten.some((e) => e.id === einheit.id);
+      return exists
+        ? einheiten.map((e) => (e.id === einheit.id ? einheit : e))
+        : [...einheiten, einheit];
+    })),
+
+  deleteEinheit: (planId, wocheId, einheitId) =>
+    set(mapWoche(planId, wocheId, (einheiten) =>
+      einheiten.filter((e) => e.id !== einheitId)
+    )),
 }));
