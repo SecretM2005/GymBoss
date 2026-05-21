@@ -22,26 +22,36 @@ export type Trainer = {
 
 export type Phase = 'warmup' | 'haupteinheit' | 'cooldown';
 
-export type UebungParams = {
-  saetze?: number;
-  wiederholungen?: number;
-  dauer?: number;       // seconds
-  pause?: number;       // seconds – rest between reps within a set
-  serienpause?: number; // seconds – rest between sets
+export type UebungParamTyp =
+  | 'serien'
+  | 'wiederholungen'
+  | 'gewicht'
+  | 'distanz'
+  | 'dauer'
+  | 'pause'
+  | 'serienpause';
+
+export type UebungParam = {
+  typ: UebungParamTyp;
+  wert: string;         // raw value, e.g. "3", "6-8", "80", "400"
+  einheit?: string;     // e.g. "kg", "m", "s", "min"
+  bezeichnung?: string; // custom label for pause, e.g. "Trabpause"
 };
 
 export type UebungTemplate = {
   id: string;
   name: string;
   beschreibung?: string;
-} & UebungParams;
+  parameter: UebungParam[];
+};
 
 // An exercise instance inside a phase of an Einheit
 export type EinheitUebung = {
   id: string;
   name: string;
   templateId?: string; // set when imported from UebungTemplate library
-} & UebungParams;
+  parameter: UebungParam[];
+};
 
 // ─── Training Units ───────────────────────────────────────────────────────────
 
