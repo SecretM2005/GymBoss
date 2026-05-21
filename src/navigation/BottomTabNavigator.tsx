@@ -5,7 +5,7 @@ import { BottomTabParamList } from '../types';
 import { C } from '../theme';
 
 import DashboardScreen   from '../screens/dashboard/DashboardScreen';
-import PlaeneScreen      from '../screens/plaene/PlaeneScreen';
+import PlaeneNavigator   from './PlaeneNavigator';
 import SportlerNavigator from './SportlerNavigator';
 import MehrScreen        from '../screens/mehr/MehrScreen';
 
@@ -43,7 +43,7 @@ export default function BottomTabNavigator() {
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen}   options={{ title: 'Home' }} />
-      <Tab.Screen name="Plaene"    component={PlaeneScreen}      options={{ title: 'Pläne' }} />
+      <Tab.Screen name="Plaene"    component={PlaeneNavigator}   options={{ title: 'Pläne' }} />
       <Tab.Screen name="Sportler"  component={SportlerNavigator} options={{ title: 'Sportler' }} />
       <Tab.Screen name="Mehr"      component={MehrScreen}        options={{ title: 'Mehr' }} />
     </Tab.Navigator>

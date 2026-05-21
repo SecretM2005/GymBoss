@@ -51,10 +51,10 @@ export type TrainingsPlan = {
   id: string;
   name: string;
   beschreibung?: string;
-  ziel?: string;
-  sportlerId: string;
+  sportart?: string;
+  sportlerIds: string[];
   trainerId: string;
-  startdatum: string;
+  startdatum?: string;
   wochen: PlanWoche[];
 };
 
@@ -90,7 +90,7 @@ export type SportlerStackParamList = {
 
 export type PlaeneStackParamList = {
   PlanList: undefined;
+  PlanDetail: { planId: string };
   PlanForm: { planId?: string };
-  PlanWoche: { planId: string; wocheId: string };
-  PlanWorkout: { planId: string; wocheId: string; workoutId?: string; wochentag?: Wochentag };
+  PlanWocheForm: { planId: string; wocheId?: string };
 };

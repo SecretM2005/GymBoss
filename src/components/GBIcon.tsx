@@ -32,6 +32,8 @@ const MAP: Record<string, IoniconsName> = {
   close:        'close-outline',
   play:         'play',
   bolt:         'flash-outline',
+  list:         'list-outline',
+  layers:       'layers-outline',
 };
 
 type Props = {

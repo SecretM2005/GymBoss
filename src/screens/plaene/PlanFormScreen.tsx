@@ -1,0 +1,269 @@
+import React, { useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TextInput,
+  TouchableOpacity, Alert, KeyboardAvoidingView, Platform,
+} from 'react-native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PlaeneStackParamList } from '../../types';
+import { usePlanStore } from '../../store/planStore';
+import { useAthletenStore } from '../../store/athletenStore';
+import GBAvatar from '../../components/GBAvatar';
+import { GBIcon } from '../../components/GBIcon';
+import { C, SP, R, FONT } from '../../theme';
+
+type Props = {
+  navigation: StackNavigationProp<PlaeneStackParamList, 'PlanForm'>;
+  route: RouteProp<PlaeneStackParamList, 'PlanForm'>;
+};
+
+const SPORTARTEN = ['Kraftsport', 'Kampfsport', 'Leichtathletik', 'Konditionierung', 'Mobility', 'Crossfit', 'Andere'] as const;
+
+type Form = {
+  name: string;
+  sportart: string;
+  beschreibung: string;
+  startdatum: string;
+};
+
+export default function PlanFormScreen({ navigation, route }: Props) {
+  const { getPlanById, addPlan, updatePlan, deletePlan } = usePlanStore();
+  const { sportler } = useAthletenStore();
+
+  const isEdit = !!route.params?.planId;
+  const existing = isEdit ? getPlanById(route.params.planId!) : undefined;
+
+  const [form, setForm] = useState<Form>(
+    existing
+      ? {
+          name:        existing.name,
+          sportart:    existing.sportart ?? 'Kraftsport',
+          beschreibung: existing.beschreibung ?? '',
+          startdatum:  existing.startdatum ?? '',
+        }
+      : { name: '', sportart: 'Kraftsport', beschreibung: '', startdatum: '' }
+  );
+  const [selectedSportler, setSelectedSportler] = useState<Set<string>>(
+    new Set(existing?.sportlerIds ?? [])
+  );
+  const [errors, setErrors] = useState<Partial<Record<keyof Form, string>>>({});
+
+  const set = (key: keyof Form, val: string) => {
+    setForm((f) => ({ ...f, [key]: val }));
+    if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
+  };
+
+  const toggleSportler = (id: string) => {
+    setSelectedSportler((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const validate = () => {
+    const e: Partial<Record<keyof Form, string>> = {};
+    if (!form.name.trim()) e.name = 'Name ist erforderlich';
+    setErrors(e);
+    return !Object.keys(e).length;
+  };
+
+  const handleSave = () => {
+    if (!validate()) return;
+    const data = {
+      name:        form.name.trim(),
+      sportart:    form.sportart || undefined,
+      beschreibung: form.beschreibung.trim() || undefined,
+      startdatum:  form.startdatum.trim() || undefined,
+      sportlerIds: Array.from(selectedSportler),
+      trainerId:   't1',
+    };
+    if (isEdit && existing) updatePlan(existing.id, data);
+    else addPlan(data);
+    navigation.goBack();
+  };
+
+  const handleDelete = () => {
+    if (!existing) return;
+    Alert.alert('Plan löschen', `„${existing.name}" wirklich löschen?`, [
+      { text: 'Abbrechen', style: 'cancel' },
+      { text: 'Löschen', style: 'destructive', onPress: () => { deletePlan(existing.id); navigation.popToTop(); } },
+    ]);
+  };
+
+  return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={[styles.root, { paddingTop: useSafeAreaInsets().top }]}>
+        {/* Top Bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
+            <GBIcon name="chevronLeft" size={22} color={C.text} />
+          </TouchableOpacity>
+          <View style={styles.topCenter}>
+            <Text style={styles.topSub}>{isEdit ? 'Bearbeiten' : 'Neuer Plan'}</Text>
+            <Text style={styles.topTitle} numberOfLines={1}>{form.name.trim() || '—'}</Text>
+          </View>
+          <TouchableOpacity onPress={handleSave} style={styles.saveBtn} activeOpacity={0.8}>
+            <Text style={styles.saveBtnText}>Speichern</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+
+          {/* Name */}
+          <Field label="Planname" required error={errors.name}>
+            <TextInput
+              style={[styles.input, errors.name && styles.inputError]}
+              value={form.name}
+              onChangeText={(v) => set('name', v)}
+              placeholder="z. B. Kraftaufbau Basis"
+              placeholderTextColor={C.textDim}
+              autoCapitalize="words"
+            />
+          </Field>
+
+          {/* Sportart */}
+          <Field label="Sportart">
+            <View style={styles.chipRow}>
+              {SPORTARTEN.map((s) => {
+                const active = form.sportart === s;
+                return (
+                  <TouchableOpacity
+                    key={s}
+                    onPress={() => set('sportart', s)}
+                    style={[styles.sportChip, active && styles.sportChipActive]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.sportChipText, active && styles.sportChipTextActive]}>{s}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Field>
+
+          {/* Beschreibung */}
+          <Field label="Beschreibung">
+            <TextInput
+              style={[styles.input, styles.inputMulti]}
+              value={form.beschreibung}
+              onChangeText={(v) => set('beschreibung', v)}
+              placeholder="Kurze Beschreibung des Plans…"
+              placeholderTextColor={C.textDim}
+              autoCapitalize="sentences"
+              multiline
+              numberOfLines={3}
+            />
+          </Field>
+
+          {/* Startdatum */}
+          <Field label="Startdatum">
+            <TextInput
+              style={styles.input}
+              value={form.startdatum}
+              onChangeText={(v) => set('startdatum', v)}
+              placeholder="TT.MM.JJJJ"
+              placeholderTextColor={C.textDim}
+              keyboardType="numbers-and-punctuation"
+            />
+          </Field>
+
+          {/* Sportler */}
+          <Field label="Sportler zuweisen">
+            {sportler.length === 0 ? (
+              <View style={styles.emptyAthletes}>
+                <Text style={styles.emptyAthletesText}>Noch keine Sportler angelegt</Text>
+              </View>
+            ) : (
+              <View style={styles.athleteList}>
+                {sportler.map((sp) => {
+                  const selected = selectedSportler.has(sp.id);
+                  return (
+                    <TouchableOpacity
+                      key={sp.id}
+                      style={[styles.athleteRow, selected && styles.athleteRowSelected]}
+                      onPress={() => toggleSportler(sp.id)}
+                      activeOpacity={0.75}
+                    >
+                      <GBAvatar name={sp.name} initials={sp.initials} size={38} />
+                      <View style={styles.athleteInfo}>
+                        <Text style={styles.athleteName}>{sp.name}</Text>
+                        {sp.sportart && <Text style={styles.athleteSport}>{sp.sportart}</Text>}
+                      </View>
+                      <View style={[styles.checkBox, selected && styles.checkBoxSelected]}>
+                        {selected && <GBIcon name="check" size={14} color={C.accentContrast} />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </Field>
+
+          {/* Delete */}
+          {isEdit && (
+            <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn} activeOpacity={0.8}>
+              <GBIcon name="trash" size={18} color={C.warn} />
+              <Text style={styles.deleteBtnText}>Plan löschen</Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={{ height: 60 }} />
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.fieldGroup}>
+      <Text style={styles.fieldLabel}>{label}{required && <Text style={{ color: C.accent }}> *</Text>}</Text>
+      {children}
+      {error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.bg },
+
+  topBar:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SP.xl, paddingBottom: SP.md, paddingTop: SP.sm, gap: SP.md },
+  backBtn:      { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
+  topCenter:    { flex: 1 },
+  topSub:       { fontSize: 11, color: C.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.2 },
+  topTitle:     { fontSize: 20, fontWeight: '700', color: C.text, letterSpacing: -0.4 },
+  saveBtn:      { backgroundColor: C.accent, paddingHorizontal: SP.md, paddingVertical: SP.sm - 1, borderRadius: R.full },
+  saveBtnText:  { fontSize: FONT.sm, fontWeight: '700', color: C.accentContrast },
+
+  content: { paddingHorizontal: SP.xl, paddingTop: SP.lg, gap: SP.xl },
+
+  fieldGroup: { gap: SP.xs + 2 },
+  fieldLabel: { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1.4 },
+  errorText:  { fontSize: FONT.xs, color: C.warn, marginTop: 2 },
+
+  input:       { backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: SP.lg, paddingVertical: SP.md, fontSize: FONT.base, color: C.text },
+  inputError:  { borderColor: C.warn },
+  inputMulti:  { minHeight: 80, textAlignVertical: 'top' },
+
+  chipRow:           { flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm },
+  sportChip:         { paddingHorizontal: SP.md, paddingVertical: SP.sm, borderRadius: R.full, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surface },
+  sportChipActive:   { borderColor: C.accent, backgroundColor: 'rgba(203,255,62,0.10)' },
+  sportChipText:     { fontSize: FONT.sm, fontWeight: '600', color: C.textSub },
+  sportChipTextActive: { color: C.accent },
+
+  athleteList:         { gap: SP.sm },
+  athleteRow:          { flexDirection: 'row', alignItems: 'center', gap: SP.md, backgroundColor: C.surface, borderRadius: R.lg, padding: SP.md, borderWidth: 1, borderColor: C.border },
+  athleteRowSelected:  { borderColor: C.accent, backgroundColor: 'rgba(203,255,62,0.06)' },
+  athleteInfo:         { flex: 1 },
+  athleteName:         { fontSize: FONT.base, fontWeight: '600', color: C.text },
+  athleteSport:        { fontSize: FONT.xs, color: C.textMuted, marginTop: 2 },
+  checkBox:            { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  checkBoxSelected:    { borderColor: C.accent, backgroundColor: C.accent },
+
+  emptyAthletes:     { backgroundColor: C.surface, borderRadius: R.md, borderWidth: 1, borderColor: C.border, padding: SP.lg, alignItems: 'center' },
+  emptyAthletesText: { fontSize: FONT.sm, color: C.textDim, fontStyle: 'italic' },
+
+  deleteBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.lg, borderRadius: R.lg, borderWidth: 1, borderColor: 'rgba(255,106,61,0.25)', backgroundColor: 'rgba(255,106,61,0.06)', marginTop: SP.sm },
+  deleteBtnText: { fontSize: FONT.base, fontWeight: '600', color: C.warn },
+});
