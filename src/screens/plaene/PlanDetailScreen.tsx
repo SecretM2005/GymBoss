@@ -164,19 +164,28 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
                   key={woche.id}
                   style={styles.wocheCard}
                   activeOpacity={0.75}
-                  onPress={() => navigation.navigate('PlanWocheForm', { planId: plan.id, wocheId: woche.id })}
+                  onPress={() => navigation.navigate('PlanWocheDetail', { planId: plan.id, wocheId: woche.id })}
                 >
                   <View style={styles.wocheStripe} />
                   <View style={styles.wocheBody}>
                     <View style={styles.wocheTop}>
                       <Text style={styles.wocheTitle}>Woche {woche.wochennummer}</Text>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteWoche(woche.id, woche.wochennummer)}
-                        style={styles.wocheDeleteBtn}
-                        activeOpacity={0.7}
-                      >
-                        <GBIcon name="trash" size={15} color={C.warn} />
-                      </TouchableOpacity>
+                      <View style={styles.wocheActions}>
+                        <TouchableOpacity
+                          onPress={() => navigation.navigate('PlanWocheForm', { planId: plan.id, wocheId: woche.id })}
+                          style={styles.wocheEditBtn}
+                          activeOpacity={0.7}
+                        >
+                          <GBIcon name="edit" size={14} color={C.textMuted} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteWoche(woche.id, woche.wochennummer)}
+                          style={styles.wocheDeleteBtn}
+                          activeOpacity={0.7}
+                        >
+                          <GBIcon name="trash" size={15} color={C.warn} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                     {woche.notizen ? (
                       <Text style={styles.wocheNotiz}>{woche.notizen}</Text>
@@ -184,7 +193,9 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
                       <Text style={styles.wocheNotizEmpty}>Keine Notizen</Text>
                     )}
                     <View style={styles.wocheBadge}>
-                      <Text style={styles.wocheBadgeText}>0 Einheiten</Text>
+                      <Text style={styles.wocheBadgeText}>
+                        {woche.einheiten.length} {woche.einheiten.length === 1 ? 'Einheit' : 'Einheiten'}
+                      </Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -264,6 +275,8 @@ const styles = StyleSheet.create({
   wocheBody:      { flex: 1, padding: SP.lg, gap: SP.sm },
   wocheTop:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   wocheTitle:     { fontSize: FONT.md, fontWeight: '700', color: C.text, letterSpacing: -0.2 },
+  wocheActions:   { flexDirection: 'row', gap: 6 },
+  wocheEditBtn:   { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   wocheDeleteBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,106,61,0.10)', alignItems: 'center', justifyContent: 'center' },
   wocheNotiz:     { fontSize: FONT.sm, color: C.textSub },
   wocheNotizEmpty: { fontSize: FONT.sm, color: C.textDim, fontStyle: 'italic' },

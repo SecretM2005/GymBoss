@@ -18,33 +18,52 @@ export type Trainer = {
   spec?: string;
 };
 
+// ─── Exercise Library ─────────────────────────────────────────────────────────
+
+export type Phase = 'warmup' | 'haupteinheit' | 'cooldown';
+
+export type UebungParams = {
+  saetze?: number;
+  wiederholungen?: number;
+  dauer?: number;       // seconds
+  pause?: number;       // seconds – rest between reps within a set
+  serienpause?: number; // seconds – rest between sets
+};
+
+export type UebungTemplate = {
+  id: string;
+  name: string;
+  beschreibung?: string;
+} & UebungParams;
+
+// An exercise instance inside a phase of an Einheit
+export type EinheitUebung = {
+  id: string;
+  name: string;
+  templateId?: string; // set when imported from UebungTemplate library
+} & UebungParams;
+
+// ─── Training Units ───────────────────────────────────────────────────────────
+
+export type EinheitTemplate = {
+  id: string;
+  name: string;
+  warmup: EinheitUebung[];
+  haupteinheit: EinheitUebung[];
+  cooldown: EinheitUebung[];
+};
+
+export type Einheit = EinheitTemplate & {
+  templateId?: string; // set when imported from EinheitTemplate library
+};
+
 // ─── Training Plans ──────────────────────────────────────────────────────────
-
-export type Wochentag = 'Mo' | 'Di' | 'Mi' | 'Do' | 'Fr' | 'Sa' | 'So';
-
-export type PlanUebung = {
-  id: string;
-  name: string;
-  saetze: number;
-  wiederholungen: number;
-  gewicht?: number;
-  pause: number;
-  notizen?: string;
-};
-
-export type PlanWorkout = {
-  id: string;
-  name: string;
-  wochentag: Wochentag;
-  typ: string;
-  uebungen: PlanUebung[];
-};
 
 export type PlanWoche = {
   id: string;
   wochennummer: number;
   notizen?: string;
-  workouts: PlanWorkout[];
+  einheiten: Einheit[];
 };
 
 export type TrainingsPlan = {
@@ -93,4 +112,6 @@ export type PlaeneStackParamList = {
   PlanDetail: { planId: string };
   PlanForm: { planId?: string };
   PlanWocheForm: { planId: string; wocheId?: string };
+  PlanWocheDetail: { planId: string; wocheId: string };
+  EinheitDetail: { planId: string; wocheId: string; einheitId?: string };
 };
