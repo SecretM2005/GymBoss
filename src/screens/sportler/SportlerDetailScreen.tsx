@@ -7,7 +7,7 @@ import {
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SportlerStackParamList } from '../../types';
+import { SportlerStackParamList, TrainingsPlan, Einheit } from '../../types';
 import { useAthletenStore } from '../../store/athletenStore';
 import { usePlanStore } from '../../store/planStore';
 import GBAvatar from '../../components/GBAvatar';
@@ -32,11 +32,49 @@ const SPORTART_COLORS: Record<string, { bg: string; fg: string; dot: string }> =
   'Crossfit':        { bg: 'rgba(122,229,130,0.14)', fg: '#7AE582', dot: '#7AE582' },
 };
 
+const MONATE_KURZ = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const WOCHENTAGE_LANG = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+
 function makeInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return '?';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function parseDatum(str: string): Date | null {
+  const parts = str.split('.');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  }
+  return null;
+}
+
+function getWocheIdForDate(plan: TrainingsPlan, year: number, month: number, day: number): string | null {
+  if (plan.wochen.length === 0) return null;
+  if (plan.wochen.length === 1) return plan.wochen[0].id;
+  if (plan.startdatum) {
+    const start = parseDatum(plan.startdatum);
+    if (start) {
+      const target = new Date(year, month, day);
+      const diffDays = Math.floor((target.getTime() - start.getTime()) / 86400000);
+      if (diffDays >= 0) {
+        const wocheNr = Math.floor(diffDays / 7) + 1;
+        const woche = plan.wochen.find((w) => w.wochennummer === wocheNr);
+        if (woche) return woche.id;
+      }
+    }
+  }
+  return plan.wochen[0].id;
+}
+
+function isoDate(year: number, month: number, day: number): string {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function formatDay(iso: string): string {
+  const d = new Date(iso);
+  return `${WOCHENTAGE_LANG[(d.getDay() + 6) % 7]}, ${d.getDate()}. ${MONATE_KURZ[d.getMonth()]}`;
 }
 
 type Form = { name: string; alter: string; sportart: string; ziel: string };
@@ -53,10 +91,11 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
     sportart: sportler?.sportart ?? 'Kraftsport',
     ziel:     sportler?.ziel ?? '',
   });
-  const [errors, setErrors] = useState<Partial<Record<keyof Form, string>>>({});
-  const [saved, setSaved]   = useState(false);
+  const [errors, setErrors]     = useState<Partial<Record<keyof Form, string>>>({});
+  const [saved, setSaved]       = useState(false);
   const [calYear, setCalYear]   = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [selectedIso, setSelectedIso] = useState<string | null>(null);
 
   if (!sportler) {
     navigation.goBack();
@@ -65,7 +104,6 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
 
   const plaene = getPlaeneForSportler(sportler.id);
 
-  // Compute real marked days from all plans' einheiten with datum
   const markedDays = useMemo(() => {
     const days = new Set<number>();
     plaene.forEach((plan) => {
@@ -80,6 +118,59 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
     });
     return days;
   }, [plaene, calYear, calMonth]);
+
+  const dayEinheiten = useMemo((): Array<{ einheit: Einheit; wocheId: string; plan: TrainingsPlan }> => {
+    if (!selectedIso) return [];
+    const result: Array<{ einheit: Einheit; wocheId: string; plan: TrainingsPlan }> = [];
+    plaene.forEach((plan) => {
+      plan.wochen.forEach((w) => {
+        w.einheiten.forEach((e) => {
+          if (e.datum === selectedIso) result.push({ einheit: e, wocheId: w.id, plan });
+        });
+      });
+    });
+    return result;
+  }, [plaene, selectedIso]);
+
+  const handleDayPress = (year: number, month: number, day: number) => {
+    const iso = isoDate(year, month, day);
+    setSelectedIso((prev) => (prev === iso ? null : iso));
+  };
+
+  const handleAddOnDay = () => {
+    if (!selectedIso) return;
+    if (plaene.length === 0) {
+      Alert.alert('Kein Plan', 'Dem Sportler ist kein Trainingsplan zugewiesen.');
+      return;
+    }
+
+    const addToPlan = (plan: TrainingsPlan) => {
+      const [yr, mo, dy] = selectedIso.split('-').map(Number);
+      const wocheId = getWocheIdForDate(plan, yr, mo - 1, dy);
+      if (!wocheId) {
+        Alert.alert('Keine Woche', `„${plan.name}" hat noch keine Trainingswochen. Lege dort zuerst eine Woche an.`);
+        return;
+      }
+      // Cross-navigator navigation to PlaeneNavigator's EinheitDetail
+      navigation.getParent<any>()?.navigate('Plaene', {
+        screen: 'EinheitDetail',
+        params: { planId: plan.id, wocheId, datum: selectedIso },
+      });
+    };
+
+    if (plaene.length === 1) {
+      addToPlan(plaene[0]);
+    } else {
+      Alert.alert(
+        'Zu welchem Plan?',
+        'Wähle den Trainingsplan für diese Einheit:',
+        [
+          ...plaene.map((plan) => ({ text: plan.name, onPress: () => addToPlan(plan) })),
+          { text: 'Abbrechen', style: 'cancel' as const },
+        ],
+      );
+    }
+  };
 
   const set = (key: keyof Form, val: string) => {
     setForm((f) => ({ ...f, [key]: val }));
@@ -216,11 +307,72 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
 
           {/* ── Trainingskalender ── */}
           <SectionHead>Trainingskalender</SectionHead>
+
           <MonthCalendar
             markedDays={markedDays}
             legendLabel="Einheit geplant"
-            onMonthChange={(y, m) => { setCalYear(y); setCalMonth(m); }}
+            onDayPress={plaene.length > 0 ? handleDayPress : undefined}
+            selectedIso={selectedIso}
+            onMonthChange={(y, m) => { setCalYear(y); setCalMonth(m); setSelectedIso(null); }}
           />
+
+          {/* Day detail panel */}
+          {selectedIso && (
+            <View style={styles.dayPanel}>
+              <View style={styles.dayPanelHeader}>
+                <Text style={styles.dayPanelTitle}>{formatDay(selectedIso)}</Text>
+                <TouchableOpacity style={styles.dayAddBtn} onPress={handleAddOnDay} activeOpacity={0.8}>
+                  <GBIcon name="plus" size={16} color={C.accentContrast} />
+                  <Text style={styles.dayAddBtnText}>Einheit</Text>
+                </TouchableOpacity>
+              </View>
+
+              {dayEinheiten.length === 0 ? (
+                <View style={styles.dayEmpty}>
+                  <Text style={styles.dayEmptyText}>Keine Einheiten an diesem Tag</Text>
+                </View>
+              ) : (
+                dayEinheiten.map(({ einheit, wocheId, plan }) => {
+                  const override = einheit.sportlerOverrides?.[sportler.id];
+                  const display = override ? { ...einheit, ...override } : einheit;
+                  const hasSuffix = display.haupteinheit[0]?.parameter.length > 0;
+                  return (
+                    <View key={einheit.id} style={styles.dayEinheitCard}>
+                      <View style={styles.dayEinheitLeft}>
+                        <View style={styles.dayEinheitDot} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.dayEinheitName}>
+                            {display.name}
+                            {override && <Text style={styles.overrideMark}> ✎</Text>}
+                          </Text>
+                          <Text style={styles.dayPlanLabel}>{plan.name}</Text>
+                          {hasSuffix && (
+                            <Text style={styles.dayEinheitSub} numberOfLines={1}>
+                              {buildSuffix(display.haupteinheit[0].parameter)}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.dayEditBtn}
+                        activeOpacity={0.7}
+                        onPress={() =>
+                          navigation.navigate('SportlerEinheitDetail', {
+                            planId: plan.id,
+                            wocheId,
+                            einheitId: einheit.id,
+                            sportlerId: sportler.id,
+                          })
+                        }
+                      >
+                        <GBIcon name="edit" size={14} color={C.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          )}
 
           {/* ── Aktive Pläne ── */}
           <SectionHead>Aktive Pläne</SectionHead>
@@ -365,6 +517,22 @@ const styles = StyleSheet.create({
   sportartChipActive: { borderColor: C.accent, backgroundColor: 'rgba(203,255,62,0.10)' },
   sportartChipText: { fontSize: FONT.sm, fontWeight: '600', color: C.textSub },
   sportartChipTextActive: { color: C.accent },
+
+  dayPanel:       { backgroundColor: C.surface, borderRadius: R.xl, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  dayPanelHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  dayPanelTitle:  { fontSize: FONT.base, fontWeight: '700', color: C.text },
+  dayAddBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.accent, paddingHorizontal: SP.md, paddingVertical: SP.sm - 1, borderRadius: R.full },
+  dayAddBtnText:  { fontSize: FONT.xs, fontWeight: '700', color: C.accentContrast },
+  dayEmpty:       { padding: SP.lg, alignItems: 'center' },
+  dayEmptyText:   { fontSize: FONT.sm, color: C.textDim, fontStyle: 'italic' },
+  dayEinheitCard: { flexDirection: 'row', alignItems: 'center', padding: SP.md, borderBottomWidth: 1, borderBottomColor: C.border, gap: SP.sm },
+  dayEinheitLeft: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: SP.sm },
+  dayEinheitDot:  { width: 7, height: 7, borderRadius: 4, backgroundColor: C.accent, marginTop: 5, flexShrink: 0 },
+  dayEinheitName: { fontSize: FONT.base, fontWeight: '600', color: C.text },
+  dayPlanLabel:   { fontSize: 10, fontWeight: '600', color: C.textMuted, marginTop: 1 },
+  dayEinheitSub:  { fontFamily: FONT_MONO, fontSize: 11, color: C.textMuted, marginTop: 2 },
+  dayEditBtn:     { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  overrideMark:   { color: C.accent },
 
   emptyPlans:     { backgroundColor: C.surface, borderRadius: R.xl, borderWidth: 1, borderColor: C.border, padding: SP.xl, alignItems: 'center', gap: SP.sm },
   emptyPlansText: { fontSize: FONT.sm, color: C.textDim, fontStyle: 'italic' },
