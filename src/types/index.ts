@@ -84,6 +84,7 @@ export type BottomTabParamList = {
 
 export type SportlerStackParamList = {
   SportlerList: undefined;
+  SportlerDetail: { sportlerId: string };
   SportlerForm: { sportlerId?: string };
 };
 

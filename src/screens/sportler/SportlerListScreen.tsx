@@ -112,7 +112,7 @@ export default function SportlerListScreen({ navigation }: Props) {
             key={sp.id}
             style={styles.card}
             activeOpacity={0.75}
-            onPress={() => navigation.navigate('SportlerForm', { sportlerId: sp.id })}
+            onPress={() => navigation.navigate('SportlerDetail', { sportlerId: sp.id })}
           >
             <View style={styles.cardStripe} />
             <View style={styles.cardBody}>
