@@ -2,9 +2,9 @@ import { create } from 'zustand';
 import { Sportler } from '../types';
 
 const INITIAL_SPORTLER: Sportler[] = [
-  { id: 's1', name: 'Anna Berger',  initials: 'AB', alter: 28, sportart: 'Kraftsport',  ziel: 'Kraftaufbau' },
-  { id: 's2', name: 'Lukas Reiter', initials: 'LR', alter: 24, sportart: 'Kampfsport',  ziel: 'Wettkampfvorbereitung' },
-  { id: 's3', name: 'Sophie Kern',  initials: 'SK', alter: 31, sportart: 'Mobility',    ziel: 'Beweglichkeit & Regeneration' },
+  { id: 's1', name: 'Anna Berger',  initials: 'AB', geburtsdatum: '1998-03-15', sportart: 'Kraftsport',  ziel: 'Kraftaufbau' },
+  { id: 's2', name: 'Lukas Reiter', initials: 'LR', geburtsdatum: '2001-12-05', sportart: 'Kampfsport',  ziel: 'Wettkampfvorbereitung' },
+  { id: 's3', name: 'Sophie Kern',  initials: 'SK', geburtsdatum: '1994-08-22', sportart: 'Mobility',    ziel: 'Beweglichkeit & Regeneration' },
 ];
 
 let _uid = 100;

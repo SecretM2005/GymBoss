@@ -12,6 +12,7 @@ import { useAthletenStore } from '../../store/athletenStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import { C, SP, R, FONT } from '../../theme';
+import DatePickerField from '../../components/DatePickerField';
 
 type Props = {
   navigation: StackNavigationProp<SportlerStackParamList, 'SportlerForm'>;
@@ -20,7 +21,7 @@ type Props = {
 
 const SPORTARTEN = ['Kraftsport', 'Kampfsport', 'Leichtathletik', 'Konditionierung', 'Mobility', 'Crossfit', 'Andere'] as const;
 
-type Form = { name: string; alter: string; sportart: string; ziel: string };
+type Form = { name: string; geburtsdatum: string | null; sportart: string; ziel: string };
 
 function makeInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -37,21 +38,19 @@ export default function SportlerFormScreen({ navigation, route }: Props) {
 
   const [form, setForm] = useState<Form>(
     existing
-      ? { name: existing.name, alter: existing.alter != null ? String(existing.alter) : '', sportart: existing.sportart ?? 'Kraftsport', ziel: existing.ziel ?? '' }
-      : { name: '', alter: '', sportart: 'Kraftsport', ziel: '' }
+      ? { name: existing.name, geburtsdatum: existing.geburtsdatum ?? null, sportart: existing.sportart ?? 'Kraftsport', ziel: existing.ziel ?? '' }
+      : { name: '', geburtsdatum: null, sportart: 'Kraftsport', ziel: '' }
   );
-  const [errors, setErrors] = useState<Partial<Record<keyof Form, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<'name', string>>>({});
 
-  const set = (key: keyof Form, val: string) => {
+  const set = (key: keyof Form, val: string | null) => {
     setForm((f) => ({ ...f, [key]: val }));
-    if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
+    if (key === 'name' && errors.name) setErrors((e) => ({ ...e, name: undefined }));
   };
 
   const validate = () => {
-    const e: Partial<Record<keyof Form, string>> = {};
+    const e: Partial<Record<'name', string>> = {};
     if (!form.name.trim()) e.name = 'Name ist erforderlich';
-    if (form.alter && (isNaN(Number(form.alter)) || Number(form.alter) < 5 || Number(form.alter) > 99))
-      e.alter = 'Gültiges Alter (5–99)';
     setErrors(e);
     return !Object.keys(e).length;
   };
@@ -60,7 +59,7 @@ export default function SportlerFormScreen({ navigation, route }: Props) {
     if (!validate()) return;
     const data = {
       name: form.name.trim(),
-      alter: form.alter ? Number(form.alter) : undefined,
+      geburtsdatum: form.geburtsdatum ?? undefined,
       sportart: form.sportart || undefined,
       ziel: form.ziel.trim() || undefined,
     };
@@ -115,16 +114,11 @@ export default function SportlerFormScreen({ navigation, route }: Props) {
             />
           </Field>
 
-          {/* Alter */}
-          <Field label="Alter" error={errors.alter}>
-            <TextInput
-              style={[styles.input, errors.alter && styles.inputError]}
-              value={form.alter}
-              onChangeText={(v) => set('alter', v.replace(/\D/g, ''))}
-              placeholder="z. B. 24"
-              placeholderTextColor={C.textDim}
-              keyboardType="number-pad"
-              maxLength={2}
+          {/* Geburtsdatum */}
+          <Field label="Geburtsdatum">
+            <DatePickerField
+              value={form.geburtsdatum}
+              onChange={(iso) => set('geburtsdatum', iso)}
             />
           </Field>
 

@@ -6,7 +6,7 @@ export type Sportler = {
   id: string;
   name: string;
   initials: string;
-  alter?: number;
+  geburtsdatum?: string;
   sportart?: string;
   ziel?: string;
 };

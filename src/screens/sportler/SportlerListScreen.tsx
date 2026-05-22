@@ -22,6 +22,15 @@ const SPORTART_COLORS: Record<string, { bg: string; fg: string; dot: string }> =
   'Crossfit':        { bg: 'rgba(122,229,130,0.14)', fg: '#7AE582', dot: '#7AE582' },
 };
 
+function ageFromIso(iso?: string): number | null {
+  if (!iso) return null;
+  const b = new Date(iso);
+  const t = new Date();
+  let age = t.getFullYear() - b.getFullYear();
+  if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) age--;
+  return age;
+}
+
 function SportartChip({ sportart }: { sportart?: string }) {
   if (!sportart) return null;
   const c = SPORTART_COLORS[sportart] ?? { bg: 'rgba(255,255,255,0.08)', fg: C.textMuted, dot: C.textDim };
@@ -121,8 +130,8 @@ export default function SportlerListScreen({ navigation }: Props) {
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardName}>{sp.name}</Text>
                   <View style={styles.cardMeta}>
-                    {sp.alter != null && (
-                      <Text style={styles.cardAge}>{sp.alter} J.</Text>
+                    {sp.geburtsdatum != null && (
+                      <Text style={styles.cardAge}>{ageFromIso(sp.geburtsdatum)} J.</Text>
                     )}
                     <SportartChip sportart={sp.sportart} />
                   </View>
