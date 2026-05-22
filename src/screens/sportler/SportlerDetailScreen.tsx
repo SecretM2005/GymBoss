@@ -14,6 +14,7 @@ import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import MonthCalendar from '../../components/MonthCalendar';
 import { buildSuffix } from '../plaene/EinheitDetailScreen';
+import DatePickerField from '../../components/DatePickerField';
 import { C, SP, R, FONT, FONT_MONO } from '../../theme';
 
 type Props = {
@@ -68,6 +69,15 @@ function getWocheIdForDate(plan: TrainingsPlan, year: number, month: number, day
   return plan.wochen[0].id;
 }
 
+function ageFromIso(iso?: string | null): number | null {
+  if (!iso) return null;
+  const b = new Date(iso);
+  const t = new Date();
+  let age = t.getFullYear() - b.getFullYear();
+  if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) age--;
+  return age;
+}
+
 function isoDate(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
@@ -77,7 +87,7 @@ function formatDay(iso: string): string {
   return `${WOCHENTAGE_LANG[(d.getDay() + 6) % 7]}, ${d.getDate()}. ${MONATE_KURZ[d.getMonth()]}`;
 }
 
-type Form = { name: string; alter: string; sportart: string; ziel: string };
+type Form = { name: string; geburtsdatum: string | null; sportart: string; ziel: string };
 
 export default function SportlerDetailScreen({ navigation, route }: Props) {
   const { getSportlerById, updateSportler, deleteSportler } = useAthletenStore();
@@ -86,12 +96,12 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
 
   const [form, setForm] = useState<Form>({
-    name:     sportler?.name ?? '',
-    alter:    sportler?.alter != null ? String(sportler.alter) : '',
-    sportart: sportler?.sportart ?? 'Kraftsport',
-    ziel:     sportler?.ziel ?? '',
+    name:         sportler?.name ?? '',
+    geburtsdatum: sportler?.geburtsdatum ?? null,
+    sportart:     sportler?.sportart ?? 'Kraftsport',
+    ziel:         sportler?.ziel ?? '',
   });
-  const [errors, setErrors]     = useState<Partial<Record<keyof Form, string>>>({});
+  const [errors, setErrors]     = useState<Partial<Record<'name', string>>>({});
   const [saved, setSaved]       = useState(false);
   const [calYear, setCalYear]   = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -172,17 +182,15 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
     }
   };
 
-  const set = (key: keyof Form, val: string) => {
+  const set = (key: keyof Form, val: string | null) => {
     setForm((f) => ({ ...f, [key]: val }));
     setSaved(false);
-    if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
+    if (key === 'name' && errors.name) setErrors((e) => ({ ...e, name: undefined }));
   };
 
   const validate = () => {
-    const e: Partial<Record<keyof Form, string>> = {};
+    const e: Partial<Record<'name', string>> = {};
     if (!form.name.trim()) e.name = 'Name ist erforderlich';
-    if (form.alter && (isNaN(Number(form.alter)) || Number(form.alter) < 5 || Number(form.alter) > 99))
-      e.alter = 'Gültiges Alter (5–99)';
     setErrors(e);
     return !Object.keys(e).length;
   };
@@ -191,7 +199,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
     if (!validate()) return;
     updateSportler(sportler.id, {
       name: form.name.trim(),
-      alter: form.alter ? Number(form.alter) : undefined,
+      geburtsdatum: form.geburtsdatum ?? undefined,
       sportart: form.sportart || undefined,
       ziel: form.ziel.trim() || undefined,
     });
@@ -237,7 +245,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                   {form.name.trim() || '—'}
                 </Text>
                 <View style={styles.profileMeta}>
-                  {form.alter ? <Text style={styles.profileAge}>{form.alter} J.</Text> : null}
+                  {form.geburtsdatum ? <Text style={styles.profileAge}>{ageFromIso(form.geburtsdatum)} J.</Text> : null}
                   {form.sportart && (
                     <View style={[styles.chip, { backgroundColor: sc.bg }]}>
                       <View style={[styles.chipDot, { backgroundColor: sc.dot }]} />
@@ -264,15 +272,10 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
             />
           </Field>
 
-          <Field label="Alter" error={errors.alter}>
-            <TextInput
-              style={[styles.input, errors.alter && styles.inputError]}
-              value={form.alter}
-              onChangeText={(v) => set('alter', v.replace(/\D/g, ''))}
-              placeholder="z. B. 24"
-              placeholderTextColor={C.textDim}
-              keyboardType="number-pad"
-              maxLength={2}
+          <Field label="Geburtsdatum">
+            <DatePickerField
+              value={form.geburtsdatum}
+              onChange={(iso) => set('geburtsdatum', iso)}
             />
           </Field>
 
