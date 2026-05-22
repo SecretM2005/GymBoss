@@ -50,7 +50,16 @@ export type EinheitUebung = {
   id: string;
   name: string;
   templateId?: string; // set when imported from UebungTemplate library
+  typ?: 'kreis';       // undefined = single exercise, 'kreis' = circuit group
   parameter: UebungParam[];
+  kreisUebungen?: KreisUebung[]; // only when typ === 'kreis'
+};
+
+export type KreisUebung = {
+  id: string;
+  name: string;
+  wert: string;    // e.g. "30", "10"
+  einheit: string; // e.g. "Wdh", "s", "m"
 };
 
 // ─── Training Units ───────────────────────────────────────────────────────────

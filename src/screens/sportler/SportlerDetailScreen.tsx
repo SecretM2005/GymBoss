@@ -13,7 +13,7 @@ import { usePlanStore } from '../../store/planStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import MonthCalendar from '../../components/MonthCalendar';
-import { buildSuffix } from '../plaene/EinheitDetailScreen';
+import { buildUebSuffix } from '../plaene/EinheitDetailScreen';
 import DatePickerField from '../../components/DatePickerField';
 import { C, SP, R, FONT, FONT_MONO } from '../../theme';
 
@@ -338,7 +338,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                 dayEinheiten.map(({ einheit, wocheId, plan }) => {
                   const override = einheit.sportlerOverrides?.[sportler.id];
                   const display = override ? { ...einheit, ...override } : einheit;
-                  const hasSuffix = display.haupteinheit[0]?.parameter.length > 0;
+                  const hasSuffix = !!display.haupteinheit[0] && buildUebSuffix(display.haupteinheit[0]).length > 0;
                   return (
                     <View key={einheit.id} style={styles.dayEinheitCard}>
                       <View style={styles.dayEinheitLeft}>
@@ -351,7 +351,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                           <Text style={styles.dayPlanLabel}>{plan.name}</Text>
                           {hasSuffix && (
                             <Text style={styles.dayEinheitSub} numberOfLines={1}>
-                              {buildSuffix(display.haupteinheit[0].parameter)}
+                              {buildUebSuffix(display.haupteinheit[0])}
                             </Text>
                           )}
                         </View>
@@ -411,7 +411,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                       const override = einheit.sportlerOverrides?.[sportler.id];
                       const display = override ? { ...einheit, ...override } : einheit;
                       const totalEx = display.warmup.length + display.haupteinheit.length + display.cooldown.length;
-                      const hasSuffix = display.haupteinheit[0]?.parameter.length > 0;
+                      const hasSuffix = !!display.haupteinheit[0] && buildUebSuffix(display.haupteinheit[0]).length > 0;
 
                       return (
                         <View key={einheit.id} style={styles.einheitRow}>
@@ -424,7 +424,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                               </Text>
                               {hasSuffix ? (
                                 <Text style={styles.einheitParams} numberOfLines={1}>
-                                  {buildSuffix(display.haupteinheit[0].parameter)}
+                                  {buildUebSuffix(display.haupteinheit[0])}
                                 </Text>
                               ) : (
                                 <Text style={styles.einheitParams}>{totalEx} Übungen</Text>

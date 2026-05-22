@@ -12,7 +12,7 @@ import { useUebungStore } from '../../store/uebungStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import { GBIcon } from '../../components/GBIcon';
 import {
-  PHASE_CFG, PHASES, UebungForm, buildSuffix, newUebId,
+  PHASE_CFG, PHASES, UebungForm, buildUebSuffix, newUebId,
 } from '../plaene/EinheitDetailScreen';
 import { C, SP, R, FONT, FONT_MONO } from '../../theme';
 
@@ -148,8 +148,8 @@ export default function SportlerEinheitDetailScreen({ navigation, route }: Props
                     <View style={[styles.uebDot, { backgroundColor: cfg.color }]} />
                     <View style={styles.uebInfo}>
                       <Text style={styles.uebName}>{u.name}</Text>
-                      {u.parameter.length > 0 && (
-                        <Text style={styles.uebParams}>{buildSuffix(u.parameter)}</Text>
+                      {buildUebSuffix(u).length > 0 && (
+                        <Text style={styles.uebParams}>{buildUebSuffix(u)}</Text>
                       )}
                     </View>
                     <View style={styles.uebActions}>

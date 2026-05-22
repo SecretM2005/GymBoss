@@ -12,7 +12,7 @@ import { useAthletenStore } from '../../store/athletenStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import MonthCalendar from '../../components/MonthCalendar';
-import { buildSuffix } from './EinheitDetailScreen';
+import { buildUebSuffix } from './EinheitDetailScreen';
 import { C, SP, R, FONT, FONT_MONO } from '../../theme';
 
 type Props = {
@@ -343,7 +343,7 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
                           <Text style={styles.dayEinheitName}>{einheit.name}</Text>
                           {einheit.haupteinheit.length > 0 && (
                             <Text style={styles.dayEinheitSub} numberOfLines={1}>
-                              {buildSuffix(einheit.haupteinheit[0].parameter) || `${totalEx} Übungen`}
+                              {buildUebSuffix(einheit.haupteinheit[0]) || `${totalEx} Übungen`}
                             </Text>
                           )}
                         </View>
