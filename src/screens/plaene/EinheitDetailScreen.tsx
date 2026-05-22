@@ -8,7 +8,7 @@ import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   PlaeneStackParamList, Phase, EinheitUebung, EinheitTemplate,
-  UebungTemplate, Einheit, UebungParam, UebungParamTyp,
+  UebungTemplate, Einheit, UebungParam, UebungParamTyp, KreisUebung,
 } from '../../types';
 import { usePlanStore } from '../../store/planStore';
 import { useUebungStore } from '../../store/uebungStore';
@@ -24,29 +24,25 @@ type Props = {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 export const PHASE_CFG: Record<Phase, { label: string; color: string }> = {
-  warmup:       { label: 'Warm-up',     color: '#FF8A66' },
+  warmup:       { label: 'Warm-up',      color: '#FF8A66' },
   haupteinheit: { label: 'Haupteinheit', color: '#CBFF3E' },
-  cooldown:     { label: 'Cool-down',   color: '#7ABFFF' },
+  cooldown:     { label: 'Cool-down',    color: '#7ABFFF' },
 };
 export const PHASES: Phase[] = ['warmup', 'haupteinheit', 'cooldown'];
 
 type ParamCfg = {
-  label: string;
-  icon: string;
-  placeholder: string;
-  defaultUnit: string;
-  units: string[];
-  hasBez: boolean; // has custom "bezeichnung" field
+  label: string; icon: string; placeholder: string;
+  defaultUnit: string; units: string[]; hasBez: boolean;
 };
 
 export const PARAM_CFG: Record<UebungParamTyp, ParamCfg> = {
-  serien:         { label: 'Serien',         icon: 'layers',    placeholder: 'z.B. 3',    defaultUnit: '',    units: [],                  hasBez: false },
-  wiederholungen: { label: 'Wiederholungen', icon: 'repeat',    placeholder: 'z.B. 6-8',  defaultUnit: '',    units: [],                  hasBez: false },
-  gewicht:        { label: 'Gewicht',        icon: 'dumbbell',  placeholder: 'z.B. 80',   defaultUnit: 'kg',  units: ['kg', 'lbs'],       hasBez: false },
-  distanz:        { label: 'Distanz',        icon: 'flag',      placeholder: 'z.B. 400',  defaultUnit: 'm',   units: ['m', 'km', 'mi'],   hasBez: false },
-  dauer:          { label: 'Dauer',          icon: 'timer',     placeholder: 'z.B. 63',   defaultUnit: 's',   units: ['s', 'min', 'h'],   hasBez: false },
-  pause:          { label: 'Pause',          icon: 'clock',     placeholder: 'z.B. 30',   defaultUnit: 's',   units: ['s', 'min'],        hasBez: true  },
-  serienpause:    { label: 'Serienpause',    icon: 'stopwatch', placeholder: 'z.B. 120',  defaultUnit: 's',   units: ['s', 'min'],        hasBez: false },
+  serien:         { label: 'Serien',         icon: 'layers',    placeholder: 'z.B. 3',    defaultUnit: '',    units: [],               hasBez: false },
+  wiederholungen: { label: 'Wiederholungen', icon: 'repeat',    placeholder: 'z.B. 6-8',  defaultUnit: '',    units: [],               hasBez: false },
+  gewicht:        { label: 'Gewicht',        icon: 'dumbbell',  placeholder: 'z.B. 80',   defaultUnit: 'kg',  units: ['kg', 'lbs'],    hasBez: false },
+  distanz:        { label: 'Distanz',        icon: 'flag',      placeholder: 'z.B. 400',  defaultUnit: 'm',   units: ['m', 'km', 'mi'],hasBez: false },
+  dauer:          { label: 'Dauer',          icon: 'timer',     placeholder: 'z.B. 63',   defaultUnit: 's',   units: ['s', 'min', 'h'],hasBez: false },
+  pause:          { label: 'Pause',          icon: 'clock',     placeholder: 'z.B. 30',   defaultUnit: 's',   units: ['s', 'min'],     hasBez: true  },
+  serienpause:    { label: 'Serienpause',    icon: 'stopwatch', placeholder: 'z.B. 120',  defaultUnit: 's',   units: ['s', 'min'],     hasBez: false },
 };
 
 export const ALL_TYPES: UebungParamTyp[] = ['serien', 'wiederholungen', 'gewicht', 'distanz', 'dauer', 'pause', 'serienpause'];
@@ -77,6 +73,24 @@ export function buildSuffix(params: UebungParam[]): string {
   return innerStr;
 }
 
+export function buildKreisSuffix(ueb: EinheitUebung): string {
+  if (!ueb.kreisUebungen?.length) return '';
+  const serien = ueb.parameter.find(p => p.typ === 'serien');
+  const pause  = ueb.parameter.find(p => p.typ === 'pause');
+  const sp     = ueb.parameter.find(p => p.typ === 'serienpause');
+
+  const parts: string[] = [];
+  if (serien) parts.push(`${serien.wert}×`);
+  parts.push(ueb.kreisUebungen.map(ku => `${ku.wert} ${ku.einheit} ${ku.name}`).join(' → '));
+  if (pause) parts.push(`${pause.wert}${pause.einheit ?? 's'} Pause`);
+  if (sp)    parts.push(`${sp.wert}${sp.einheit ?? 'min'} Serienpause`);
+  return parts.join(' · ');
+}
+
+export function buildUebSuffix(ueb: EinheitUebung): string {
+  return ueb.typ === 'kreis' ? buildKreisSuffix(ueb) : buildSuffix(ueb.parameter);
+}
+
 export function buildPreview(name: string, params: UebungParam[]): string {
   if (!name.trim()) return '';
   const suffix = buildSuffix(params);
@@ -99,6 +113,8 @@ export function formatParamChip(p: UebungParam): string {
 
 let _euId = 1000;
 export const newUebId = () => `eu_${++_euId}`;
+let _kuId = 3000;
+const newKuId = () => `ku_${++_kuId}`;
 let _eId = 2000;
 const newEId = () => `e_${++_eId}`;
 
@@ -130,7 +146,7 @@ const chip = StyleSheet.create({
   del:   { paddingHorizontal: 6, paddingVertical: 5, borderLeftWidth: 1, borderLeftColor: C.border },
 });
 
-// ─── Inline exercise form ─────────────────────────────────────────────────────
+// ─── Inline single-exercise form ──────────────────────────────────────────────
 
 type AddMode = null | 'picking' | UebungParamTyp;
 
@@ -204,7 +220,6 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
         {PHASE_CFG[phase].label} · {initialUebung ? 'Übung bearbeiten' : 'Neue Übung'}
       </Text>
 
-      {/* Name + library */}
       <View style={form.nameRow}>
         <TextInput
           style={[form.nameInput, nameErr ? form.inputErr : null]}
@@ -225,7 +240,6 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
       </View>
       {nameErr ? <Text style={form.errText}>{nameErr}</Text> : null}
 
-      {/* Library picker */}
       {showLib && (
         <View style={form.libList}>
           {uebungLib.length === 0
@@ -242,21 +256,14 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
         </View>
       )}
 
-      {/* Param chips */}
       {params.length > 0 && (
         <View style={form.chips}>
           {params.map((p) => (
-            <ParamChip
-              key={p.typ}
-              param={p}
-              onEdit={() => selectType(p.typ)}
-              onDelete={() => removeParam(p.typ)}
-            />
+            <ParamChip key={p.typ} param={p} onEdit={() => selectType(p.typ)} onDelete={() => removeParam(p.typ)} />
           ))}
         </View>
       )}
 
-      {/* Add param button / type picker / value input */}
       {addMode === null && params.length < 7 && (
         <TouchableOpacity
           style={[form.addParamBtn, { borderColor: `${phaseColor}66` }]}
@@ -349,7 +356,6 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
         </View>
       )}
 
-      {/* Preview */}
       {preview.length > 0 && (
         <View style={form.preview}>
           <Text style={form.previewLabel}>Vorschau</Text>
@@ -357,7 +363,6 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
         </View>
       )}
 
-      {/* Save to library */}
       <TouchableOpacity style={form.libToggle} onPress={() => setSaveToLib((v) => !v)} activeOpacity={0.7}>
         <View style={[form.check, saveToLib && form.checkOn]}>
           {saveToLib && <GBIcon name="check" size={11} color={C.accentContrast} />}
@@ -365,7 +370,6 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
         <Text style={form.libToggleLabel}>In Übungsbibliothek speichern</Text>
       </TouchableOpacity>
 
-      {/* Form action buttons */}
       <View style={form.btns}>
         <TouchableOpacity style={form.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
           <Text style={form.cancelBtnText}>Abbrechen</Text>
@@ -382,12 +386,317 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
   );
 }
 
+// ─── Kreis Form ───────────────────────────────────────────────────────────────
+
+const KREIS_EINHEITEN = ['Wdh', 's', 'min', 'm', 'km'] as const;
+
+function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
+  phase: Phase;
+  phaseColor: string;
+  initialKreis?: EinheitUebung;
+  onSubmit: (u: EinheitUebung) => void;
+  onCancel: () => void;
+}) {
+  const ip = (t: UebungParamTyp) => initialKreis?.parameter.find(p => p.typ === t);
+
+  const [name, setName]             = useState(initialKreis?.name ?? 'Kraftkreis');
+  const [exercises, setExercises]   = useState<KreisUebung[]>(initialKreis?.kreisUebungen ?? []);
+  const [serien, setSerien]         = useState(ip('serien')?.wert ?? '');
+  const [pause, setPause]           = useState(ip('pause')?.wert ?? '');
+  const [pauseUnit, setPauseUnit]   = useState(ip('pause')?.einheit ?? 's');
+  const [sp, setSp]                 = useState(ip('serienpause')?.wert ?? '');
+  const [spUnit, setSpUnit]         = useState(ip('serienpause')?.einheit ?? 'min');
+
+  // Inline exercise editor state
+  const [editId, setEditId]   = useState<string | null>(null); // 'new' or an exercise id
+  const [exName, setExName]   = useState('');
+  const [exWert, setExWert]   = useState('');
+  const [exEin, setExEin]     = useState<string>('Wdh');
+
+  const startAdd = () => { setEditId('new'); setExName(''); setExWert(''); setExEin('Wdh'); };
+  const startEdit = (ku: KreisUebung) => { setEditId(ku.id); setExName(ku.name); setExWert(ku.wert); setExEin(ku.einheit); };
+  const cancelEdit = () => setEditId(null);
+
+  const confirmEx = () => {
+    if (!exName.trim() || !exWert.trim()) return;
+    const ku: KreisUebung = { id: editId === 'new' ? newKuId() : editId!, name: exName.trim(), wert: exWert.trim(), einheit: exEin };
+    setExercises(prev => editId === 'new' ? [...prev, ku] : prev.map(x => x.id === ku.id ? ku : x));
+    setEditId(null);
+  };
+
+  const deleteEx = (id: string) => {
+    setExercises(prev => prev.filter(x => x.id !== id));
+    if (editId === id) setEditId(null);
+  };
+
+  const handleSubmit = () => {
+    if (exercises.length === 0) return;
+    const params: UebungParam[] = [];
+    if (serien.trim()) params.push({ typ: 'serien', wert: serien.trim() });
+    if (pause.trim())  params.push({ typ: 'pause', wert: pause.trim(), einheit: pauseUnit });
+    if (sp.trim())     params.push({ typ: 'serienpause', wert: sp.trim(), einheit: spUnit });
+    onSubmit({
+      id: initialKreis?.id ?? newUebId(),
+      name: name.trim() || 'Kraftkreis',
+      typ: 'kreis',
+      parameter: params,
+      kreisUebungen: exercises,
+    });
+  };
+
+  const exStr = exercises.map(ku => `${ku.wert} ${ku.einheit} ${ku.name}`).join(' → ');
+  const prevParts = [serien ? `${serien}×` : '', exStr, pause ? `${pause}${pauseUnit} Pause` : '', sp ? `${sp}${spUnit} Serienpause` : ''].filter(Boolean);
+
+  return (
+    <View style={[form.wrap, { borderColor: `${phaseColor}55` }]}>
+      <Text style={[form.title, { color: phaseColor }]}>
+        {PHASE_CFG[phase].label} · {initialKreis ? 'Kreis bearbeiten' : 'Neuer Kraftkreis'}
+      </Text>
+
+      {/* Circuit name */}
+      <TextInput
+        style={form.nameInputFull}
+        value={name}
+        onChangeText={setName}
+        placeholder="Kreisname…"
+        placeholderTextColor={C.textDim}
+        autoCapitalize="words"
+      />
+
+      {/* Exercise list */}
+      <View style={kf.section}>
+        <Text style={kf.sectionLabel}>Übungen im Kreis</Text>
+
+        {exercises.map((ku, i) => (
+          <View key={ku.id} style={[kf.exRow, editId === ku.id && kf.exRowDim]}>
+            <View style={kf.exNum}><Text style={kf.exNumText}>{i + 1}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={kf.exName}>{ku.name}</Text>
+              <Text style={kf.exVal}>{ku.wert} {ku.einheit}</Text>
+            </View>
+            {editId !== ku.id && (
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                <TouchableOpacity onPress={() => startEdit(ku)} style={styles.miniBtn} activeOpacity={0.7}>
+                  <GBIcon name="edit" size={13} color={C.textMuted} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => deleteEx(ku.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>
+                  <GBIcon name="trash" size={13} color={C.warn} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        ))}
+
+        {editId !== null ? (
+          <View style={kf.editor}>
+            <TextInput
+              style={form.nameInputFull}
+              value={exName}
+              onChangeText={setExName}
+              placeholder="Übungsname…"
+              placeholderTextColor={C.textDim}
+              autoCapitalize="words"
+              autoFocus
+            />
+            <View style={{ flexDirection: 'row', gap: SP.sm, alignItems: 'center', flexWrap: 'wrap' }}>
+              <TextInput
+                style={[form.paramInputField, { flex: 1, minWidth: 80 }]}
+                value={exWert}
+                onChangeText={setExWert}
+                placeholder="Anzahl / Dauer"
+                placeholderTextColor={C.textDim}
+                keyboardType="decimal-pad"
+              />
+              <View style={form.unitRow}>
+                {KREIS_EINHEITEN.map(u => (
+                  <TouchableOpacity key={u} style={[form.unitBtn, exEin === u && form.unitBtnOn]} onPress={() => setExEin(u)} activeOpacity={0.7}>
+                    <Text style={[form.unitText, exEin === u && form.unitTextOn]}>{u}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            <View style={form.paramBtns}>
+              <TouchableOpacity style={form.backBtn} onPress={cancelEdit} activeOpacity={0.7}>
+                <Text style={form.backBtnText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[form.confirmBtn, { backgroundColor: exName.trim() && exWert.trim() ? phaseColor : C.surfaceAlt }]}
+                onPress={confirmEx}
+                activeOpacity={0.8}
+              >
+                <Text style={[form.confirmBtnText, { color: exName.trim() && exWert.trim() ? C.accentContrast : C.textDim }]}>
+                  {editId === 'new' ? 'Hinzufügen' : 'Übernehmen'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity style={[form.addParamBtn, { borderColor: `${phaseColor}66` }]} onPress={startAdd} activeOpacity={0.8}>
+            <GBIcon name="plus" size={14} color={phaseColor} />
+            <Text style={[form.addParamText, { color: phaseColor }]}>Übung zum Kreis</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Circuit-level parameters */}
+      <View style={kf.section}>
+        <Text style={kf.sectionLabel}>Kreis-Parameter</Text>
+
+        <View style={kf.paramRow}>
+          <Text style={kf.paramLabel}>Serien</Text>
+          <TextInput
+            style={[form.paramInputField, kf.paramInput]}
+            value={serien}
+            onChangeText={setSerien}
+            placeholder="z.B. 4"
+            placeholderTextColor={C.textDim}
+            keyboardType="number-pad"
+          />
+        </View>
+
+        <View style={kf.paramRow}>
+          <Text style={kf.paramLabel}>Pause (zw. Übungen)</Text>
+          <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+            <TextInput
+              style={[form.paramInputField, kf.paramInput]}
+              value={pause}
+              onChangeText={setPause}
+              placeholder="z.B. 45"
+              placeholderTextColor={C.textDim}
+              keyboardType="decimal-pad"
+            />
+            {(['s', 'min'] as const).map(u => (
+              <TouchableOpacity key={u} style={[form.unitBtn, pauseUnit === u && form.unitBtnOn]} onPress={() => setPauseUnit(u)} activeOpacity={0.7}>
+                <Text style={[form.unitText, pauseUnit === u && form.unitTextOn]}>{u}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={kf.paramRow}>
+          <Text style={kf.paramLabel}>Serienpause</Text>
+          <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+            <TextInput
+              style={[form.paramInputField, kf.paramInput]}
+              value={sp}
+              onChangeText={setSp}
+              placeholder="z.B. 3"
+              placeholderTextColor={C.textDim}
+              keyboardType="decimal-pad"
+            />
+            {(['s', 'min'] as const).map(u => (
+              <TouchableOpacity key={u} style={[form.unitBtn, spUnit === u && form.unitBtnOn]} onPress={() => setSpUnit(u)} activeOpacity={0.7}>
+                <Text style={[form.unitText, spUnit === u && form.unitTextOn]}>{u}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* Preview */}
+      {exercises.length > 0 && prevParts.length > 0 && (
+        <View style={form.preview}>
+          <Text style={form.previewLabel}>Vorschau</Text>
+          <Text style={form.previewText}>{name.trim() || 'Kraftkreis'} ({prevParts.join(' · ')})</Text>
+        </View>
+      )}
+
+      {exercises.length === 0 && (
+        <View style={kf.emptyHint}>
+          <Text style={kf.emptyHintText}>Mindestens eine Übung hinzufügen</Text>
+        </View>
+      )}
+
+      <View style={form.btns}>
+        <TouchableOpacity style={form.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
+          <Text style={form.cancelBtnText}>Abbrechen</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[form.submitBtn, { backgroundColor: exercises.length > 0 ? phaseColor : C.surfaceAlt }]}
+          onPress={handleSubmit}
+          disabled={exercises.length === 0}
+          activeOpacity={0.8}
+        >
+          <Text style={[form.submitBtnText, { color: exercises.length > 0 ? C.accentContrast : C.textDim }]}>
+            {initialKreis ? 'Aktualisieren' : 'Kreis anlegen'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+// ─── Kreis Card (display) ─────────────────────────────────────────────────────
+
+function KreisCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
+  ueb: EinheitUebung;
+  phaseColor: string;
+  isEditing?: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const serien = ueb.parameter.find(p => p.typ === 'serien');
+  const pause  = ueb.parameter.find(p => p.typ === 'pause');
+  const sp     = ueb.parameter.find(p => p.typ === 'serienpause');
+
+  return (
+    <View style={[kc.wrap, isEditing && kc.wrapEditing]}>
+      <View style={kc.header}>
+        <View style={[kc.icon, { backgroundColor: `${phaseColor}22` }]}>
+          <GBIcon name="repeat" size={14} color={phaseColor} />
+        </View>
+        <Text style={kc.name}>{ueb.name}</Text>
+        {serien && (
+          <View style={[kc.badge, { backgroundColor: `${phaseColor}22` }]}>
+            <Text style={[kc.badgeText, { color: phaseColor }]}>{serien.wert}×</Text>
+          </View>
+        )}
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity onPress={onEdit} style={styles.miniBtn} activeOpacity={0.7}>
+          <GBIcon name="edit" size={13} color={C.textMuted} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onDelete} style={styles.miniBtnDanger} activeOpacity={0.7}>
+          <GBIcon name="trash" size={13} color={C.warn} />
+        </TouchableOpacity>
+      </View>
+
+      {ueb.kreisUebungen?.map((ku, i) => (
+        <View key={ku.id} style={kc.exRow}>
+          <Text style={kc.exIdx}>{i + 1}.</Text>
+          <Text style={kc.exName}>{ku.name}</Text>
+          <Text style={kc.exVal}>{ku.wert} {ku.einheit}</Text>
+        </View>
+      ))}
+
+      {(pause || sp) && (
+        <View style={kc.footer}>
+          {pause && (
+            <View style={kc.footerChip}>
+              <GBIcon name="clock" size={10} color={C.textDim} />
+              <Text style={kc.footerText}>{pause.wert}{pause.einheit ?? 's'} Pause</Text>
+            </View>
+          )}
+          {sp && (
+            <View style={kc.footerChip}>
+              <GBIcon name="stopwatch" size={10} color={C.textDim} />
+              <Text style={kc.footerText}>{sp.wert}{sp.einheit ?? 'min'} Serienpause</Text>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Form styles (shared) ─────────────────────────────────────────────────────
+
 const form = StyleSheet.create({
   wrap:        { backgroundColor: C.surface, borderRadius: R.xl, borderWidth: 1.5, padding: SP.lg, gap: SP.md },
   title:       { fontSize: FONT.xs, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.4 },
 
   nameRow:     { flexDirection: 'row', gap: SP.sm, alignItems: 'center' },
   nameInput:   { flex: 1, backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: SP.md, paddingVertical: SP.sm + 1, fontSize: FONT.base, fontWeight: '700', color: C.text },
+  nameInputFull: { backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: SP.md, paddingVertical: SP.sm + 1, fontSize: FONT.base, fontWeight: '700', color: C.text },
   inputErr:    { borderColor: C.warn },
   errText:     { fontSize: FONT.xs, color: C.warn },
   libBtn:      { width: 38, height: 38, borderRadius: R.md, backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
@@ -419,7 +728,7 @@ const form = StyleSheet.create({
   paramInputTitle:  { fontSize: FONT.xs, fontWeight: '800', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1.2 },
   paramInputRow:    { flexDirection: 'row', gap: SP.sm, alignItems: 'center' },
   paramInputField:  { backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, fontSize: FONT.base, color: C.text, fontFamily: FONT_MONO },
-  unitRow:          { flexDirection: 'row', gap: 4 },
+  unitRow:          { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
   unitBtn:          { paddingHorizontal: SP.sm, paddingVertical: SP.sm - 1, borderRadius: R.full, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
   unitBtnOn:        { borderColor: C.accent, backgroundColor: 'rgba(203,255,62,0.10)' },
   unitText:         { fontSize: FONT.xs, fontWeight: '700', color: C.textSub },
@@ -446,9 +755,48 @@ const form = StyleSheet.create({
   submitBtnText: { fontSize: FONT.sm, fontWeight: '800', color: C.accentContrast },
 });
 
+// ─── KreisForm styles ─────────────────────────────────────────────────────────
+
+const kf = StyleSheet.create({
+  section:     { backgroundColor: C.surfaceAlt, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: SP.md, gap: SP.sm },
+  sectionLabel:{ fontSize: FONT.xs, fontWeight: '800', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 2 },
+  exRow:       { flexDirection: 'row', alignItems: 'center', gap: SP.sm, paddingVertical: SP.xs },
+  exRowDim:    { opacity: 0.4 },
+  exNum:       { width: 22, height: 22, borderRadius: 11, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  exNumText:   { fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: C.textMuted },
+  exName:      { fontSize: FONT.sm, fontWeight: '600', color: C.text },
+  exVal:       { fontFamily: FONT_MONO, fontSize: 11, color: C.accent, fontWeight: '700', marginTop: 1 },
+  editor:      { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: SP.md, gap: SP.sm },
+  paramRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SP.sm },
+  paramLabel:  { fontSize: FONT.sm, fontWeight: '600', color: C.textSub, flex: 1 },
+  paramInput:  { width: 72 },
+  emptyHint:   { alignItems: 'center', paddingVertical: SP.xs },
+  emptyHintText: { fontSize: FONT.xs, color: C.textDim, fontStyle: 'italic' },
+});
+
+// ─── KreisCard styles ─────────────────────────────────────────────────────────
+
+const kc = StyleSheet.create({
+  wrap:        { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  wrapEditing: { borderColor: C.accent },
+  header:      { flexDirection: 'row', alignItems: 'center', gap: SP.sm, padding: SP.md, paddingBottom: SP.sm },
+  icon:        { width: 26, height: 26, borderRadius: R.sm, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  name:        { fontSize: FONT.base, fontWeight: '700', color: C.text },
+  badge:       { paddingHorizontal: SP.sm, paddingVertical: 2, borderRadius: R.full },
+  badgeText:   { fontFamily: FONT_MONO, fontSize: FONT.xs, fontWeight: '800' },
+  exRow:       { flexDirection: 'row', alignItems: 'center', gap: SP.sm, paddingHorizontal: SP.md, paddingVertical: 5, borderTopWidth: 1, borderTopColor: C.border },
+  exIdx:       { fontFamily: FONT_MONO, fontSize: 11, color: C.textDim, width: 16, textAlign: 'right', flexShrink: 0 },
+  exName:      { flex: 1, fontSize: FONT.sm, fontWeight: '600', color: C.text },
+  exVal:       { fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: C.accent },
+  footer:      { flexDirection: 'row', flexWrap: 'wrap', gap: SP.md, padding: SP.sm, paddingHorizontal: SP.md, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.surfaceAlt },
+  footerChip:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  footerText:  { fontSize: 10, fontWeight: '600', color: C.textDim },
+});
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 type Phases = Record<Phase, EinheitUebung[]>;
+type ActiveForm = null | { phase: Phase; kind: 'ueb' | 'kreis'; editId?: string };
 
 export default function EinheitDetailScreen({ navigation, route }: Props) {
   const { planId, wocheId, einheitId, datum } = route.params;
@@ -471,43 +819,26 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
   });
   const [saveEinheitLib, setSaveEinheitLib] = useState(false);
   const [showEinheitLib, setShowEinheitLib] = useState(false);
-  const [activePhase, setActivePhase]   = useState<Phase | null>(null);
-  const [editingUebId, setEditingUebId] = useState<string | null>(null);
+  const [activeForm, setActiveForm]     = useState<ActiveForm>(null);
 
-  const editingUeb = editingUebId && activePhase
-    ? phases[activePhase].find((u) => u.id === editingUebId)
-    : undefined;
+  const closeForm = () => setActiveForm(null);
 
-  const openAdd = (phase: Phase) => {
-    setActivePhase(phase);
-    setEditingUebId(null);
-  };
-
-  const openEdit = (phase: Phase, uid: string) => {
-    setActivePhase(phase);
-    setEditingUebId(uid);
-  };
-
-  const closeForm = () => {
-    setActivePhase(null);
-    setEditingUebId(null);
-  };
-
-  const handleUebSubmit = (ueb: EinheitUebung, saveToLib: boolean) => {
-    if (saveToLib) {
+  const handleUebSubmit = (ueb: EinheitUebung, saveToLib = false) => {
+    if (saveToLib && ueb.typ !== 'kreis') {
       saveUebToLib({ name: ueb.name, parameter: ueb.parameter });
     }
+    const af = activeForm!;
     setPhases((prev) => ({
       ...prev,
-      [activePhase!]: editingUebId
-        ? prev[activePhase!].map((u) => (u.id === editingUebId ? ueb : u))
-        : [...prev[activePhase!], ueb],
+      [af.phase]: af.editId
+        ? prev[af.phase].map((u) => (u.id === af.editId ? ueb : u))
+        : [...prev[af.phase], ueb],
     }));
     closeForm();
   };
 
   const deleteUeb = (phase: Phase, uid: string) => {
-    if (editingUebId === uid) closeForm();
+    if (activeForm?.editId === uid) closeForm();
     setPhases((prev) => ({ ...prev, [phase]: prev[phase].filter((u) => u.id !== uid) }));
   };
 
@@ -604,7 +935,7 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
 
           {/* Stats + save-to-lib toggle */}
           <View style={styles.statsRow}>
-            <Text style={styles.statsText}>{totalEx} Übungen · 3 Phasen</Text>
+            <Text style={styles.statsText}>{totalEx} Einträge · 3 Phasen</Text>
             <TouchableOpacity style={styles.libToggle} onPress={() => setSaveEinheitLib((v) => !v)} activeOpacity={0.7}>
               <View style={[styles.check, saveEinheitLib && styles.checkOn]}>
                 {saveEinheitLib && <GBIcon name="check" size={11} color={C.accentContrast} />}
@@ -617,57 +948,93 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
           {PHASES.map((phase) => {
             const cfg = PHASE_CFG[phase];
             const exercises = phases[phase];
-            const isActive = activePhase === phase;
+            const formActive = activeForm?.phase === phase;
 
             return (
               <View key={phase} style={styles.phaseSection}>
                 {/* Phase header */}
                 <View style={[styles.phaseHeader, { borderLeftColor: cfg.color }]}>
                   <Text style={[styles.phaseTitle, { color: cfg.color }]}>{cfg.label}</Text>
-                  <Text style={styles.phaseCount}>{exercises.length} Übungen</Text>
+                  <Text style={styles.phaseCount}>{exercises.length} Einträge</Text>
                 </View>
 
-                {/* Exercise rows */}
-                {exercises.map((u) => (
-                  <View key={u.id} style={[styles.uebRow, editingUebId === u.id && styles.uebRowActive]}>
-                    <View style={[styles.uebDot, { backgroundColor: cfg.color }]} />
-                    <View style={styles.uebInfo}>
-                      <Text style={styles.uebName}>{u.name}</Text>
-                      {u.parameter.length > 0 && (
-                        <Text style={styles.uebParams}>{buildSuffix(u.parameter)}</Text>
-                      )}
+                {/* Exercise / Circuit rows */}
+                {exercises.map((u) => {
+                  const isEditing = activeForm?.editId === u.id && formActive;
+                  if (u.typ === 'kreis') {
+                    return (
+                      <KreisCard
+                        key={u.id}
+                        ueb={u}
+                        phaseColor={cfg.color}
+                        isEditing={isEditing}
+                        onEdit={() => setActiveForm({ phase, kind: 'kreis', editId: u.id })}
+                        onDelete={() => deleteUeb(phase, u.id)}
+                      />
+                    );
+                  }
+                  return (
+                    <View key={u.id} style={[styles.uebRow, isEditing && styles.uebRowActive]}>
+                      <View style={[styles.uebDot, { backgroundColor: cfg.color }]} />
+                      <View style={styles.uebInfo}>
+                        <Text style={styles.uebName}>{u.name}</Text>
+                        {u.parameter.length > 0 && (
+                          <Text style={styles.uebParams}>{buildSuffix(u.parameter)}</Text>
+                        )}
+                      </View>
+                      <View style={styles.uebActions}>
+                        <TouchableOpacity onPress={() => setActiveForm({ phase, kind: 'ueb', editId: u.id })} style={styles.miniBtn} activeOpacity={0.7}>
+                          <GBIcon name="edit" size={13} color={C.textMuted} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => deleteUeb(phase, u.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>
+                          <GBIcon name="trash" size={13} color={C.warn} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={styles.uebActions}>
-                      <TouchableOpacity onPress={() => openEdit(phase, u.id)} style={styles.miniBtn} activeOpacity={0.7}>
-                        <GBIcon name="edit" size={13} color={C.textMuted} />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => deleteUeb(phase, u.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>
-                        <GBIcon name="trash" size={13} color={C.warn} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
+                  );
+                })}
 
-                {/* Add button (shown when this phase is not active) */}
-                {!isActive && (
-                  <TouchableOpacity
-                    style={[styles.addUebBtn, { borderColor: `${cfg.color}55` }]}
-                    onPress={() => openAdd(phase)}
-                    activeOpacity={0.8}
-                  >
-                    <GBIcon name="plus" size={14} color={cfg.color} />
-                    <Text style={[styles.addUebText, { color: cfg.color }]}>Übung hinzufügen</Text>
-                  </TouchableOpacity>
+                {/* Add buttons (when no form open for this phase) */}
+                {!formActive && (
+                  <View style={styles.addBtnsRow}>
+                    <TouchableOpacity
+                      style={[styles.addUebBtn, { borderColor: `${cfg.color}55`, flex: 1 }]}
+                      onPress={() => setActiveForm({ phase, kind: 'ueb' })}
+                      activeOpacity={0.8}
+                    >
+                      <GBIcon name="plus" size={14} color={cfg.color} />
+                      <Text style={[styles.addUebText, { color: cfg.color }]}>Übung</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.addUebBtn, { borderColor: `${cfg.color}33`, flex: 1 }]}
+                      onPress={() => setActiveForm({ phase, kind: 'kreis' })}
+                      activeOpacity={0.8}
+                    >
+                      <GBIcon name="repeat" size={14} color={cfg.color} />
+                      <Text style={[styles.addUebText, { color: cfg.color }]}>Kreis</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
 
-                {/* Inline form */}
-                {isActive && (
+                {/* Inline forms */}
+                {formActive && activeForm.kind === 'ueb' && (
                   <UebungForm
-                    key={`${phase}-${editingUebId ?? 'new'}`}
+                    key={`${phase}-ueb-${activeForm.editId ?? 'new'}`}
                     phase={phase}
                     phaseColor={cfg.color}
-                    initialUebung={editingUeb}
+                    initialUebung={activeForm.editId ? exercises.find(u => u.id === activeForm.editId) : undefined}
                     uebungLib={uebungLib}
+                    onSubmit={handleUebSubmit}
+                    onCancel={closeForm}
+                  />
+                )}
+
+                {formActive && activeForm.kind === 'kreis' && (
+                  <KreisForm
+                    key={`${phase}-kreis-${activeForm.editId ?? 'new'}`}
+                    phase={phase}
+                    phaseColor={cfg.color}
+                    initialKreis={activeForm.editId ? exercises.find(u => u.id === activeForm.editId) as EinheitUebung : undefined}
                     onSubmit={handleUebSubmit}
                     onCancel={closeForm}
                   />
@@ -683,7 +1050,7 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Screen Styles ────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
@@ -737,6 +1104,7 @@ const styles = StyleSheet.create({
   miniBtn:      { width: 28, height: 28, borderRadius: 14, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   miniBtnDanger: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,106,61,0.10)', alignItems: 'center', justifyContent: 'center' },
 
-  addUebBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.md, borderRadius: R.lg, borderWidth: 1.5, borderStyle: 'dashed' },
-  addUebText: { fontSize: FONT.sm, fontWeight: '700' },
+  addBtnsRow:  { flexDirection: 'row', gap: SP.sm },
+  addUebBtn:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.md, borderRadius: R.lg, borderWidth: 1.5, borderStyle: 'dashed' },
+  addUebText:  { fontSize: FONT.sm, fontWeight: '700' },
 });
