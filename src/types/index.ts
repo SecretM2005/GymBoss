@@ -50,7 +50,7 @@ export type EinheitUebung = {
   id: string;
   name: string;
   templateId?: string; // set when imported from UebungTemplate library
-  typ?: 'kreis';       // undefined = single exercise, 'kreis' = circuit group
+  typ?: 'kreis' | 'intervall'; // undefined = single exercise
   parameter: UebungParam[];
   kreisUebungen?: KreisUebung[]; // only when typ === 'kreis'
 };
@@ -58,8 +58,12 @@ export type EinheitUebung = {
 export type KreisUebung = {
   id: string;
   name: string;
-  wert: string;    // e.g. "30", "10"
-  einheit: string; // e.g. "Wdh", "s", "m"
+  wert: string;         // e.g. "200", "30"
+  einheit: string;      // e.g. "m", "Wdh", "s"
+  zielzeit?: string;    // optional target time for intervals (e.g. "32")
+  zeiteinheit?: string; // "s" | "min"
+  pause?: string;       // per-step pause for interval training (e.g. "90")
+  pauseeinheit?: string;// "s" | "min"
 };
 
 // ─── Training Units ───────────────────────────────────────────────────────────
