@@ -87,8 +87,29 @@ export function buildKreisSuffix(ueb: EinheitUebung): string {
   return parts.join(' · ');
 }
 
+export function buildIntervallSuffix(ueb: EinheitUebung): string {
+  if (!ueb.kreisUebungen?.length) return '';
+  const serien = ueb.parameter.find(p => p.typ === 'serien');
+  const sp     = ueb.parameter.find(p => p.typ === 'serienpause');
+
+  const steps = ueb.kreisUebungen.map(ku => {
+    let s = `${ku.wert}${ku.einheit}`;
+    if (ku.zielzeit) s += ` in ${ku.zielzeit}${ku.zeiteinheit ?? 's'}`;
+    if (ku.pause)    s += ` → ${ku.pause}${ku.pauseeinheit ?? 's'} P.`;
+    return s;
+  });
+
+  const parts: string[] = [];
+  if (serien) parts.push(`${serien.wert}×`);
+  parts.push(steps.join(', '));
+  if (sp) parts.push(`${sp.wert}${sp.einheit ?? 'min'} Serienpause`);
+  return parts.join(' · ');
+}
+
 export function buildUebSuffix(ueb: EinheitUebung): string {
-  return ueb.typ === 'kreis' ? buildKreisSuffix(ueb) : buildSuffix(ueb.parameter);
+  if (ueb.typ === 'kreis')     return buildKreisSuffix(ueb);
+  if (ueb.typ === 'intervall') return buildIntervallSuffix(ueb);
+  return buildSuffix(ueb.parameter);
 }
 
 export function buildPreview(name: string, params: UebungParam[]): string {
@@ -688,6 +709,371 @@ function KreisCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
   );
 }
 
+// ─── Intervall Form ───────────────────────────────────────────────────────────
+
+const INTERVAL_EINHEITEN = ['m', 'km', 's', 'min'] as const;
+const TIME_EINHEITEN     = ['s', 'min'] as const;
+
+function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel }: {
+  phase: Phase;
+  phaseColor: string;
+  initialIntervall?: EinheitUebung;
+  onSubmit: (u: EinheitUebung) => void;
+  onCancel: () => void;
+}) {
+  const ip = (t: UebungParamTyp) => initialIntervall?.parameter.find(p => p.typ === t);
+
+  const [name, setName]       = useState(initialIntervall?.name ?? 'Intervall');
+  const [steps, setSteps]     = useState<KreisUebung[]>(initialIntervall?.kreisUebungen ?? []);
+  const [serien, setSerien]   = useState(ip('serien')?.wert ?? '');
+  const [sp, setSp]           = useState(ip('serienpause')?.wert ?? '');
+  const [spUnit, setSpUnit]   = useState(ip('serienpause')?.einheit ?? 'min');
+
+  const [editId, setEditId]       = useState<string | null>(null);
+  const [stName, setStName]       = useState('');
+  const [stWert, setStWert]       = useState('');
+  const [stEin, setStEin]         = useState<string>('m');
+  const [stZiel, setStZiel]       = useState('');
+  const [stZielEin, setStZielEin] = useState<string>('s');
+  const [stPause, setStPause]     = useState('');
+  const [stPauseEin, setStPauseEin] = useState<string>('s');
+
+  const startAdd = () => {
+    setEditId('new');
+    setStName(''); setStWert(''); setStEin('m');
+    setStZiel(''); setStZielEin('s');
+    setStPause(''); setStPauseEin('s');
+  };
+
+  const startEdit = (ku: KreisUebung) => {
+    setEditId(ku.id);
+    setStName(ku.name);
+    setStWert(ku.wert);
+    setStEin(ku.einheit);
+    setStZiel(ku.zielzeit ?? '');
+    setStZielEin(ku.zeiteinheit ?? 's');
+    setStPause(ku.pause ?? '');
+    setStPauseEin(ku.pauseeinheit ?? 's');
+  };
+
+  const cancelEdit = () => setEditId(null);
+
+  const confirmStep = () => {
+    if (!stWert.trim()) return;
+    const ku: KreisUebung = {
+      id: editId === 'new' ? newKuId() : editId!,
+      name: stName.trim(),
+      wert: stWert.trim(),
+      einheit: stEin,
+      zielzeit: stZiel.trim() || undefined,
+      zeiteinheit: stZiel.trim() ? stZielEin : undefined,
+      pause: stPause.trim() || undefined,
+      pauseeinheit: stPause.trim() ? stPauseEin : undefined,
+    };
+    setSteps(prev => editId === 'new' ? [...prev, ku] : prev.map(x => x.id === ku.id ? ku : x));
+    setEditId(null);
+  };
+
+  const deleteStep = (id: string) => {
+    setSteps(prev => prev.filter(x => x.id !== id));
+    if (editId === id) setEditId(null);
+  };
+
+  const handleSubmit = () => {
+    if (steps.length === 0) return;
+    const params: UebungParam[] = [];
+    if (serien.trim()) params.push({ typ: 'serien', wert: serien.trim() });
+    if (sp.trim())     params.push({ typ: 'serienpause', wert: sp.trim(), einheit: spUnit });
+    onSubmit({
+      id: initialIntervall?.id ?? newUebId(),
+      name: name.trim() || 'Intervall',
+      typ: 'intervall',
+      parameter: params,
+      kreisUebungen: steps,
+    });
+  };
+
+  const stepStr = steps.map(ku => {
+    let s = `${ku.wert}${ku.einheit}`;
+    if (ku.zielzeit) s += ` in ${ku.zielzeit}${ku.zeiteinheit ?? 's'}`;
+    if (ku.pause)    s += ` → ${ku.pause}${ku.pauseeinheit ?? 's'}`;
+    return s;
+  }).join(', ');
+  const prevParts = [serien ? `${serien}×` : '', stepStr, sp ? `${sp}${spUnit} Serienpause` : ''].filter(Boolean);
+
+  return (
+    <View style={[form.wrap, { borderColor: `${phaseColor}55` }]}>
+      <Text style={[form.title, { color: phaseColor }]}>
+        {PHASE_CFG[phase].label} · {initialIntervall ? 'Intervall bearbeiten' : 'Neues Intervalltraining'}
+      </Text>
+
+      <TextInput
+        style={form.nameInputFull}
+        value={name}
+        onChangeText={setName}
+        placeholder="Name (z.B. Intervall-Lauf)…"
+        placeholderTextColor={C.textDim}
+        autoCapitalize="words"
+      />
+
+      {/* Steps list */}
+      <View style={kf.section}>
+        <Text style={kf.sectionLabel}>Intervall-Schritte</Text>
+
+        {steps.map((ku, i) => (
+          <View key={ku.id} style={[ki.stepRow, editId === ku.id && kf.exRowDim]}>
+            <View style={kf.exNum}><Text style={kf.exNumText}>{i + 1}</Text></View>
+            <View style={{ flex: 1 }}>
+              <View style={ki.stepInline}>
+                <Text style={ki.stepWert}>{ku.wert} {ku.einheit}</Text>
+                {ku.zielzeit ? <Text style={ki.stepZiel}>in {ku.zielzeit}{ku.zeiteinheit ?? 's'}</Text> : null}
+                {ku.pause    ? <Text style={ki.stepPause}>→ {ku.pause}{ku.pauseeinheit ?? 's'} P.</Text> : null}
+              </View>
+              {ku.name ? <Text style={ki.stepLabel}>{ku.name}</Text> : null}
+            </View>
+            {editId !== ku.id && (
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                <TouchableOpacity onPress={() => startEdit(ku)} style={styles.miniBtn} activeOpacity={0.7}>
+                  <GBIcon name="edit" size={13} color={C.textMuted} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => deleteStep(ku.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>
+                  <GBIcon name="trash" size={13} color={C.warn} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        ))}
+
+        {editId !== null ? (
+          <View style={kf.editor}>
+            <TextInput
+              style={form.nameInputFull}
+              value={stName}
+              onChangeText={setStName}
+              placeholder="Bezeichnung optional (z.B. Sprint)"
+              placeholderTextColor={C.textDim}
+              autoCapitalize="words"
+              autoFocus
+            />
+
+            <View style={ki.inputGroup}>
+              <Text style={ki.inputLabel}>Distanz / Dauer *</Text>
+              <View style={{ flexDirection: 'row', gap: SP.sm, alignItems: 'center', flexWrap: 'wrap' }}>
+                <TextInput
+                  style={[form.paramInputField, { flex: 1, minWidth: 80 }]}
+                  value={stWert}
+                  onChangeText={setStWert}
+                  placeholder="z.B. 400"
+                  placeholderTextColor={C.textDim}
+                  keyboardType="decimal-pad"
+                />
+                <View style={form.unitRow}>
+                  {INTERVAL_EINHEITEN.map(u => (
+                    <TouchableOpacity key={u} style={[form.unitBtn, stEin === u && form.unitBtnOn]} onPress={() => setStEin(u)} activeOpacity={0.7}>
+                      <Text style={[form.unitText, stEin === u && form.unitTextOn]}>{u}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            <View style={ki.inputGroup}>
+              <Text style={ki.inputLabel}>Zielzeit (optional)</Text>
+              <View style={{ flexDirection: 'row', gap: SP.sm, alignItems: 'center', flexWrap: 'wrap' }}>
+                <TextInput
+                  style={[form.paramInputField, { flex: 1, minWidth: 80 }]}
+                  value={stZiel}
+                  onChangeText={setStZiel}
+                  placeholder="z.B. 70"
+                  placeholderTextColor={C.textDim}
+                  keyboardType="decimal-pad"
+                />
+                <View style={form.unitRow}>
+                  {TIME_EINHEITEN.map(u => (
+                    <TouchableOpacity key={u} style={[form.unitBtn, stZielEin === u && form.unitBtnOn]} onPress={() => setStZielEin(u)} activeOpacity={0.7}>
+                      <Text style={[form.unitText, stZielEin === u && form.unitTextOn]}>{u}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            <View style={ki.inputGroup}>
+              <Text style={ki.inputLabel}>Pause danach (optional)</Text>
+              <View style={{ flexDirection: 'row', gap: SP.sm, alignItems: 'center', flexWrap: 'wrap' }}>
+                <TextInput
+                  style={[form.paramInputField, { flex: 1, minWidth: 80 }]}
+                  value={stPause}
+                  onChangeText={setStPause}
+                  placeholder="z.B. 90"
+                  placeholderTextColor={C.textDim}
+                  keyboardType="decimal-pad"
+                />
+                <View style={form.unitRow}>
+                  {TIME_EINHEITEN.map(u => (
+                    <TouchableOpacity key={u} style={[form.unitBtn, stPauseEin === u && form.unitBtnOn]} onPress={() => setStPauseEin(u)} activeOpacity={0.7}>
+                      <Text style={[form.unitText, stPauseEin === u && form.unitTextOn]}>{u}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            <View style={form.paramBtns}>
+              <TouchableOpacity style={form.backBtn} onPress={cancelEdit} activeOpacity={0.7}>
+                <Text style={form.backBtnText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[form.confirmBtn, { backgroundColor: stWert.trim() ? phaseColor : C.surfaceAlt }]}
+                onPress={confirmStep}
+                activeOpacity={0.8}
+              >
+                <Text style={[form.confirmBtnText, { color: stWert.trim() ? C.accentContrast : C.textDim }]}>
+                  {editId === 'new' ? 'Hinzufügen' : 'Übernehmen'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity style={[form.addParamBtn, { borderColor: `${phaseColor}66` }]} onPress={startAdd} activeOpacity={0.8}>
+            <GBIcon name="plus" size={14} color={phaseColor} />
+            <Text style={[form.addParamText, { color: phaseColor }]}>Schritt hinzufügen</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Serien + Serienpause */}
+      <View style={kf.section}>
+        <Text style={kf.sectionLabel}>Gesamt-Parameter</Text>
+        <View style={kf.paramRow}>
+          <Text style={kf.paramLabel}>Serien (Wiederholungen)</Text>
+          <TextInput
+            style={[form.paramInputField, kf.paramInput]}
+            value={serien}
+            onChangeText={setSerien}
+            placeholder="z.B. 3"
+            placeholderTextColor={C.textDim}
+            keyboardType="number-pad"
+          />
+        </View>
+        <View style={kf.paramRow}>
+          <Text style={kf.paramLabel}>Serienpause</Text>
+          <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+            <TextInput
+              style={[form.paramInputField, kf.paramInput]}
+              value={sp}
+              onChangeText={setSp}
+              placeholder="z.B. 3"
+              placeholderTextColor={C.textDim}
+              keyboardType="decimal-pad"
+            />
+            {TIME_EINHEITEN.map(u => (
+              <TouchableOpacity key={u} style={[form.unitBtn, spUnit === u && form.unitBtnOn]} onPress={() => setSpUnit(u)} activeOpacity={0.7}>
+                <Text style={[form.unitText, spUnit === u && form.unitTextOn]}>{u}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {steps.length > 0 && prevParts.length > 0 && (
+        <View style={form.preview}>
+          <Text style={form.previewLabel}>Vorschau</Text>
+          <Text style={form.previewText}>{name.trim() || 'Intervall'} ({prevParts.join(' · ')})</Text>
+        </View>
+      )}
+
+      {steps.length === 0 && (
+        <View style={kf.emptyHint}>
+          <Text style={kf.emptyHintText}>Mindestens einen Schritt hinzufügen</Text>
+        </View>
+      )}
+
+      <View style={form.btns}>
+        <TouchableOpacity style={form.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
+          <Text style={form.cancelBtnText}>Abbrechen</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[form.submitBtn, { backgroundColor: steps.length > 0 ? phaseColor : C.surfaceAlt }]}
+          onPress={handleSubmit}
+          disabled={steps.length === 0}
+          activeOpacity={0.8}
+        >
+          <Text style={[form.submitBtnText, { color: steps.length > 0 ? C.accentContrast : C.textDim }]}>
+            {initialIntervall ? 'Aktualisieren' : 'Intervall anlegen'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+// ─── Intervall Card (display) ─────────────────────────────────────────────────
+
+function IntervallCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
+  ueb: EinheitUebung;
+  phaseColor: string;
+  isEditing?: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const serien = ueb.parameter.find(p => p.typ === 'serien');
+  const sp     = ueb.parameter.find(p => p.typ === 'serienpause');
+
+  return (
+    <View style={[ki.wrap, isEditing && ki.wrapEditing]}>
+      <View style={ki.header}>
+        <View style={[ki.icon, { backgroundColor: `${phaseColor}22` }]}>
+          <GBIcon name="flag" size={14} color={phaseColor} />
+        </View>
+        <Text style={ki.name}>{ueb.name}</Text>
+        {serien && (
+          <View style={[ki.badge, { backgroundColor: `${phaseColor}22` }]}>
+            <Text style={[ki.badgeText, { color: phaseColor }]}>{serien.wert}×</Text>
+          </View>
+        )}
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity onPress={onEdit} style={styles.miniBtn} activeOpacity={0.7}>
+          <GBIcon name="edit" size={13} color={C.textMuted} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onDelete} style={styles.miniBtnDanger} activeOpacity={0.7}>
+          <GBIcon name="trash" size={13} color={C.warn} />
+        </TouchableOpacity>
+      </View>
+
+      {ueb.kreisUebungen?.map((ku, i) => (
+        <View key={ku.id} style={ki.stepCard}>
+          <Text style={ki.stepIdx}>{i + 1}.</Text>
+          <View style={{ flex: 1 }}>
+            {ku.name ? <Text style={ki.stepCardName}>{ku.name}</Text> : null}
+            <View style={ki.stepMain}>
+              <Text style={ki.stepWertCard}>{ku.wert} {ku.einheit}</Text>
+              {ku.zielzeit ? (
+                <View style={ki.zielChip}>
+                  <Text style={ki.zielText}>in {ku.zielzeit}{ku.zeiteinheit ?? 's'}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+          {ku.pause ? (
+            <View style={ki.pauseChip}>
+              <GBIcon name="clock" size={9} color={C.textDim} />
+              <Text style={ki.pauseText}>{ku.pause}{ku.pauseeinheit ?? 's'}</Text>
+            </View>
+          ) : null}
+        </View>
+      ))}
+
+      {sp && (
+        <View style={ki.footer}>
+          <GBIcon name="stopwatch" size={10} color={C.textDim} />
+          <Text style={ki.footerText}>{sp.wert}{sp.einheit ?? 'min'} Serienpause</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Form styles (shared) ─────────────────────────────────────────────────────
 
 const form = StyleSheet.create({
@@ -793,10 +1179,44 @@ const kc = StyleSheet.create({
   footerText:  { fontSize: 10, fontWeight: '600', color: C.textDim },
 });
 
+// ─── IntervallCard + IntervallForm styles ─────────────────────────────────────
+
+const ki = StyleSheet.create({
+  // Card
+  wrap:         { backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  wrapEditing:  { borderColor: C.accent },
+  header:       { flexDirection: 'row', alignItems: 'center', gap: SP.sm, padding: SP.md, paddingBottom: SP.sm },
+  icon:         { width: 26, height: 26, borderRadius: R.sm, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  name:         { fontSize: FONT.base, fontWeight: '700', color: C.text },
+  badge:        { paddingHorizontal: SP.sm, paddingVertical: 2, borderRadius: R.full },
+  badgeText:    { fontFamily: FONT_MONO, fontSize: FONT.xs, fontWeight: '800' },
+  stepCard:     { flexDirection: 'row', alignItems: 'center', gap: SP.sm, paddingHorizontal: SP.md, paddingVertical: SP.sm, borderTopWidth: 1, borderTopColor: C.border },
+  stepIdx:      { fontFamily: FONT_MONO, fontSize: 11, color: C.textDim, width: 16, textAlign: 'right', flexShrink: 0 },
+  stepCardName: { fontSize: 10, fontWeight: '600', color: C.textMuted, marginBottom: 1 },
+  stepMain:     { flexDirection: 'row', alignItems: 'center', gap: SP.sm, flexWrap: 'wrap' },
+  stepWertCard: { fontFamily: FONT_MONO, fontSize: FONT.sm, fontWeight: '700', color: C.text },
+  zielChip:     { backgroundColor: 'rgba(203,255,62,0.10)', borderRadius: R.full, paddingHorizontal: 6, paddingVertical: 1 },
+  zielText:     { fontFamily: FONT_MONO, fontSize: 10, fontWeight: '700', color: C.accent },
+  pauseChip:    { flexDirection: 'row', alignItems: 'center', gap: 3, flexShrink: 0 },
+  pauseText:    { fontFamily: FONT_MONO, fontSize: 10, fontWeight: '600', color: C.textDim },
+  footer:       { flexDirection: 'row', alignItems: 'center', gap: 4, padding: SP.sm, paddingHorizontal: SP.md, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.surfaceAlt },
+  footerText:   { fontSize: 10, fontWeight: '600', color: C.textDim },
+
+  // Form step list
+  stepRow:    { flexDirection: 'row', alignItems: 'center', gap: SP.sm, paddingVertical: SP.xs },
+  stepInline: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: SP.xs },
+  stepWert:   { fontFamily: FONT_MONO, fontSize: FONT.sm, fontWeight: '700', color: C.text },
+  stepZiel:   { fontFamily: FONT_MONO, fontSize: FONT.xs, fontWeight: '600', color: C.accent },
+  stepPause:  { fontSize: FONT.xs, fontWeight: '600', color: C.textDim },
+  stepLabel:  { fontSize: 10, color: C.textMuted, marginTop: 1 },
+  inputGroup: { gap: 4 },
+  inputLabel: { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
+});
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 type Phases = Record<Phase, EinheitUebung[]>;
-type ActiveForm = null | { phase: Phase; kind: 'ueb' | 'kreis'; editId?: string };
+type ActiveForm = null | { phase: Phase; kind: 'ueb' | 'kreis' | 'intervall'; editId?: string };
 
 export default function EinheitDetailScreen({ navigation, route }: Props) {
   const { planId, wocheId, einheitId, datum } = route.params;
@@ -973,6 +1393,18 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
                       />
                     );
                   }
+                  if (u.typ === 'intervall') {
+                    return (
+                      <IntervallCard
+                        key={u.id}
+                        ueb={u}
+                        phaseColor={cfg.color}
+                        isEditing={isEditing}
+                        onEdit={() => setActiveForm({ phase, kind: 'intervall', editId: u.id })}
+                        onDelete={() => deleteUeb(phase, u.id)}
+                      />
+                    );
+                  }
                   return (
                     <View key={u.id} style={[styles.uebRow, isEditing && styles.uebRowActive]}>
                       <View style={[styles.uebDot, { backgroundColor: cfg.color }]} />
@@ -1013,6 +1445,14 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
                       <GBIcon name="repeat" size={14} color={cfg.color} />
                       <Text style={[styles.addUebText, { color: cfg.color }]}>Kreis</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.addUebBtn, { borderColor: `${cfg.color}33`, flex: 1 }]}
+                      onPress={() => setActiveForm({ phase, kind: 'intervall' })}
+                      activeOpacity={0.8}
+                    >
+                      <GBIcon name="flag" size={14} color={cfg.color} />
+                      <Text style={[styles.addUebText, { color: cfg.color }]}>Intervall</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
 
@@ -1035,6 +1475,17 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
                     phase={phase}
                     phaseColor={cfg.color}
                     initialKreis={activeForm.editId ? exercises.find(u => u.id === activeForm.editId) as EinheitUebung : undefined}
+                    onSubmit={handleUebSubmit}
+                    onCancel={closeForm}
+                  />
+                )}
+
+                {formActive && activeForm.kind === 'intervall' && (
+                  <IntervallForm
+                    key={`${phase}-intervall-${activeForm.editId ?? 'new'}`}
+                    phase={phase}
+                    phaseColor={cfg.color}
+                    initialIntervall={activeForm.editId ? exercises.find(u => u.id === activeForm.editId) as EinheitUebung : undefined}
                     onSubmit={handleUebSubmit}
                     onCancel={closeForm}
                   />
