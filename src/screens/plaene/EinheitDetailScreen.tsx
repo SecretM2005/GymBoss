@@ -15,6 +15,7 @@ import { useUebungStore } from '../../store/uebungStore';
 import { useEinheitStore } from '../../store/einheitStore';
 import { GBIcon } from '../../components/GBIcon';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
+import { useSettingsStore } from '../../store/settingsStore';
 
 type Props = {
   navigation: StackNavigationProp<PlaeneStackParamList, 'EinheitDetail'>;
@@ -128,6 +129,43 @@ export function formatParamChip(p: UebungParam): string {
     case 'pause':          return `${p.wert}${p.einheit ?? 's'} ${p.bezeichnung || 'Pause'}`;
     case 'serienpause':    return `${p.wert}${p.einheit ?? 's'} S-Pause`;
   }
+}
+
+// ─── Week date helpers ────────────────────────────────────────────────────────
+
+const WOCHENTAGE_KURZ = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const MONATE_KURZ_EDS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+function parseDatumDMY(str: string): Date | null {
+  const p = str.split('.');
+  if (p.length !== 3) return null;
+  const d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+export function getWocheMonday(startdatum: string, wocheNr: number): Date | null {
+  const start = parseDatumDMY(startdatum);
+  if (!start) return null;
+  const dow = (start.getDay() + 6) % 7; // Mo=0
+  const monday = new Date(start);
+  monday.setDate(start.getDate() - dow + (wocheNr - 1) * 7);
+  return monday;
+}
+
+export function getWocheDayIso(startdatum: string, wocheNr: number, dayOffset: number): string {
+  const monday = getWocheMonday(startdatum, wocheNr);
+  if (!monday) return '';
+  const d = new Date(monday);
+  d.setDate(monday.getDate() + dayOffset);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+export function formatWocheRange(startdatum: string, wocheNr: number): string {
+  const monday = getWocheMonday(startdatum, wocheNr);
+  if (!monday) return '';
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return `${monday.getDate()}. ${MONATE_KURZ_EDS[monday.getMonth()]} – ${sunday.getDate()}. ${MONATE_KURZ_EDS[sunday.getMonth()]}`;
 }
 
 // ─── ID helpers ───────────────────────────────────────────────────────────────
@@ -1226,6 +1264,7 @@ type ActiveForm = null | { phase: Phase; kind: 'ueb' | 'kreis' | 'intervall'; ed
 
 export default function EinheitDetailScreen({ navigation, route }: Props) {
   const C = useColors();
+  const coachingView = useSettingsStore((s) => s.coachingView);
   const { planId, wocheId, einheitId, datum } = route.params;
   const { getPlanById, saveEinheit } = usePlanStore();
   const { addUebung: saveUebToLib } = useUebungStore();
@@ -1236,6 +1275,17 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
   const plan = getPlanById(planId);
   const woche = plan?.wochen.find((w) => w.id === wocheId);
   const existing = einheitId ? woche?.einheiten.find((e) => e.id === einheitId) : undefined;
+
+  // Weekday picker state (Wochen mode)
+  const initWochentag = (): number | null => {
+    if (!existing?.datum || !plan?.startdatum || !woche) return null;
+    const monday = getWocheMonday(plan.startdatum, woche.wochennummer);
+    if (!monday) return null;
+    const d = new Date(existing.datum);
+    const diff = Math.round((d.getTime() - monday.getTime()) / 86400000);
+    return diff >= 0 && diff <= 6 ? diff : null;
+  };
+  const [selectedWochentag, setSelectedWochentag] = useState<number | null>(initWochentag);
 
   const [name, setName]                 = useState(existing?.name ?? '');
   const [nameError, setNameError]       = useState('');
@@ -1279,13 +1329,17 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
 
   const handleSaveEinheit = () => {
     if (!name.trim()) { setNameError('Name ist erforderlich'); return; }
+    let computedDatum = existing?.datum ?? datum;
+    if (coachingView === 'wochen' && selectedWochentag !== null && plan?.startdatum && woche) {
+      computedDatum = getWocheDayIso(plan.startdatum, woche.wochennummer, selectedWochentag);
+    }
     const einheit: Einheit = {
       id: existing?.id ?? newEId(),
       name: name.trim(),
       warmup: phases.warmup,
       haupteinheit: phases.haupteinheit,
       cooldown: phases.cooldown,
-      datum: existing?.datum ?? datum,
+      datum: computedDatum,
     };
     if (saveEinheitLib) {
       const { id: _id, ...tpl } = einheit;
@@ -1359,6 +1413,39 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
               </View>
             )}
           </View>
+
+          {/* Weekday picker (Wochen mode only) */}
+          {coachingView === 'wochen' && woche && (
+            <View style={[styles.wochentagSection, { backgroundColor: C.surface, borderColor: C.border }]}>
+              <Text style={[styles.wochentagTitle, { color: C.textMuted }]}>Wochentag</Text>
+              {plan?.startdatum ? (
+                <View style={styles.wochentagRow}>
+                  {WOCHENTAGE_KURZ.map((label, i) => {
+                    const iso = getWocheDayIso(plan!.startdatum!, woche!.wochennummer, i);
+                    const d = new Date(iso);
+                    const active = selectedWochentag === i;
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        style={[styles.dayBtn, { borderColor: C.border, backgroundColor: C.surfaceAlt }, active && { borderColor: C.accent, backgroundColor: C.accentLight }]}
+                        onPress={() => setSelectedWochentag(active ? null : i)}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[styles.dayBtnLabel, { color: active ? C.accent : C.textMuted }]}>{label}</Text>
+                        <Text style={[styles.dayBtnDate, { color: active ? C.accent : C.textDim }]}>
+                          {d.getDate()}.{d.getMonth() + 1}.
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text style={[styles.noStartdatumHint, { color: C.warn }]}>
+                  Kein Startdatum für diesen Plan — bitte im Plan zuerst festlegen.
+                </Text>
+              )}
+            </View>
+          )}
 
           {/* Stats + save-to-lib toggle */}
           <View style={styles.statsRow}>
@@ -1565,4 +1652,12 @@ const styles = StyleSheet.create({
   addBtnsRow:  { flexDirection: 'row', gap: SP.sm },
   addUebBtn:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.md, borderRadius: R.lg, borderWidth: 1.5, borderStyle: 'dashed' },
   addUebText:  { fontSize: FONT.sm, fontWeight: '700' },
+
+  wochentagSection:  { borderRadius: R.lg, borderWidth: 1, padding: SP.md, gap: SP.sm },
+  wochentagTitle:    { fontSize: FONT.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.4 },
+  wochentagRow:      { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  dayBtn:            { flex: 1, minWidth: 42, alignItems: 'center', paddingVertical: SP.sm, borderRadius: R.md, borderWidth: 1 },
+  dayBtnLabel:       { fontSize: FONT.xs, fontWeight: '800', letterSpacing: 0.6 },
+  dayBtnDate:        { fontSize: 10, fontWeight: '600', marginTop: 2 },
+  noStartdatumHint:  { fontSize: FONT.xs, fontWeight: '600', lineHeight: 17 },
 });
