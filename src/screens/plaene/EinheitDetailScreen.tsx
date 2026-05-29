@@ -563,13 +563,13 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
       </View>
 
       {/* Circuit-level parameters */}
-      <View style={kf.section}>
-        <Text style={kf.sectionLabel}>Kreis-Parameter</Text>
+      <View style={[kf.section, { backgroundColor: C.surfaceAlt, borderColor: C.border }]}>
+        <Text style={[kf.sectionLabel, { color: C.textMuted }]}>Kreis-Parameter</Text>
 
         <View style={kf.paramRow}>
-          <Text style={kf.paramLabel}>Serien</Text>
+          <Text style={[kf.paramLabel, { color: C.textSub }]}>Serien</Text>
           <TextInput
-            style={[form.paramInputField, kf.paramInput]}
+            style={[form.paramInputField, kf.paramInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
             value={serien}
             onChangeText={setSerien}
             placeholder="z.B. 4"
@@ -579,10 +579,10 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
         </View>
 
         <View style={kf.paramRow}>
-          <Text style={kf.paramLabel}>Pause (zw. Übungen)</Text>
+          <Text style={[kf.paramLabel, { color: C.textSub }]}>Pause (zw. Übungen)</Text>
           <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
             <TextInput
-              style={[form.paramInputField, kf.paramInput]}
+              style={[form.paramInputField, kf.paramInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
               value={pause}
               onChangeText={setPause}
               placeholder="z.B. 45"
@@ -590,18 +590,18 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
               keyboardType="decimal-pad"
             />
             {(['s', 'min'] as const).map(u => (
-              <TouchableOpacity key={u} style={[form.unitBtn, pauseUnit === u && form.unitBtnOn]} onPress={() => setPauseUnit(u)} activeOpacity={0.7}>
-                <Text style={[form.unitText, pauseUnit === u && form.unitTextOn]}>{u}</Text>
+              <TouchableOpacity key={u} style={[form.unitBtn, { borderColor: C.border, backgroundColor: C.surface }, pauseUnit === u && form.unitBtnOn]} onPress={() => setPauseUnit(u)} activeOpacity={0.7}>
+                <Text style={[form.unitText, { color: C.textSub }, pauseUnit === u && form.unitTextOn]}>{u}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
         <View style={kf.paramRow}>
-          <Text style={kf.paramLabel}>Serienpause</Text>
+          <Text style={[kf.paramLabel, { color: C.textSub }]}>Serienpause</Text>
           <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
             <TextInput
-              style={[form.paramInputField, kf.paramInput]}
+              style={[form.paramInputField, kf.paramInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
               value={sp}
               onChangeText={setSp}
               placeholder="z.B. 3"
@@ -609,8 +609,8 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
               keyboardType="decimal-pad"
             />
             {(['s', 'min'] as const).map(u => (
-              <TouchableOpacity key={u} style={[form.unitBtn, spUnit === u && form.unitBtnOn]} onPress={() => setSpUnit(u)} activeOpacity={0.7}>
-                <Text style={[form.unitText, spUnit === u && form.unitTextOn]}>{u}</Text>
+              <TouchableOpacity key={u} style={[form.unitBtn, { borderColor: C.border, backgroundColor: C.surface }, spUnit === u && form.unitBtnOn]} onPress={() => setSpUnit(u)} activeOpacity={0.7}>
+                <Text style={[form.unitText, { color: C.textSub }, spUnit === u && form.unitTextOn]}>{u}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -621,19 +621,19 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
       {exercises.length > 0 && prevParts.length > 0 && (
         <View style={form.preview}>
           <Text style={form.previewLabel}>Vorschau</Text>
-          <Text style={form.previewText}>{name.trim() || 'Kraftkreis'} ({prevParts.join(' · ')})</Text>
+          <Text style={[form.previewText, { color: C.text }]}>{name.trim() || 'Kraftkreis'} ({prevParts.join(' · ')})</Text>
         </View>
       )}
 
       {exercises.length === 0 && (
         <View style={kf.emptyHint}>
-          <Text style={kf.emptyHintText}>Mindestens eine Übung hinzufügen</Text>
+          <Text style={[kf.emptyHintText, { color: C.textDim }]}>Mindestens eine Übung hinzufügen</Text>
         </View>
       )}
 
       <View style={form.btns}>
-        <TouchableOpacity style={form.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
-          <Text style={form.cancelBtnText}>Abbrechen</Text>
+        <TouchableOpacity style={[form.cancelBtn, { backgroundColor: C.surfaceAlt }]} onPress={onCancel} activeOpacity={0.7}>
+          <Text style={[form.cancelBtnText, { color: C.textMuted }]}>Abbrechen</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[form.submitBtn, { backgroundColor: exercises.length > 0 ? phaseColor : C.surfaceAlt }]}
@@ -659,24 +659,25 @@ function KreisCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const C = useColors();
   const serien = ueb.parameter.find(p => p.typ === 'serien');
   const pause  = ueb.parameter.find(p => p.typ === 'pause');
   const sp     = ueb.parameter.find(p => p.typ === 'serienpause');
 
   return (
-    <View style={[kc.wrap, isEditing && kc.wrapEditing]}>
+    <View style={[kc.wrap, { backgroundColor: C.surface, borderColor: C.border }, isEditing && kc.wrapEditing, isEditing && { borderColor: C.accent }]}>
       <View style={kc.header}>
         <View style={[kc.icon, { backgroundColor: `${phaseColor}22` }]}>
           <GBIcon name="repeat" size={14} color={phaseColor} />
         </View>
-        <Text style={kc.name}>{ueb.name}</Text>
+        <Text style={[kc.name, { color: C.text }]}>{ueb.name}</Text>
         {serien && (
           <View style={[kc.badge, { backgroundColor: `${phaseColor}22` }]}>
             <Text style={[kc.badgeText, { color: phaseColor }]}>{serien.wert}×</Text>
           </View>
         )}
         <View style={{ flex: 1 }} />
-        <TouchableOpacity onPress={onEdit} style={styles.miniBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={onEdit} style={[styles.miniBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
           <GBIcon name="edit" size={13} color={C.textMuted} />
         </TouchableOpacity>
         <TouchableOpacity onPress={onDelete} style={styles.miniBtnDanger} activeOpacity={0.7}>
@@ -685,25 +686,25 @@ function KreisCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
       </View>
 
       {ueb.kreisUebungen?.map((ku, i) => (
-        <View key={ku.id} style={kc.exRow}>
-          <Text style={kc.exIdx}>{i + 1}.</Text>
-          <Text style={kc.exName}>{ku.name}</Text>
+        <View key={ku.id} style={[kc.exRow, { borderTopColor: C.border }]}>
+          <Text style={[kc.exIdx, { color: C.textDim }]}>{i + 1}.</Text>
+          <Text style={[kc.exName, { color: C.text }]}>{ku.name}</Text>
           <Text style={kc.exVal}>{ku.wert} {ku.einheit}</Text>
         </View>
       ))}
 
       {(pause || sp) && (
-        <View style={kc.footer}>
+        <View style={[kc.footer, { borderTopColor: C.border, backgroundColor: C.surfaceAlt }]}>
           {pause && (
             <View style={kc.footerChip}>
               <GBIcon name="clock" size={10} color={C.textDim} />
-              <Text style={kc.footerText}>{pause.wert}{pause.einheit ?? 's'} Pause</Text>
+              <Text style={[kc.footerText, { color: C.textDim }]}>{pause.wert}{pause.einheit ?? 's'} Pause</Text>
             </View>
           )}
           {sp && (
             <View style={kc.footerChip}>
               <GBIcon name="stopwatch" size={10} color={C.textDim} />
-              <Text style={kc.footerText}>{sp.wert}{sp.einheit ?? 'min'} Serienpause</Text>
+              <Text style={[kc.footerText, { color: C.textDim }]}>{sp.wert}{sp.einheit ?? 'min'} Serienpause</Text>
             </View>
           )}
         </View>
@@ -724,6 +725,7 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
   onSubmit: (u: EinheitUebung) => void;
   onCancel: () => void;
 }) {
+  const C = useColors();
   const ip = (t: UebungParamTyp) => initialIntervall?.parameter.find(p => p.typ === t);
 
   const [name, setName]       = useState(initialIntervall?.name ?? 'Intervall');
@@ -805,13 +807,13 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
   const prevParts = [serien ? `${serien}×` : '', stepStr, sp ? `${sp}${spUnit} Serienpause` : ''].filter(Boolean);
 
   return (
-    <View style={[form.wrap, { borderColor: `${phaseColor}55` }]}>
+    <View style={[form.wrap, { borderColor: `${phaseColor}55`, backgroundColor: C.surface }]}>
       <Text style={[form.title, { color: phaseColor }]}>
         {PHASE_CFG[phase].label} · {initialIntervall ? 'Intervall bearbeiten' : 'Neues Intervalltraining'}
       </Text>
 
       <TextInput
-        style={form.nameInputFull}
+        style={[form.nameInputFull, { backgroundColor: C.surfaceAlt, borderColor: C.border, color: C.text }]}
         value={name}
         onChangeText={setName}
         placeholder="Name (z.B. Intervall-Lauf)…"
@@ -820,23 +822,23 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
       />
 
       {/* Steps list */}
-      <View style={kf.section}>
-        <Text style={kf.sectionLabel}>Intervall-Schritte</Text>
+      <View style={[kf.section, { backgroundColor: C.surfaceAlt, borderColor: C.border }]}>
+        <Text style={[kf.sectionLabel, { color: C.textMuted }]}>Intervall-Schritte</Text>
 
         {steps.map((ku, i) => (
           <View key={ku.id} style={[ki.stepRow, editId === ku.id && kf.exRowDim]}>
-            <View style={kf.exNum}><Text style={kf.exNumText}>{i + 1}</Text></View>
+            <View style={[kf.exNum, { backgroundColor: C.surface }]}><Text style={[kf.exNumText, { color: C.textMuted }]}>{i + 1}</Text></View>
             <View style={{ flex: 1 }}>
               <View style={ki.stepInline}>
-                <Text style={ki.stepWert}>{ku.wert} {ku.einheit}</Text>
-                {ku.zielzeit ? <Text style={ki.stepZiel}>in {ku.zielzeit}{ku.zeiteinheit ?? 's'}</Text> : null}
-                {ku.pause    ? <Text style={ki.stepPause}>→ {ku.pause}{ku.pauseeinheit ?? 's'} P.</Text> : null}
+                <Text style={[ki.stepWert, { color: C.text }]}>{ku.wert} {ku.einheit}</Text>
+                {ku.zielzeit ? <Text style={[ki.stepZiel, { color: C.accent }]}>in {ku.zielzeit}{ku.zeiteinheit ?? 's'}</Text> : null}
+                {ku.pause    ? <Text style={[ki.stepPause, { color: C.textDim }]}>→ {ku.pause}{ku.pauseeinheit ?? 's'} P.</Text> : null}
               </View>
-              {ku.name ? <Text style={ki.stepLabel}>{ku.name}</Text> : null}
+              {ku.name ? <Text style={[ki.stepLabel, { color: C.textMuted }]}>{ku.name}</Text> : null}
             </View>
             {editId !== ku.id && (
               <View style={{ flexDirection: 'row', gap: 4 }}>
-                <TouchableOpacity onPress={() => startEdit(ku)} style={styles.miniBtn} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => startEdit(ku)} style={[styles.miniBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
                   <GBIcon name="edit" size={13} color={C.textMuted} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => deleteStep(ku.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>
@@ -848,9 +850,9 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
         ))}
 
         {editId !== null ? (
-          <View style={kf.editor}>
+          <View style={[kf.editor, { backgroundColor: C.surface, borderColor: C.border }]}>
             <TextInput
-              style={form.nameInputFull}
+              style={[form.nameInputFull, { backgroundColor: C.surfaceAlt, borderColor: C.border, color: C.text }]}
               value={stName}
               onChangeText={setStName}
               placeholder="Bezeichnung optional (z.B. Sprint)"
@@ -860,10 +862,10 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
             />
 
             <View style={ki.inputGroup}>
-              <Text style={ki.inputLabel}>Distanz / Dauer *</Text>
+              <Text style={[ki.inputLabel, { color: C.textMuted }]}>Distanz / Dauer *</Text>
               <View style={{ flexDirection: 'row', gap: SP.sm, alignItems: 'center', flexWrap: 'wrap' }}>
                 <TextInput
-                  style={[form.paramInputField, { flex: 1, minWidth: 80 }]}
+                  style={[form.paramInputField, { flex: 1, minWidth: 80, backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
                   value={stWert}
                   onChangeText={setStWert}
                   placeholder="z.B. 400"
@@ -872,8 +874,8 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
                 />
                 <View style={form.unitRow}>
                   {INTERVAL_EINHEITEN.map(u => (
-                    <TouchableOpacity key={u} style={[form.unitBtn, stEin === u && form.unitBtnOn]} onPress={() => setStEin(u)} activeOpacity={0.7}>
-                      <Text style={[form.unitText, stEin === u && form.unitTextOn]}>{u}</Text>
+                    <TouchableOpacity key={u} style={[form.unitBtn, { borderColor: C.border, backgroundColor: C.surface }, stEin === u && form.unitBtnOn]} onPress={() => setStEin(u)} activeOpacity={0.7}>
+                      <Text style={[form.unitText, { color: C.textSub }, stEin === u && form.unitTextOn]}>{u}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -881,10 +883,10 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
             </View>
 
             <View style={ki.inputGroup}>
-              <Text style={ki.inputLabel}>Zielzeit (optional)</Text>
+              <Text style={[ki.inputLabel, { color: C.textMuted }]}>Zielzeit (optional)</Text>
               <View style={{ flexDirection: 'row', gap: SP.sm, alignItems: 'center', flexWrap: 'wrap' }}>
                 <TextInput
-                  style={[form.paramInputField, { flex: 1, minWidth: 80 }]}
+                  style={[form.paramInputField, { flex: 1, minWidth: 80, backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
                   value={stZiel}
                   onChangeText={setStZiel}
                   placeholder="z.B. 70"
@@ -893,8 +895,8 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
                 />
                 <View style={form.unitRow}>
                   {TIME_EINHEITEN.map(u => (
-                    <TouchableOpacity key={u} style={[form.unitBtn, stZielEin === u && form.unitBtnOn]} onPress={() => setStZielEin(u)} activeOpacity={0.7}>
-                      <Text style={[form.unitText, stZielEin === u && form.unitTextOn]}>{u}</Text>
+                    <TouchableOpacity key={u} style={[form.unitBtn, { borderColor: C.border, backgroundColor: C.surface }, stZielEin === u && form.unitBtnOn]} onPress={() => setStZielEin(u)} activeOpacity={0.7}>
+                      <Text style={[form.unitText, { color: C.textSub }, stZielEin === u && form.unitTextOn]}>{u}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -902,10 +904,10 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
             </View>
 
             <View style={ki.inputGroup}>
-              <Text style={ki.inputLabel}>Pause danach (optional)</Text>
+              <Text style={[ki.inputLabel, { color: C.textMuted }]}>Pause danach (optional)</Text>
               <View style={{ flexDirection: 'row', gap: SP.sm, alignItems: 'center', flexWrap: 'wrap' }}>
                 <TextInput
-                  style={[form.paramInputField, { flex: 1, minWidth: 80 }]}
+                  style={[form.paramInputField, { flex: 1, minWidth: 80, backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
                   value={stPause}
                   onChangeText={setStPause}
                   placeholder="z.B. 90"
@@ -914,8 +916,8 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
                 />
                 <View style={form.unitRow}>
                   {TIME_EINHEITEN.map(u => (
-                    <TouchableOpacity key={u} style={[form.unitBtn, stPauseEin === u && form.unitBtnOn]} onPress={() => setStPauseEin(u)} activeOpacity={0.7}>
-                      <Text style={[form.unitText, stPauseEin === u && form.unitTextOn]}>{u}</Text>
+                    <TouchableOpacity key={u} style={[form.unitBtn, { borderColor: C.border, backgroundColor: C.surface }, stPauseEin === u && form.unitBtnOn]} onPress={() => setStPauseEin(u)} activeOpacity={0.7}>
+                      <Text style={[form.unitText, { color: C.textSub }, stPauseEin === u && form.unitTextOn]}>{u}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -923,8 +925,8 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
             </View>
 
             <View style={form.paramBtns}>
-              <TouchableOpacity style={form.backBtn} onPress={cancelEdit} activeOpacity={0.7}>
-                <Text style={form.backBtnText}>Abbrechen</Text>
+              <TouchableOpacity style={[form.backBtn, { backgroundColor: C.surface }]} onPress={cancelEdit} activeOpacity={0.7}>
+                <Text style={[form.backBtnText, { color: C.textMuted }]}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[form.confirmBtn, { backgroundColor: stWert.trim() ? phaseColor : C.surfaceAlt }]}
@@ -946,12 +948,12 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
       </View>
 
       {/* Serien + Serienpause */}
-      <View style={kf.section}>
-        <Text style={kf.sectionLabel}>Gesamt-Parameter</Text>
+      <View style={[kf.section, { backgroundColor: C.surfaceAlt, borderColor: C.border }]}>
+        <Text style={[kf.sectionLabel, { color: C.textMuted }]}>Gesamt-Parameter</Text>
         <View style={kf.paramRow}>
-          <Text style={kf.paramLabel}>Serien (Wiederholungen)</Text>
+          <Text style={[kf.paramLabel, { color: C.textSub }]}>Serien (Wiederholungen)</Text>
           <TextInput
-            style={[form.paramInputField, kf.paramInput]}
+            style={[form.paramInputField, kf.paramInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
             value={serien}
             onChangeText={setSerien}
             placeholder="z.B. 3"
@@ -960,10 +962,10 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
           />
         </View>
         <View style={kf.paramRow}>
-          <Text style={kf.paramLabel}>Serienpause</Text>
+          <Text style={[kf.paramLabel, { color: C.textSub }]}>Serienpause</Text>
           <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
             <TextInput
-              style={[form.paramInputField, kf.paramInput]}
+              style={[form.paramInputField, kf.paramInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
               value={sp}
               onChangeText={setSp}
               placeholder="z.B. 3"
@@ -971,8 +973,8 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
               keyboardType="decimal-pad"
             />
             {TIME_EINHEITEN.map(u => (
-              <TouchableOpacity key={u} style={[form.unitBtn, spUnit === u && form.unitBtnOn]} onPress={() => setSpUnit(u)} activeOpacity={0.7}>
-                <Text style={[form.unitText, spUnit === u && form.unitTextOn]}>{u}</Text>
+              <TouchableOpacity key={u} style={[form.unitBtn, { borderColor: C.border, backgroundColor: C.surface }, spUnit === u && form.unitBtnOn]} onPress={() => setSpUnit(u)} activeOpacity={0.7}>
+                <Text style={[form.unitText, { color: C.textSub }, spUnit === u && form.unitTextOn]}>{u}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -982,19 +984,19 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
       {steps.length > 0 && prevParts.length > 0 && (
         <View style={form.preview}>
           <Text style={form.previewLabel}>Vorschau</Text>
-          <Text style={form.previewText}>{name.trim() || 'Intervall'} ({prevParts.join(' · ')})</Text>
+          <Text style={[form.previewText, { color: C.text }]}>{name.trim() || 'Intervall'} ({prevParts.join(' · ')})</Text>
         </View>
       )}
 
       {steps.length === 0 && (
         <View style={kf.emptyHint}>
-          <Text style={kf.emptyHintText}>Mindestens einen Schritt hinzufügen</Text>
+          <Text style={[kf.emptyHintText, { color: C.textDim }]}>Mindestens einen Schritt hinzufügen</Text>
         </View>
       )}
 
       <View style={form.btns}>
-        <TouchableOpacity style={form.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
-          <Text style={form.cancelBtnText}>Abbrechen</Text>
+        <TouchableOpacity style={[form.cancelBtn, { backgroundColor: C.surfaceAlt }]} onPress={onCancel} activeOpacity={0.7}>
+          <Text style={[form.cancelBtnText, { color: C.textMuted }]}>Abbrechen</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[form.submitBtn, { backgroundColor: steps.length > 0 ? phaseColor : C.surfaceAlt }]}
@@ -1020,23 +1022,24 @@ function IntervallCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const C = useColors();
   const serien = ueb.parameter.find(p => p.typ === 'serien');
   const sp     = ueb.parameter.find(p => p.typ === 'serienpause');
 
   return (
-    <View style={[ki.wrap, isEditing && ki.wrapEditing]}>
+    <View style={[ki.wrap, { backgroundColor: C.surface, borderColor: C.border }, isEditing && ki.wrapEditing, isEditing && { borderColor: C.accent }]}>
       <View style={ki.header}>
         <View style={[ki.icon, { backgroundColor: `${phaseColor}22` }]}>
           <GBIcon name="flag" size={14} color={phaseColor} />
         </View>
-        <Text style={ki.name}>{ueb.name}</Text>
+        <Text style={[ki.name, { color: C.text }]}>{ueb.name}</Text>
         {serien && (
           <View style={[ki.badge, { backgroundColor: `${phaseColor}22` }]}>
             <Text style={[ki.badgeText, { color: phaseColor }]}>{serien.wert}×</Text>
           </View>
         )}
         <View style={{ flex: 1 }} />
-        <TouchableOpacity onPress={onEdit} style={styles.miniBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={onEdit} style={[styles.miniBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
           <GBIcon name="edit" size={13} color={C.textMuted} />
         </TouchableOpacity>
         <TouchableOpacity onPress={onDelete} style={styles.miniBtnDanger} activeOpacity={0.7}>
@@ -1045,15 +1048,15 @@ function IntervallCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
       </View>
 
       {ueb.kreisUebungen?.map((ku, i) => (
-        <View key={ku.id} style={ki.stepCard}>
-          <Text style={ki.stepIdx}>{i + 1}.</Text>
+        <View key={ku.id} style={[ki.stepCard, { borderTopColor: C.border }]}>
+          <Text style={[ki.stepIdx, { color: C.textDim }]}>{i + 1}.</Text>
           <View style={{ flex: 1 }}>
-            {ku.name ? <Text style={ki.stepCardName}>{ku.name}</Text> : null}
+            {ku.name ? <Text style={[ki.stepCardName, { color: C.textMuted }]}>{ku.name}</Text> : null}
             <View style={ki.stepMain}>
-              <Text style={ki.stepWertCard}>{ku.wert} {ku.einheit}</Text>
+              <Text style={[ki.stepWertCard, { color: C.text }]}>{ku.wert} {ku.einheit}</Text>
               {ku.zielzeit ? (
                 <View style={ki.zielChip}>
-                  <Text style={ki.zielText}>in {ku.zielzeit}{ku.zeiteinheit ?? 's'}</Text>
+                  <Text style={[ki.zielText, { color: C.accent }]}>in {ku.zielzeit}{ku.zeiteinheit ?? 's'}</Text>
                 </View>
               ) : null}
             </View>
@@ -1061,16 +1064,16 @@ function IntervallCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
           {ku.pause ? (
             <View style={ki.pauseChip}>
               <GBIcon name="clock" size={9} color={C.textDim} />
-              <Text style={ki.pauseText}>{ku.pause}{ku.pauseeinheit ?? 's'}</Text>
+              <Text style={[ki.pauseText, { color: C.textDim }]}>{ku.pause}{ku.pauseeinheit ?? 's'}</Text>
             </View>
           ) : null}
         </View>
       ))}
 
       {sp && (
-        <View style={ki.footer}>
+        <View style={[ki.footer, { borderTopColor: C.border, backgroundColor: C.surfaceAlt }]}>
           <GBIcon name="stopwatch" size={10} color={C.textDim} />
-          <Text style={ki.footerText}>{sp.wert}{sp.einheit ?? 'min'} Serienpause</Text>
+          <Text style={[ki.footerText, { color: C.textDim }]}>{sp.wert}{sp.einheit ?? 'min'} Serienpause</Text>
         </View>
       )}
     </View>
@@ -1222,6 +1225,7 @@ type Phases = Record<Phase, EinheitUebung[]>;
 type ActiveForm = null | { phase: Phase; kind: 'ueb' | 'kreis' | 'intervall'; editId?: string };
 
 export default function EinheitDetailScreen({ navigation, route }: Props) {
+  const C = useColors();
   const { planId, wocheId, einheitId, datum } = route.params;
   const { getPlanById, saveEinheit } = usePlanStore();
   const { addUebung: saveUebToLib } = useUebungStore();
@@ -1295,7 +1299,7 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
 
         {/* Top Bar */}
         <View style={styles.topBar}>
@@ -1303,11 +1307,11 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
             <GBIcon name="chevronLeft" size={20} color={C.text} />
           </TouchableOpacity>
           <View style={styles.topCenter}>
-            <Text style={styles.topSub}>{existing ? 'Einheit bearbeiten' : 'Neue Einheit'}</Text>
-            <Text style={styles.topTitle} numberOfLines={1}>{name.trim() || '—'}</Text>
+            <Text style={[styles.topSub, { color: C.textMuted }]}>{existing ? 'Einheit bearbeiten' : 'Neue Einheit'}</Text>
+            <Text style={[styles.topTitle, { color: C.text }]} numberOfLines={1}>{name.trim() || '—'}</Text>
           </View>
-          <TouchableOpacity onPress={handleSaveEinheit} style={styles.saveBtn} activeOpacity={0.8}>
-            <Text style={styles.saveBtnText}>Speichern</Text>
+          <TouchableOpacity onPress={handleSaveEinheit} style={[styles.saveBtn, { backgroundColor: C.accent }]} activeOpacity={0.8}>
+            <Text style={[styles.saveBtnText, { color: C.accentContrast }]}>Speichern</Text>
           </TouchableOpacity>
         </View>
 
@@ -1317,7 +1321,7 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
           <View style={styles.nameSection}>
             <View style={styles.nameRow}>
               <TextInput
-                style={[styles.nameInput, nameError ? styles.inputError : null]}
+                style={[styles.nameInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }, nameError ? styles.inputError : null]}
                 value={name}
                 onChangeText={(v) => { setName(v); setNameError(''); }}
                 placeholder="Einheit benennen…"
@@ -1325,27 +1329,27 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
                 autoCapitalize="words"
               />
               <TouchableOpacity
-                style={[styles.libBtn, showEinheitLib && styles.libBtnOn]}
+                style={[styles.libBtn, { backgroundColor: C.surface, borderColor: C.border }, showEinheitLib && styles.libBtnOn]}
                 onPress={() => setShowEinheitLib((v) => !v)}
                 activeOpacity={0.7}
               >
                 <GBIcon name="layers" size={16} color={showEinheitLib ? C.accentContrast : C.textMuted} />
-                <Text style={[styles.libBtnText, showEinheitLib && styles.libBtnTextOn]}>Einheit</Text>
+                <Text style={[styles.libBtnText, { color: C.textMuted }, showEinheitLib && styles.libBtnTextOn]}>Einheit</Text>
               </TouchableOpacity>
             </View>
             {nameError ? <Text style={styles.errText}>{nameError}</Text> : null}
 
             {showEinheitLib && (
-              <View style={styles.einheitLibList}>
-                <Text style={styles.einheitLibTitle}>Aus Einheitenbibliothek</Text>
+              <View style={[styles.einheitLibList, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <Text style={[styles.einheitLibTitle, { color: C.textMuted, borderBottomColor: C.border }]}>Aus Einheitenbibliothek</Text>
                 {einheitLib.map((tpl) => (
-                  <TouchableOpacity key={tpl.id} style={styles.einheitLibItem} onPress={() => pickEinheitLib(tpl)} activeOpacity={0.7}>
+                  <TouchableOpacity key={tpl.id} style={[styles.einheitLibItem, { borderBottomColor: C.border }]} onPress={() => pickEinheitLib(tpl)} activeOpacity={0.7}>
                     <View style={styles.einheitLibIcon}>
                       <GBIcon name="dumbbell" size={14} color={C.accent} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.einheitLibName}>{tpl.name}</Text>
-                      <Text style={styles.einheitLibSub}>
+                      <Text style={[styles.einheitLibName, { color: C.text }]}>{tpl.name}</Text>
+                      <Text style={[styles.einheitLibSub, { color: C.textMuted }]}>
                         {tpl.warmup.length + tpl.haupteinheit.length + tpl.cooldown.length} Übungen
                       </Text>
                     </View>
@@ -1358,12 +1362,12 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
 
           {/* Stats + save-to-lib toggle */}
           <View style={styles.statsRow}>
-            <Text style={styles.statsText}>{totalEx} Einträge · 3 Phasen</Text>
+            <Text style={[styles.statsText, { color: C.textDim }]}>{totalEx} Einträge · 3 Phasen</Text>
             <TouchableOpacity style={styles.libToggle} onPress={() => setSaveEinheitLib((v) => !v)} activeOpacity={0.7}>
-              <View style={[styles.check, saveEinheitLib && styles.checkOn]}>
+              <View style={[styles.check, { borderColor: C.border, backgroundColor: C.surfaceAlt }, saveEinheitLib && styles.checkOn]}>
                 {saveEinheitLib && <GBIcon name="check" size={11} color={C.accentContrast} />}
               </View>
-              <Text style={styles.libToggleLabel}>In Bibliothek</Text>
+              <Text style={[styles.libToggleLabel, { color: C.textMuted }]}>In Bibliothek</Text>
             </TouchableOpacity>
           </View>
 
@@ -1378,7 +1382,7 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
                 {/* Phase header */}
                 <View style={[styles.phaseHeader, { borderLeftColor: cfg.color }]}>
                   <Text style={[styles.phaseTitle, { color: cfg.color }]}>{cfg.label}</Text>
-                  <Text style={styles.phaseCount}>{exercises.length} Einträge</Text>
+                  <Text style={[styles.phaseCount, { color: C.textDim }]}>{exercises.length} Einträge</Text>
                 </View>
 
                 {/* Exercise / Circuit rows */}
@@ -1409,16 +1413,16 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
                     );
                   }
                   return (
-                    <View key={u.id} style={[styles.uebRow, isEditing && styles.uebRowActive]}>
+                    <View key={u.id} style={[styles.uebRow, { backgroundColor: C.surface, borderColor: C.border }, isEditing && styles.uebRowActive, isEditing && { borderColor: C.accent }]}>
                       <View style={[styles.uebDot, { backgroundColor: cfg.color }]} />
                       <View style={styles.uebInfo}>
-                        <Text style={styles.uebName}>{u.name}</Text>
+                        <Text style={[styles.uebName, { color: C.text }]}>{u.name}</Text>
                         {u.parameter.length > 0 && (
-                          <Text style={styles.uebParams}>{buildSuffix(u.parameter)}</Text>
+                          <Text style={[styles.uebParams, { color: C.textMuted }]}>{buildSuffix(u.parameter)}</Text>
                         )}
                       </View>
                       <View style={styles.uebActions}>
-                        <TouchableOpacity onPress={() => setActiveForm({ phase, kind: 'ueb', editId: u.id })} style={styles.miniBtn} activeOpacity={0.7}>
+                        <TouchableOpacity onPress={() => setActiveForm({ phase, kind: 'ueb', editId: u.id })} style={[styles.miniBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
                           <GBIcon name="edit" size={13} color={C.textMuted} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => deleteUeb(phase, u.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>
