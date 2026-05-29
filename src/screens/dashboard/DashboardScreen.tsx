@@ -11,7 +11,7 @@ import { useAthletenStore } from '../../store/athletenStore';
 import { useFeedbackStore, Feedback } from '../../store/feedbackStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
-import { C, SP, R, FONT, FONT_MONO, SHADOW_SM } from '../../theme';
+import { C, useColors, SP, R, FONT, FONT_MONO, SHADOW_SM } from '../../theme';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -83,6 +83,7 @@ const SPORTART_COLORS: Record<string, { bg: string; fg: string }> = {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Stars({ value, size = 13 }: { value: number; size?: number }) {
+  const C = useColors();
   return (
     <View style={{ flexDirection: 'row', gap: 2 }}>
       {[1, 2, 3, 4, 5].map((i) => (
@@ -95,14 +96,15 @@ function Stars({ value, size = 13 }: { value: number; size?: number }) {
 function KpiTile({ icon, label, value, sub, accent }: {
   icon: string; label: string; value: string; sub?: string; accent?: boolean;
 }) {
+  const C = useColors();
   return (
-    <View style={[kpi.tile, accent && kpi.tileAccent]}>
-      <View style={[kpi.iconWrap, accent && kpi.iconWrapAccent]}>
+    <View style={[kpi.tile, accent && kpi.tileAccent, { backgroundColor: accent ? C.accent : C.surface, borderColor: accent ? C.accent : C.border }]}>
+      <View style={[kpi.iconWrap, accent && kpi.iconWrapAccent, !accent && { backgroundColor: C.accentLight }]}>
         <GBIcon name={icon as any} size={18} color={accent ? C.accentContrast : C.accent} />
       </View>
-      <Text style={[kpi.value, accent && kpi.valueAccent]}>{value}</Text>
-      <Text style={[kpi.label, accent && kpi.labelAccent]}>{label}</Text>
-      {sub ? <Text style={[kpi.sub, accent && kpi.subAccent]}>{sub}</Text> : null}
+      <Text style={[kpi.value, accent && kpi.valueAccent, { color: accent ? C.accentContrast : C.text }]}>{value}</Text>
+      <Text style={[kpi.label, accent && kpi.labelAccent, !accent && { color: C.textMuted }]}>{label}</Text>
+      {sub ? <Text style={[kpi.sub, accent && kpi.subAccent, !accent && { color: C.textDim }]}>{sub}</Text> : null}
     </View>
   );
 }
@@ -121,13 +123,14 @@ const kpi = StyleSheet.create({
 });
 
 function SectionHeader({ label, count, onMore }: { label: string; count?: number; onMore?: () => void }) {
+  const C = useColors();
   return (
     <View style={s.sectionHeader}>
-      <Text style={s.sectionLabel}>{label}</Text>
-      {count !== undefined && <Text style={s.sectionCount}>{count}</Text>}
+      <Text style={[s.sectionLabel, { color: C.textMuted }]}>{label}</Text>
+      {count !== undefined && <Text style={[s.sectionCount, { color: C.textDim }]}>{count}</Text>}
       {onMore && (
         <TouchableOpacity onPress={onMore} style={s.sectionMoreBtn} activeOpacity={0.7}>
-          <Text style={s.sectionMore}>Alle</Text>
+          <Text style={[s.sectionMore, { color: C.accent }]}>Alle</Text>
           <GBIcon name="chevronRight" size={12} color={C.accent} />
         </TouchableOpacity>
       )}
@@ -138,15 +141,16 @@ function SectionHeader({ label, count, onMore }: { label: string; count?: number
 function FeedbackCard({ fb, sportlerName, sportlerInitials }: {
   fb: Feedback; sportlerName: string; sportlerInitials: string;
 }) {
+  const C = useColors();
   return (
-    <View style={fbCard.wrap}>
+    <View style={[fbCard.wrap, { backgroundColor: C.surface, borderColor: C.border }]}>
       <GBAvatar name={sportlerName} initials={sportlerInitials} size={40} />
       <View style={{ flex: 1, gap: 4 }}>
         <View style={fbCard.topRow}>
-          <Text style={fbCard.name} numberOfLines={1}>{sportlerName}</Text>
-          <Text style={fbCard.date}>{relativeDate(fb.datum)}</Text>
+          <Text style={[fbCard.name, { color: C.text }]} numberOfLines={1}>{sportlerName}</Text>
+          <Text style={[fbCard.date, { color: C.textDim }]}>{relativeDate(fb.datum)}</Text>
         </View>
-        <Text style={fbCard.einheit}>{fb.einheitName}</Text>
+        <Text style={[fbCard.einheit, { color: C.textMuted }]}>{fb.einheitName}</Text>
         <View style={fbCard.ratingRow}>
           <Stars value={fb.bewertung} />
           <View style={[fbCard.rpePill, { backgroundColor: `${rpeColor(fb.rpe)}22` }]}>
@@ -154,7 +158,7 @@ function FeedbackCard({ fb, sportlerName, sportlerInitials }: {
           </View>
         </View>
         {fb.notiz ? (
-          <Text style={fbCard.notiz} numberOfLines={2}>„{fb.notiz}"</Text>
+          <Text style={[fbCard.notiz, { color: C.textSub }]} numberOfLines={2}>„{fb.notiz}"</Text>
         ) : null}
       </View>
     </View>
@@ -181,6 +185,7 @@ export default function DashboardScreen() {
   const { plaene } = usePlanStore();
   const { sportler } = useAthletenStore();
   const { feedback } = useFeedbackStore();
+  const C = useColors();
 
   const today = new Date();
   const todayIso = isoToday();
@@ -237,17 +242,17 @@ export default function DashboardScreen() {
   const dateLabel = `${WOCHENTAGE_LANG[(today.getDay() + 6) % 7]}, ${today.getDate()}. ${MONATE[today.getMonth()]} ${today.getFullYear()}`;
 
   return (
-    <View style={[s.root, { paddingTop: insets.top }]}>
+    <View style={[s.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
         {/* ── Header ── */}
         <View style={s.header}>
           <View style={s.headerLeft}>
-            <Text style={s.greeting}>{getGreeting()}</Text>
-            <Text style={s.dateText}>{dateLabel}</Text>
+            <Text style={[s.greeting, { color: C.text }]}>{getGreeting()}</Text>
+            <Text style={[s.dateText, { color: C.textMuted }]}>{dateLabel}</Text>
           </View>
-          <View style={s.logo}>
-            <Text style={s.logoText}>GB</Text>
+          <View style={[s.logo, { backgroundColor: C.accent }]}>
+            <Text style={[s.logoText, { color: C.accentContrast }]}>GB</Text>
           </View>
         </View>
 
@@ -285,8 +290,8 @@ export default function DashboardScreen() {
         </View>
 
         {/* ── Wochenstreifen ── */}
-        <View style={s.weekCard}>
-          <Text style={s.weekCardTitle}>Diese Woche</Text>
+        <View style={[s.weekCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <Text style={[s.weekCardTitle, { color: C.textMuted }]}>Diese Woche</Text>
           <View style={s.weekStrip}>
             {weekDates.map((date, i) => {
               const iso = isoOf(date);
@@ -295,24 +300,26 @@ export default function DashboardScreen() {
               const isPast = iso < todayIso;
               return (
                 <View key={i} style={s.weekDay}>
-                  <Text style={[s.weekDayLabel, isToday && s.weekDayLabelToday]}>
+                  <Text style={[s.weekDayLabel, isToday && s.weekDayLabelToday, { color: isToday ? C.accent : C.textDim }]}>
                     {WOCHENTAGE[i]}
                   </Text>
                   <View style={[
                     s.weekDayCircle,
                     isToday && s.weekDayCircleToday,
                     hasTrain && !isToday && s.weekDayCircleTrain,
+                    isToday && { backgroundColor: C.accent },
                   ]}>
                     <Text style={[
                       s.weekDayNum,
                       isToday && s.weekDayNumToday,
                       hasTrain && !isToday && s.weekDayNumTrain,
                       isPast && !isToday && !hasTrain && s.weekDayNumPast,
+                      { color: isToday ? C.accentContrast : hasTrain ? C.accent : isPast ? C.textDim : C.textSub },
                     ]}>
                       {date.getDate()}
                     </Text>
                   </View>
-                  {hasTrain && <View style={[s.weekDot, isToday && s.weekDotToday]} />}
+                  {hasTrain && <View style={[s.weekDot, isToday && s.weekDotToday, { backgroundColor: isToday ? C.accentContrast : C.accent }]} />}
                 </View>
               );
             })}
@@ -323,10 +330,10 @@ export default function DashboardScreen() {
         <SectionHeader label="Anstehend" count={upcoming.length} />
 
         {upcoming.length === 0 ? (
-          <View style={s.emptyCard}>
+          <View style={[s.emptyCard, { backgroundColor: C.surface, borderColor: C.border }]}>
             <GBIcon name="calendar" size={26} color={C.textDim} />
-            <Text style={s.emptyTitle}>Keine geplanten Einheiten</Text>
-            <Text style={s.emptySub}>Weise Einheiten im Kalender einem Datum zu.</Text>
+            <Text style={[s.emptyTitle, { color: C.textSub }]}>Keine geplanten Einheiten</Text>
+            <Text style={[s.emptySub, { color: C.textDim }]}>Weise Einheiten im Kalender einem Datum zu.</Text>
           </View>
         ) : (
           upcoming.map(({ einheit, plan }) => {
@@ -338,21 +345,21 @@ export default function DashboardScreen() {
             const dateStr = formatUpcomingDate(einheit.datum!);
             const isToday = einheit.datum === todayIso;
             return (
-              <View key={einheit.id} style={[s.upcomingCard, isToday && s.upcomingCardToday]}>
+              <View key={einheit.id} style={[s.upcomingCard, { backgroundColor: C.surface, borderColor: C.border }, isToday && s.upcomingCardToday]}>
                 <View style={[s.upcomingStripe, { backgroundColor: sc.fg }]} />
                 <View style={s.upcomingBody}>
                   <View style={s.upcomingTop}>
-                    <Text style={s.upcomingName}>{einheit.name}</Text>
-                    <View style={[s.upcomingDatePill, isToday && s.upcomingDatePillToday]}>
-                      <Text style={[s.upcomingDateText, isToday && s.upcomingDateTextToday]}>{dateStr}</Text>
+                    <Text style={[s.upcomingName, { color: C.text }]}>{einheit.name}</Text>
+                    <View style={[s.upcomingDatePill, { backgroundColor: C.surfaceAlt }, isToday && s.upcomingDatePillToday]}>
+                      <Text style={[s.upcomingDateText, { color: C.textDim }, isToday && s.upcomingDateTextToday]}>{dateStr}</Text>
                     </View>
                   </View>
                   <View style={s.upcomingMeta}>
-                    <Text style={s.upcomingPlan} numberOfLines={1}>{plan.name}</Text>
+                    <Text style={[s.upcomingPlan, { color: C.textMuted }]} numberOfLines={1}>{plan.name}</Text>
                     {assignedNames ? (
                       <View style={s.upcomingAthletes}>
                         <GBIcon name="user" size={11} color={C.textDim} />
-                        <Text style={s.upcomingAthleteText}>{assignedNames}</Text>
+                        <Text style={[s.upcomingAthleteText, { color: C.textDim }]}>{assignedNames}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -391,10 +398,10 @@ export default function DashboardScreen() {
         <SectionHeader label="Letzte Bewertungen" count={feedback.length} />
 
         {feedback.length === 0 ? (
-          <View style={s.emptyCard}>
+          <View style={[s.emptyCard, { backgroundColor: C.surface, borderColor: C.border }]}>
             <GBIcon name="starFill" size={26} color={C.textDim} />
-            <Text style={s.emptyTitle}>Noch kein Feedback</Text>
-            <Text style={s.emptySub}>Athleten-Bewertungen erscheinen hier.</Text>
+            <Text style={[s.emptyTitle, { color: C.textSub }]}>Noch kein Feedback</Text>
+            <Text style={[s.emptySub, { color: C.textDim }]}>Athleten-Bewertungen erscheinen hier.</Text>
           </View>
         ) : (
           feedback.slice(0, 5).map((fb) => {
@@ -419,9 +426,9 @@ export default function DashboardScreen() {
         />
 
         {plaene.length === 0 ? (
-          <View style={s.emptyCard}>
+          <View style={[s.emptyCard, { backgroundColor: C.surface, borderColor: C.border }]}>
             <GBIcon name="dumbbell" size={26} color={C.textDim} />
-            <Text style={s.emptyTitle}>Keine Pläne vorhanden</Text>
+            <Text style={[s.emptyTitle, { color: C.textSub }]}>Keine Pläne vorhanden</Text>
           </View>
         ) : (
           <View style={s.planRow}>
@@ -431,19 +438,19 @@ export default function DashboardScreen() {
               return (
                 <TouchableOpacity
                   key={plan.id}
-                  style={s.planMini}
+                  style={[s.planMini, { backgroundColor: C.surface, borderColor: C.border }]}
                   activeOpacity={0.8}
                   onPress={() => navigation.navigate('Plaene', { screen: 'PlanDetail', params: { planId: plan.id } })}
                 >
                   <View style={[s.planMiniStripe, { backgroundColor: sc.fg }]} />
-                  <Text style={s.planMiniName} numberOfLines={2}>{plan.name}</Text>
+                  <Text style={[s.planMiniName, { color: C.text }]} numberOfLines={2}>{plan.name}</Text>
                   {plan.sportart && (
                     <View style={[s.planMiniChip, { backgroundColor: sc.bg }]}>
                       <Text style={[s.planMiniChipText, { color: sc.fg }]}>{plan.sportart}</Text>
                     </View>
                   )}
                   <View style={s.planMiniFooter}>
-                    <Text style={s.planMiniStat}>{plan.wochen.length} Wo.</Text>
+                    <Text style={[s.planMiniStat, { color: C.textDim }]}>{plan.wochen.length} Wo.</Text>
                     <View style={{ flexDirection: 'row', gap: 2 }}>
                       {assignedSportler.slice(0, 3).map((sp) => (
                         <GBAvatar key={sp.id} name={sp.name} initials={sp.initials} size={20} />
@@ -464,7 +471,7 @@ export default function DashboardScreen() {
             onPress={() => navigation.navigate('Sportler', { screen: 'SportlerForm' })}
           >
             <GBIcon name="plus" size={16} color={C.accent} />
-            <Text style={s.quickBtnText}>Sportler</Text>
+            <Text style={[s.quickBtnText, { color: C.accent }]}>Sportler</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={s.quickBtn}
@@ -472,7 +479,7 @@ export default function DashboardScreen() {
             onPress={() => navigation.navigate('Plaene', { screen: 'PlanForm' })}
           >
             <GBIcon name="plus" size={16} color={C.accent} />
-            <Text style={s.quickBtnText}>Trainingsplan</Text>
+            <Text style={[s.quickBtnText, { color: C.accent }]}>Trainingsplan</Text>
           </TouchableOpacity>
         </View>
 

@@ -2,7 +2,8 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabParamList } from '../types';
-import { C } from '../theme';
+import { useColors } from '../theme';
+import { useT } from '../i18n';
 
 import DashboardScreen   from '../screens/dashboard/DashboardScreen';
 import PlaeneNavigator   from './PlaeneNavigator';
@@ -21,12 +22,15 @@ const TAB_ICONS: Record<string, { active: IoniconsName; inactive: IoniconsName }
 };
 
 export default function BottomTabNavigator() {
+  const C = useColors();
+  const t = useT();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#0F0F11',
+          backgroundColor: C.surface,
           borderTopColor: C.border,
           borderTopWidth: 1,
           paddingBottom: 8,
@@ -42,10 +46,10 @@ export default function BottomTabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen}   options={{ title: 'Home' }} />
-      <Tab.Screen name="Plaene"    component={PlaeneNavigator}   options={{ title: 'Pläne' }} />
-      <Tab.Screen name="Sportler"  component={SportlerNavigator} options={{ title: 'Sportler' }} />
-      <Tab.Screen name="Mehr"      component={MehrScreen}        options={{ title: 'Mehr' }} />
+      <Tab.Screen name="Dashboard" component={DashboardScreen}   options={{ title: t('tab_home') }} />
+      <Tab.Screen name="Plaene"    component={PlaeneNavigator}   options={{ title: t('tab_plaene') }} />
+      <Tab.Screen name="Sportler"  component={SportlerNavigator} options={{ title: t('tab_sportler') }} />
+      <Tab.Screen name="Mehr"      component={MehrScreen}        options={{ title: t('tab_mehr') }} />
     </Tab.Navigator>
   );
 }
