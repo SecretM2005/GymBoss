@@ -10,7 +10,7 @@ import { usePlanStore } from '../../store/planStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
-import { C, SP, R, FONT, FONT_MONO } from '../../theme';
+import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 
 type Props = { navigation: StackNavigationProp<PlaeneStackParamList, 'PlanList'> };
 
@@ -24,6 +24,7 @@ const SPORTART_COLORS: Record<string, { bg: string; fg: string; dot: string; str
 };
 
 function SportartChip({ sportart }: { sportart?: string }) {
+  const C = useColors();
   if (!sportart) return null;
   const c = SPORTART_COLORS[sportart] ?? { bg: 'rgba(255,255,255,0.08)', fg: C.textMuted, dot: C.textDim };
   return (
@@ -35,6 +36,7 @@ function SportartChip({ sportart }: { sportart?: string }) {
 }
 
 export default function PlanListScreen({ navigation }: Props) {
+  const C = useColors();
   const { plaene } = usePlanStore();
   const { sportler } = useAthletenStore();
   const [q, setQ] = useState('');
@@ -49,11 +51,11 @@ export default function PlanListScreen({ navigation }: Props) {
   const sportlerMitPlan = new Set(plaene.flatMap((p) => p.sportlerIds)).size;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
       <View style={styles.topBar}>
         <View>
-          <Text style={styles.topSub}>Trainer · Verwaltung</Text>
-          <Text style={styles.topTitle}>Trainingspläne</Text>
+          <Text style={[styles.topSub, { color: C.textMuted }]}>Trainer · Verwaltung</Text>
+          <Text style={[styles.topTitle, { color: C.text }]}>Trainingspläne</Text>
         </View>
       </View>
 
@@ -64,21 +66,21 @@ export default function PlanListScreen({ navigation }: Props) {
             <Text style={[styles.statVal, styles.statValAccent]}>{plaene.length}</Text>
             <Text style={[styles.statLabel, styles.statLabelAccent]}>Pläne</Text>
           </View>
-          <View style={styles.statTile}>
-            <Text style={styles.statVal}>{sportlerMitPlan}</Text>
-            <Text style={styles.statLabel}>Sportler</Text>
+          <View style={[styles.statTile, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <Text style={[styles.statVal, { color: C.text }]}>{sportlerMitPlan}</Text>
+            <Text style={[styles.statLabel, { color: C.textMuted }]}>Sportler</Text>
           </View>
-          <View style={styles.statTile}>
-            <Text style={styles.statVal}>{totalWochen}</Text>
-            <Text style={styles.statLabel}>Wochen</Text>
+          <View style={[styles.statTile, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <Text style={[styles.statVal, { color: C.text }]}>{totalWochen}</Text>
+            <Text style={[styles.statLabel, { color: C.textMuted }]}>Wochen</Text>
           </View>
         </View>
 
         {/* Search */}
-        <View style={styles.searchBox}>
+        <View style={[styles.searchBox, { backgroundColor: C.surface, borderColor: C.border }]}>
           <GBIcon name="search" size={16} color={C.textMuted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: C.text }]}
             value={q}
             onChangeText={setQ}
             placeholder="Pläne suchen…"
@@ -94,7 +96,7 @@ export default function PlanListScreen({ navigation }: Props) {
 
         {/* Section header */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionLabel}>Alle Pläne · {filtered.length}</Text>
+          <Text style={[styles.sectionLabel, { color: C.textMuted }]}>Alle Pläne · {filtered.length}</Text>
         </View>
 
         {/* Cards */}
@@ -104,33 +106,33 @@ export default function PlanListScreen({ navigation }: Props) {
           return (
             <TouchableOpacity
               key={plan.id}
-              style={styles.card}
+              style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}
               activeOpacity={0.75}
               onPress={() => navigation.navigate('PlanDetail', { planId: plan.id })}
             >
               <View style={[styles.cardStripe, { backgroundColor: sc.stripe }]} />
               <View style={styles.cardBody}>
                 <View style={styles.cardTop}>
-                  <Text style={styles.cardName} numberOfLines={1}>{plan.name}</Text>
+                  <Text style={[styles.cardName, { color: C.text }]} numberOfLines={1}>{plan.name}</Text>
                   <SportartChip sportart={plan.sportart} />
                 </View>
                 {plan.beschreibung ? (
-                  <Text style={styles.cardDesc} numberOfLines={1}>{plan.beschreibung}</Text>
+                  <Text style={[styles.cardDesc, { color: C.textSub }]} numberOfLines={1}>{plan.beschreibung}</Text>
                 ) : null}
                 <View style={styles.cardBottom}>
                   <View style={styles.avatarRow}>
                     {assignedSportler.slice(0, 4).map((sp, i) => (
-                      <View key={sp.id} style={[styles.avatarWrap, { marginLeft: i === 0 ? 0 : -8 }]}>
+                      <View key={sp.id} style={[styles.avatarWrap, { marginLeft: i === 0 ? 0 : -8, borderColor: C.bg }]}>
                         <GBAvatar name={sp.name} initials={sp.initials} size={26} />
                       </View>
                     ))}
                     {assignedSportler.length === 0 && (
-                      <Text style={styles.noSportler}>Kein Sportler zugewiesen</Text>
+                      <Text style={[styles.noSportler, { color: C.textDim }]}>Kein Sportler zugewiesen</Text>
                     )}
                   </View>
                   <View style={styles.wochenBadge}>
                     <GBIcon name="layers" size={12} color={C.textMuted} />
-                    <Text style={styles.wochenText}>
+                    <Text style={[styles.wochenText, { color: C.textMuted }]}>
                       {plan.wochen.length} {plan.wochen.length === 1 ? 'Woche' : 'Wochen'}
                     </Text>
                   </View>
@@ -143,10 +145,10 @@ export default function PlanListScreen({ navigation }: Props) {
         {filtered.length === 0 && (
           <View style={styles.empty}>
             <GBIcon name="dumbbell" size={44} color={C.textDim} />
-            <Text style={styles.emptyTitle}>
+            <Text style={[styles.emptyTitle, { color: C.textSub }]}>
               {q ? 'Kein Treffer' : 'Noch keine Pläne'}
             </Text>
-            <Text style={styles.emptySub}>
+            <Text style={[styles.emptySub, { color: C.textDim }]}>
               {q
                 ? `Keine Übereinstimmung für „${q}"`
                 : 'Tippe auf + um den ersten Trainingsplan zu erstellen.'}

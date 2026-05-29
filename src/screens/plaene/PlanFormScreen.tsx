@@ -11,7 +11,7 @@ import { usePlanStore } from '../../store/planStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
-import { C, SP, R, FONT } from '../../theme';
+import { C, useColors, SP, R, FONT } from '../../theme';
 
 type Props = {
   navigation: StackNavigationProp<PlaeneStackParamList, 'PlanForm'>;
@@ -28,6 +28,7 @@ type Form = {
 };
 
 export default function PlanFormScreen({ navigation, route }: Props) {
+  const C = useColors();
   const { getPlanById, addPlan, updatePlan, deletePlan } = usePlanStore();
   const { sportler } = useAthletenStore();
 
@@ -94,17 +95,17 @@ export default function PlanFormScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.root, { paddingTop: useSafeAreaInsets().top }]}>
+      <View style={[styles.root, { paddingTop: useSafeAreaInsets().top, backgroundColor: C.bg }]}>
         {/* Top Bar */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
             <GBIcon name="chevronLeft" size={22} color={C.text} />
           </TouchableOpacity>
           <View style={styles.topCenter}>
-            <Text style={styles.topSub}>{isEdit ? 'Bearbeiten' : 'Neuer Plan'}</Text>
-            <Text style={styles.topTitle} numberOfLines={1}>{form.name.trim() || '—'}</Text>
+            <Text style={[styles.topSub, { color: C.textMuted }]}>{isEdit ? 'Bearbeiten' : 'Neuer Plan'}</Text>
+            <Text style={[styles.topTitle, { color: C.text }]} numberOfLines={1}>{form.name.trim() || '—'}</Text>
           </View>
-          <TouchableOpacity onPress={handleSave} style={styles.saveBtn} activeOpacity={0.8}>
+          <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, { backgroundColor: C.accent }]} activeOpacity={0.8}>
             <Text style={styles.saveBtnText}>Speichern</Text>
           </TouchableOpacity>
         </View>
@@ -114,7 +115,7 @@ export default function PlanFormScreen({ navigation, route }: Props) {
           {/* Name */}
           <Field label="Planname" required error={errors.name}>
             <TextInput
-              style={[styles.input, errors.name && styles.inputError]}
+              style={[styles.input, { backgroundColor: C.surface, borderColor: errors.name ? C.warn : C.border, color: C.text }]}
               value={form.name}
               onChangeText={(v) => set('name', v)}
               placeholder="z. B. Kraftaufbau Basis"
@@ -132,10 +133,10 @@ export default function PlanFormScreen({ navigation, route }: Props) {
                   <TouchableOpacity
                     key={s}
                     onPress={() => set('sportart', s)}
-                    style={[styles.sportChip, active && styles.sportChipActive]}
+                    style={[styles.sportChip, { backgroundColor: C.surface, borderColor: C.border }, active && styles.sportChipActive]}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.sportChipText, active && styles.sportChipTextActive]}>{s}</Text>
+                    <Text style={[styles.sportChipText, { color: C.textSub }, active && styles.sportChipTextActive]}>{s}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -145,7 +146,7 @@ export default function PlanFormScreen({ navigation, route }: Props) {
           {/* Beschreibung */}
           <Field label="Beschreibung">
             <TextInput
-              style={[styles.input, styles.inputMulti]}
+              style={[styles.input, styles.inputMulti, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
               value={form.beschreibung}
               onChangeText={(v) => set('beschreibung', v)}
               placeholder="Kurze Beschreibung des Plans…"
@@ -159,7 +160,7 @@ export default function PlanFormScreen({ navigation, route }: Props) {
           {/* Startdatum */}
           <Field label="Startdatum">
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
               value={form.startdatum}
               onChangeText={(v) => set('startdatum', v)}
               placeholder="TT.MM.JJJJ"
@@ -171,8 +172,8 @@ export default function PlanFormScreen({ navigation, route }: Props) {
           {/* Sportler */}
           <Field label="Sportler zuweisen">
             {sportler.length === 0 ? (
-              <View style={styles.emptyAthletes}>
-                <Text style={styles.emptyAthletesText}>Noch keine Sportler angelegt</Text>
+              <View style={[styles.emptyAthletes, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <Text style={[styles.emptyAthletesText, { color: C.textDim }]}>Noch keine Sportler angelegt</Text>
               </View>
             ) : (
               <View style={styles.athleteList}>
@@ -181,16 +182,16 @@ export default function PlanFormScreen({ navigation, route }: Props) {
                   return (
                     <TouchableOpacity
                       key={sp.id}
-                      style={[styles.athleteRow, selected && styles.athleteRowSelected]}
+                      style={[styles.athleteRow, { backgroundColor: C.surface, borderColor: C.border }, selected && styles.athleteRowSelected]}
                       onPress={() => toggleSportler(sp.id)}
                       activeOpacity={0.75}
                     >
                       <GBAvatar name={sp.name} initials={sp.initials} size={38} />
                       <View style={styles.athleteInfo}>
-                        <Text style={styles.athleteName}>{sp.name}</Text>
-                        {sp.sportart && <Text style={styles.athleteSport}>{sp.sportart}</Text>}
+                        <Text style={[styles.athleteName, { color: C.text }]}>{sp.name}</Text>
+                        {sp.sportart && <Text style={[styles.athleteSport, { color: C.textMuted }]}>{sp.sportart}</Text>}
                       </View>
-                      <View style={[styles.checkBox, selected && styles.checkBoxSelected]}>
+                      <View style={[styles.checkBox, { borderColor: C.border, backgroundColor: C.surfaceAlt }, selected && styles.checkBoxSelected]}>
                         {selected && <GBIcon name="check" size={14} color={C.accentContrast} />}
                       </View>
                     </TouchableOpacity>
@@ -216,11 +217,12 @@ export default function PlanFormScreen({ navigation, route }: Props) {
 }
 
 function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
+  const C = useColors();
   return (
     <View style={styles.fieldGroup}>
-      <Text style={styles.fieldLabel}>{label}{required && <Text style={{ color: C.accent }}> *</Text>}</Text>
+      <Text style={[styles.fieldLabel, { color: C.textMuted }]}>{label}{required && <Text style={{ color: C.accent }}> *</Text>}</Text>
       {children}
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={[styles.errorText, { color: C.warn }]}>{error}</Text>}
     </View>
   );
 }

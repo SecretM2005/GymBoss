@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { GBIcon } from './GBIcon';
-import { C, SP, R, FONT, FONT_MONO } from '../theme';
+import { C, useColors, SP, R, FONT, FONT_MONO } from '../theme';
 
 const MONATE = [
   'Januar','Februar','März','April','Mai','Juni',
@@ -41,6 +41,7 @@ type Props = {
 type Mode = 'day' | 'year';
 
 export default function DatePickerField({ value, onChange, error }: Props) {
+  const C = useColors();
   const today = new Date();
   const maxYear = today.getFullYear();
   const minYear = maxYear - 100;
@@ -100,7 +101,7 @@ export default function DatePickerField({ value, onChange, error }: Props) {
     <View>
       {/* ── Trigger button ─────────────────────────────────────────────── */}
       <TouchableOpacity
-        style={[s.field, open && s.fieldOpen, error ? s.fieldError : null]}
+        style={[s.field, { backgroundColor: C.surface, borderColor: C.border }, open && s.fieldOpen, open && { borderColor: C.accent }, error ? s.fieldError : null]}
         onPress={() => { setOpen((v) => !v); setMode('day'); }}
         activeOpacity={0.8}
       >
@@ -108,13 +109,13 @@ export default function DatePickerField({ value, onChange, error }: Props) {
         <View style={{ flex: 1 }}>
           {value ? (
             <>
-              <Text style={s.fieldValue}>{formatDate(value)}</Text>
+              <Text style={[s.fieldValue, { color: C.text }]}>{formatDate(value)}</Text>
               {age !== null && age >= 0 && (
-                <Text style={s.fieldAge}>{age} Jahre</Text>
+                <Text style={[s.fieldAge, { color: C.accent }]}>{age} Jahre</Text>
               )}
             </>
           ) : (
-            <Text style={s.fieldPlaceholder}>Geburtsdatum wählen</Text>
+            <Text style={[s.fieldPlaceholder, { color: C.textDim }]}>Geburtsdatum wählen</Text>
           )}
         </View>
         <GBIcon name={open ? 'chevronDown' : 'chevronRight'} size={15} color={C.textDim} />
@@ -122,24 +123,24 @@ export default function DatePickerField({ value, onChange, error }: Props) {
 
       {/* ── Picker ─────────────────────────────────────────────────────── */}
       {open && (
-        <View style={s.picker}>
+        <View style={[s.picker, { backgroundColor: C.surface, borderColor: C.border }]}>
 
           {mode === 'day' ? (
             <>
               {/* Day-mode header */}
               <View style={s.header}>
-                <TouchableOpacity onPress={prevMonth} style={s.navBtn} activeOpacity={0.7}>
+                <TouchableOpacity onPress={prevMonth} style={[s.navBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
                   <GBIcon name="chevronLeft" size={18} color={C.text} />
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={openYearMode} style={s.monthYearBtn} activeOpacity={0.75}>
-                  <Text style={s.monthText}>{MONATE[viewMonth]}</Text>
+                  <Text style={[s.monthText, { color: C.text }]}>{MONATE[viewMonth]}</Text>
                   <View style={s.yearBadge}>
-                    <Text style={s.yearBadgeText}>{viewYear}</Text>
+                    <Text style={[s.yearBadgeText, { color: C.accent }]}>{viewYear}</Text>
                   </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={nextMonth} style={s.navBtn} activeOpacity={0.7}>
+                <TouchableOpacity onPress={nextMonth} style={[s.navBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
                   <GBIcon name="chevronRight" size={18} color={C.text} />
                 </TouchableOpacity>
               </View>
@@ -147,7 +148,7 @@ export default function DatePickerField({ value, onChange, error }: Props) {
               {/* Weekday labels */}
               <View style={s.weekRow}>
                 {WOCHENTAGE.map((d) => (
-                  <Text key={d} style={s.weekLabel}>{d}</Text>
+                  <Text key={d} style={[s.weekLabel, { color: C.textDim }]}>{d}</Text>
                 ))}
               </View>
 
@@ -170,8 +171,10 @@ export default function DatePickerField({ value, onChange, error }: Props) {
                           <View style={[s.dayCircle, isSel && s.dayCircleSel]}>
                             <Text style={[
                               s.dayText,
+                              { color: C.text },
                               isSel && s.dayTextSel,
                               isFuture && s.dayTextDim,
+                              isFuture && { color: C.textDim },
                             ]}>
                               {day}
                             </Text>
@@ -184,9 +187,9 @@ export default function DatePickerField({ value, onChange, error }: Props) {
               ))}
 
               {/* Year jump hint */}
-              <TouchableOpacity onPress={openYearMode} style={s.yearHint} activeOpacity={0.7}>
+              <TouchableOpacity onPress={openYearMode} style={[s.yearHint, { borderTopColor: C.border }]} activeOpacity={0.7}>
                 <GBIcon name="calendar" size={12} color={C.textDim} />
-                <Text style={s.yearHintText}>Anderes Jahr wählen</Text>
+                <Text style={[s.yearHintText, { color: C.textDim }]}>Anderes Jahr wählen</Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -195,16 +198,16 @@ export default function DatePickerField({ value, onChange, error }: Props) {
               <View style={s.header}>
                 <TouchableOpacity
                   onPress={() => setYearPage((p) => Math.max(minYear, p - YEAR_PAGE))}
-                  style={s.navBtn}
+                  style={[s.navBtn, { backgroundColor: C.surfaceAlt }]}
                   activeOpacity={0.7}
                   disabled={yearPage <= minYear}
                 >
                   <GBIcon name="chevronLeft" size={18} color={yearPage <= minYear ? C.textDim : C.text} />
                 </TouchableOpacity>
-                <Text style={s.rangeText}>{yearPage} – {Math.min(yearPage + YEAR_PAGE - 1, maxYear)}</Text>
+                <Text style={[s.rangeText, { color: C.text }]}>{yearPage} – {Math.min(yearPage + YEAR_PAGE - 1, maxYear)}</Text>
                 <TouchableOpacity
                   onPress={() => setYearPage((p) => Math.min(Math.floor(maxYear / YEAR_PAGE) * YEAR_PAGE, p + YEAR_PAGE))}
-                  style={s.navBtn}
+                  style={[s.navBtn, { backgroundColor: C.surfaceAlt }]}
                   activeOpacity={0.7}
                   disabled={yearPage + YEAR_PAGE > maxYear}
                 >
@@ -222,11 +225,11 @@ export default function DatePickerField({ value, onChange, error }: Props) {
                     return (
                       <TouchableOpacity
                         key={year}
-                        style={[s.yearBtn, isSel && s.yearBtnSel, !isSel && isCur && s.yearBtnCur]}
+                        style={[s.yearBtn, { backgroundColor: C.surfaceAlt, borderColor: C.border }, isSel && s.yearBtnSel, !isSel && isCur && s.yearBtnCur]}
                         onPress={() => selectYear(year)}
                         activeOpacity={0.75}
                       >
-                        <Text style={[s.yearBtnText, isSel && s.yearBtnTextSel, !isSel && isCur && s.yearBtnTextCur]}>
+                        <Text style={[s.yearBtnText, { color: C.textSub }, isSel && s.yearBtnTextSel, !isSel && isCur && s.yearBtnTextCur]}>
                           {year}
                         </Text>
                       </TouchableOpacity>
@@ -234,9 +237,9 @@ export default function DatePickerField({ value, onChange, error }: Props) {
                   })}
               </View>
 
-              <TouchableOpacity onPress={() => setMode('day')} style={s.yearHint} activeOpacity={0.7}>
+              <TouchableOpacity onPress={() => setMode('day')} style={[s.yearHint, { borderTopColor: C.border }]} activeOpacity={0.7}>
                 <GBIcon name="chevronLeft" size={12} color={C.textDim} />
-                <Text style={s.yearHintText}>Zurück zum Kalender</Text>
+                <Text style={[s.yearHintText, { color: C.textDim }]}>Zurück zum Kalender</Text>
               </TouchableOpacity>
             </>
           )}

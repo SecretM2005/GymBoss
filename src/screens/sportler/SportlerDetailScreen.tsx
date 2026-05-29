@@ -15,7 +15,7 @@ import { GBIcon } from '../../components/GBIcon';
 import MonthCalendar from '../../components/MonthCalendar';
 import { buildUebSuffix } from '../plaene/EinheitDetailScreen';
 import DatePickerField from '../../components/DatePickerField';
-import { C, SP, R, FONT, FONT_MONO } from '../../theme';
+import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 
 type Props = {
   navigation: StackNavigationProp<SportlerStackParamList, 'SportlerDetail'>;
@@ -94,6 +94,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
   const { getPlaeneForSportler } = usePlanStore();
   const sportler = getSportlerById(route.params.sportlerId);
   const insets = useSafeAreaInsets();
+  const C = useColors();
 
   const [form, setForm] = useState<Form>({
     name:         sportler?.name ?? '',
@@ -218,7 +219,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
 
         {/* Top Bar */}
         <View style={styles.topBar}>
@@ -226,10 +227,10 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
             <GBIcon name="chevronLeft" size={20} color={C.text} />
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
-          <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, saved && styles.saveBtnDone]} activeOpacity={0.8}>
+          <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, saved && styles.saveBtnDone, { backgroundColor: saved ? C.good : C.accent }]} activeOpacity={0.8}>
             {saved
-              ? <><GBIcon name="check" size={15} color={C.accentContrast} /><Text style={styles.saveBtnText}>Gespeichert</Text></>
-              : <Text style={styles.saveBtnText}>Speichern</Text>
+              ? <><GBIcon name="check" size={15} color={C.accentContrast} /><Text style={[styles.saveBtnText, { color: C.accentContrast }]}>Gespeichert</Text></>
+              : <Text style={[styles.saveBtnText, { color: C.accentContrast }]}>Speichern</Text>
             }
           </TouchableOpacity>
         </View>
@@ -237,15 +238,15 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
           {/* Profil-Header */}
-          <View style={styles.profileCard}>
+          <View style={[styles.profileCard, { backgroundColor: C.surface, borderColor: C.border }]}>
             <View style={styles.profileCardInner}>
               <GBAvatar name={form.name || '?'} initials={initials} size={72} />
               <View style={styles.profileInfo}>
-                <Text style={styles.profileName} numberOfLines={1}>
+                <Text style={[styles.profileName, { color: C.text }]} numberOfLines={1}>
                   {form.name.trim() || '—'}
                 </Text>
                 <View style={styles.profileMeta}>
-                  {form.geburtsdatum ? <Text style={styles.profileAge}>{ageFromIso(form.geburtsdatum)} J.</Text> : null}
+                  {form.geburtsdatum ? <Text style={[styles.profileAge, { color: C.textMuted }]}>{ageFromIso(form.geburtsdatum)} J.</Text> : null}
                   {form.sportart && (
                     <View style={[styles.chip, { backgroundColor: sc.bg }]}>
                       <View style={[styles.chipDot, { backgroundColor: sc.dot }]} />
@@ -253,7 +254,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                     </View>
                   )}
                 </View>
-                {form.ziel ? <Text style={styles.profileZiel} numberOfLines={2}>{form.ziel}</Text> : null}
+                {form.ziel ? <Text style={[styles.profileZiel, { color: C.textSub }]} numberOfLines={2}>{form.ziel}</Text> : null}
               </View>
             </View>
           </View>
@@ -263,7 +264,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
 
           <Field label="Name" required error={errors.name}>
             <TextInput
-              style={[styles.input, errors.name && styles.inputError]}
+              style={[styles.input, errors.name && styles.inputError, { backgroundColor: C.surface, borderColor: errors.name ? undefined : C.border, color: C.text }]}
               value={form.name}
               onChangeText={(v) => set('name', v)}
               placeholder="Vorname Nachname"
@@ -287,10 +288,10 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                   <TouchableOpacity
                     key={s}
                     onPress={() => set('sportart', s)}
-                    style={[styles.sportartChip, active && styles.sportartChipActive]}
+                    style={[styles.sportartChip, active && styles.sportartChipActive, { borderColor: active ? C.accent : C.border, backgroundColor: active ? 'rgba(203,255,62,0.10)' : C.surface }]}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.sportartChipText, active && styles.sportartChipTextActive]}>{s}</Text>
+                    <Text style={[styles.sportartChipText, active && styles.sportartChipTextActive, { color: active ? C.accent : C.textSub }]}>{s}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -299,7 +300,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
 
           <Field label="Trainingsziel">
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
               value={form.ziel}
               onChangeText={(v) => set('ziel', v)}
               placeholder="z. B. Kraftaufbau, Wettkampfvorbereitung…"
@@ -321,18 +322,18 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
 
           {/* Day detail panel */}
           {selectedIso && (
-            <View style={styles.dayPanel}>
-              <View style={styles.dayPanelHeader}>
-                <Text style={styles.dayPanelTitle}>{formatDay(selectedIso)}</Text>
-                <TouchableOpacity style={styles.dayAddBtn} onPress={handleAddOnDay} activeOpacity={0.8}>
+            <View style={[styles.dayPanel, { backgroundColor: C.surface, borderColor: C.border }]}>
+              <View style={[styles.dayPanelHeader, { borderBottomColor: C.border }]}>
+                <Text style={[styles.dayPanelTitle, { color: C.text }]}>{formatDay(selectedIso)}</Text>
+                <TouchableOpacity style={[styles.dayAddBtn, { backgroundColor: C.accent }]} onPress={handleAddOnDay} activeOpacity={0.8}>
                   <GBIcon name="plus" size={16} color={C.accentContrast} />
-                  <Text style={styles.dayAddBtnText}>Einheit</Text>
+                  <Text style={[styles.dayAddBtnText, { color: C.accentContrast }]}>Einheit</Text>
                 </TouchableOpacity>
               </View>
 
               {dayEinheiten.length === 0 ? (
                 <View style={styles.dayEmpty}>
-                  <Text style={styles.dayEmptyText}>Keine Einheiten an diesem Tag</Text>
+                  <Text style={[styles.dayEmptyText, { color: C.textDim }]}>Keine Einheiten an diesem Tag</Text>
                 </View>
               ) : (
                 dayEinheiten.map(({ einheit, wocheId, plan }) => {
@@ -340,24 +341,24 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                   const display = override ? { ...einheit, ...override } : einheit;
                   const hasSuffix = !!display.haupteinheit[0] && buildUebSuffix(display.haupteinheit[0]).length > 0;
                   return (
-                    <View key={einheit.id} style={styles.dayEinheitCard}>
+                    <View key={einheit.id} style={[styles.dayEinheitCard, { borderBottomColor: C.border }]}>
                       <View style={styles.dayEinheitLeft}>
-                        <View style={styles.dayEinheitDot} />
+                        <View style={[styles.dayEinheitDot, { backgroundColor: C.accent }]} />
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.dayEinheitName}>
+                          <Text style={[styles.dayEinheitName, { color: C.text }]}>
                             {display.name}
-                            {override && <Text style={styles.overrideMark}> ✎</Text>}
+                            {override && <Text style={[styles.overrideMark, { color: C.accent }]}> ✎</Text>}
                           </Text>
-                          <Text style={styles.dayPlanLabel}>{plan.name}</Text>
+                          <Text style={[styles.dayPlanLabel, { color: C.textMuted }]}>{plan.name}</Text>
                           {hasSuffix && (
-                            <Text style={styles.dayEinheitSub} numberOfLines={1}>
+                            <Text style={[styles.dayEinheitSub, { color: C.textMuted }]} numberOfLines={1}>
                               {buildUebSuffix(display.haupteinheit[0])}
                             </Text>
                           )}
                         </View>
                       </View>
                       <TouchableOpacity
-                        style={styles.dayEditBtn}
+                        style={[styles.dayEditBtn, { backgroundColor: C.surfaceAlt }]}
                         activeOpacity={0.7}
                         onPress={() =>
                           navigation.navigate('SportlerEinheitDetail', {
@@ -381,9 +382,9 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
           <SectionHead>Aktive Pläne</SectionHead>
 
           {plaene.length === 0 ? (
-            <View style={styles.emptyPlans}>
+            <View style={[styles.emptyPlans, { backgroundColor: C.surface, borderColor: C.border }]}>
               <GBIcon name="layers" size={28} color={C.textDim} />
-              <Text style={styles.emptyPlansText}>Kein Trainingsplan zugewiesen</Text>
+              <Text style={[styles.emptyPlansText, { color: C.textDim }]}>Kein Trainingsplan zugewiesen</Text>
             </View>
           ) : (
             plaene.map((plan) => {
@@ -393,9 +394,9 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
               const sc2 = SPORTART_COLORS[plan.sportart ?? ''] ?? { bg: 'rgba(255,255,255,0.08)', fg: C.textMuted, dot: C.textDim };
 
               return (
-                <View key={plan.id} style={styles.planCard}>
-                  <View style={styles.planCardHeader}>
-                    <Text style={styles.planCardName}>{plan.name}</Text>
+                <View key={plan.id} style={[styles.planCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+                  <View style={[styles.planCardHeader, { borderBottomColor: C.border }]}>
+                    <Text style={[styles.planCardName, { color: C.text }]}>{plan.name}</Text>
                     {plan.sportart && (
                       <View style={[styles.planChip, { backgroundColor: sc2.bg }]}>
                         <View style={[styles.planChipDot, { backgroundColor: sc2.dot }]} />
@@ -405,7 +406,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                   </View>
 
                   {allEinheiten.length === 0 ? (
-                    <Text style={styles.planNoEinheiten}>Noch keine Einheiten</Text>
+                    <Text style={[styles.planNoEinheiten, { color: C.textDim }]}>Noch keine Einheiten</Text>
                   ) : (
                     allEinheiten.map(({ einheit, wocheId }) => {
                       const override = einheit.sportlerOverrides?.[sportler.id];
@@ -414,28 +415,28 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                       const hasSuffix = !!display.haupteinheit[0] && buildUebSuffix(display.haupteinheit[0]).length > 0;
 
                       return (
-                        <View key={einheit.id} style={styles.einheitRow}>
+                        <View key={einheit.id} style={[styles.einheitRow, { borderBottomColor: C.border }]}>
                           <View style={styles.einheitRowInfo}>
-                            <View style={styles.einheitDot} />
+                            <View style={[styles.einheitDot, { backgroundColor: C.accent }]} />
                             <View style={{ flex: 1 }}>
-                              <Text style={styles.einheitName}>
+                              <Text style={[styles.einheitName, { color: C.text }]}>
                                 {display.name}
-                                {override && <Text style={styles.overrideBadge}> ✎</Text>}
+                                {override && <Text style={[styles.overrideBadge, { color: C.accent }]}> ✎</Text>}
                               </Text>
                               {hasSuffix ? (
-                                <Text style={styles.einheitParams} numberOfLines={1}>
+                                <Text style={[styles.einheitParams, { color: C.textMuted }]} numberOfLines={1}>
                                   {buildUebSuffix(display.haupteinheit[0])}
                                 </Text>
                               ) : (
-                                <Text style={styles.einheitParams}>{totalEx} Übungen</Text>
+                                <Text style={[styles.einheitParams, { color: C.textMuted }]}>{totalEx} Übungen</Text>
                               )}
                               {einheit.datum && (
-                                <Text style={styles.einheitDatum}>{new Date(einheit.datum).toLocaleDateString('de-DE')}</Text>
+                                <Text style={[styles.einheitDatum, { color: C.textDim }]}>{new Date(einheit.datum).toLocaleDateString('de-DE')}</Text>
                               )}
                             </View>
                           </View>
                           <TouchableOpacity
-                            style={styles.einheitEditBtn}
+                            style={[styles.einheitEditBtn, { backgroundColor: C.surfaceAlt }]}
                             activeOpacity={0.7}
                             onPress={() =>
                               navigation.navigate('SportlerEinheitDetail', {
@@ -471,13 +472,15 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
 }
 
 function SectionHead({ children }: { children: React.ReactNode }) {
-  return <Text style={styles.sectionHead}>{children}</Text>;
+  const C = useColors();
+  return <Text style={[styles.sectionHead, { color: C.textMuted }]}>{children}</Text>;
 }
 
 function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
+  const C = useColors();
   return (
     <View style={styles.fieldGroup}>
-      <Text style={styles.fieldLabel}>{label}{required && <Text style={{ color: C.accent }}> *</Text>}</Text>
+      <Text style={[styles.fieldLabel, { color: C.textMuted }]}>{label}{required && <Text style={{ color: C.accent }}> *</Text>}</Text>
       {children}
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>

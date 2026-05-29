@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlaeneStackParamList } from '../../types';
 import { usePlanStore } from '../../store/planStore';
 import { GBIcon } from '../../components/GBIcon';
-import { C, SP, R, FONT, FONT_MONO } from '../../theme';
+import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 
 type Props = {
   navigation: StackNavigationProp<PlaeneStackParamList, 'PlanWocheDetail'>;
@@ -22,6 +22,7 @@ const PHASE_COLORS = {
 };
 
 export default function PlanWocheDetailScreen({ navigation, route }: Props) {
+  const C = useColors();
   const { planId, wocheId } = route.params;
   const { getPlanById, deleteEinheit } = usePlanStore();
   const insets = useSafeAreaInsets();
@@ -42,15 +43,15 @@ export default function PlanWocheDetailScreen({ navigation, route }: Props) {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
       {/* Top Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn} activeOpacity={0.7}>
           <GBIcon name="chevronLeft" size={20} color={C.text} />
         </TouchableOpacity>
         <View style={styles.topCenter}>
-          <Text style={styles.topSub}>{plan.name}</Text>
-          <Text style={styles.topTitle}>Woche {woche.wochennummer}</Text>
+          <Text style={[styles.topSub, { color: C.textMuted }]}>{plan.name}</Text>
+          <Text style={[styles.topTitle, { color: C.text }]}>Woche {woche.wochennummer}</Text>
         </View>
         <TouchableOpacity
           onPress={() => navigation.navigate('PlanWocheForm', { planId, wocheId })}
@@ -67,7 +68,7 @@ export default function PlanWocheDetailScreen({ navigation, route }: Props) {
         {woche.notizen ? (
           <View style={styles.notizBox}>
             <GBIcon name="bolt" size={13} color={C.accent} />
-            <Text style={styles.notizText}>{woche.notizen}</Text>
+            <Text style={[styles.notizText, { color: C.textSub }]}>{woche.notizen}</Text>
           </View>
         ) : null}
 
@@ -77,29 +78,29 @@ export default function PlanWocheDetailScreen({ navigation, route }: Props) {
             <Text style={[styles.statVal, styles.statValAccent]}>{woche.einheiten.length}</Text>
             <Text style={[styles.statLabel, styles.statLabelAccent]}>Einheiten</Text>
           </View>
-          <View style={styles.statTile}>
-            <Text style={styles.statVal}>
+          <View style={[styles.statTile, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <Text style={[styles.statVal, { color: C.text }]}>
               {woche.einheiten.reduce((s, e) => s + e.warmup.length + e.haupteinheit.length + e.cooldown.length, 0)}
             </Text>
-            <Text style={styles.statLabel}>Übungen</Text>
+            <Text style={[styles.statLabel, { color: C.textMuted }]}>Übungen</Text>
           </View>
-          <View style={styles.statTile}>
-            <Text style={styles.statVal}>{woche.wochennummer}</Text>
-            <Text style={styles.statLabel}>Woche</Text>
+          <View style={[styles.statTile, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <Text style={[styles.statVal, { color: C.text }]}>{woche.wochennummer}</Text>
+            <Text style={[styles.statLabel, { color: C.textMuted }]}>Woche</Text>
           </View>
         </View>
 
         {/* Section header */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionLabel}>Trainingseinheiten</Text>
+          <Text style={[styles.sectionLabel, { color: C.textMuted }]}>Trainingseinheiten</Text>
         </View>
 
         {/* Einheit cards */}
         {woche.einheiten.length === 0 ? (
           <View style={styles.empty}>
             <GBIcon name="dumbbell" size={44} color={C.textDim} />
-            <Text style={styles.emptyTitle}>Noch keine Einheiten</Text>
-            <Text style={styles.emptySub}>Tippe auf + um die erste Trainingseinheit hinzuzufügen.</Text>
+            <Text style={[styles.emptyTitle, { color: C.textSub }]}>Noch keine Einheiten</Text>
+            <Text style={[styles.emptySub, { color: C.textDim }]}>Tippe auf + um die erste Trainingseinheit hinzuzufügen.</Text>
           </View>
         ) : (
           woche.einheiten.map((einheit) => {
@@ -107,14 +108,14 @@ export default function PlanWocheDetailScreen({ navigation, route }: Props) {
             return (
               <TouchableOpacity
                 key={einheit.id}
-                style={styles.card}
+                style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}
                 activeOpacity={0.75}
                 onPress={() => navigation.navigate('EinheitDetail', { planId, wocheId, einheitId: einheit.id })}
               >
                 <View style={styles.cardStripe} />
                 <View style={styles.cardBody}>
                   <View style={styles.cardTop}>
-                    <Text style={styles.cardName} numberOfLines={1}>{einheit.name}</Text>
+                    <Text style={[styles.cardName, { color: C.text }]} numberOfLines={1}>{einheit.name}</Text>
                     <TouchableOpacity
                       onPress={() => handleDelete(einheit.id, einheit.name)}
                       style={styles.deleteBtn}
@@ -128,7 +129,7 @@ export default function PlanWocheDetailScreen({ navigation, route }: Props) {
                     <PhasePill label="Haupt"   count={einheit.haupteinheit.length} color={PHASE_COLORS.haupteinheit} />
                     <PhasePill label="Cool-down" count={einheit.cooldown.length} color={PHASE_COLORS.cooldown} />
                   </View>
-                  <Text style={styles.cardTotal}>
+                  <Text style={[styles.cardTotal, { color: C.textDim }]}>
                     {total} {total === 1 ? 'Übung' : 'Übungen'} gesamt
                   </Text>
                 </View>

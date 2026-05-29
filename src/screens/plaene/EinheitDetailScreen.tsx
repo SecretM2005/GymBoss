@@ -14,7 +14,7 @@ import { usePlanStore } from '../../store/planStore';
 import { useUebungStore } from '../../store/uebungStore';
 import { useEinheitStore } from '../../store/einheitStore';
 import { GBIcon } from '../../components/GBIcon';
-import { C, SP, R, FONT, FONT_MONO } from '../../theme';
+import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 
 type Props = {
   navigation: StackNavigationProp<PlaeneStackParamList, 'EinheitDetail'>;
@@ -146,13 +146,14 @@ export function ParamChip({ param, onEdit, onDelete }: {
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const C = useColors();
   return (
-    <View style={chip.wrap}>
+    <View style={[chip.wrap, { backgroundColor: C.surfaceAlt, borderColor: C.border }]}>
       <TouchableOpacity onPress={onEdit} style={chip.inner} activeOpacity={0.7}>
-        <Text style={chip.type}>{PARAM_CFG[param.typ].label}</Text>
-        <Text style={chip.value}>{formatParamChip(param)}</Text>
+        <Text style={[chip.type, { color: C.textDim }]}>{PARAM_CFG[param.typ].label}</Text>
+        <Text style={[chip.value, { color: C.text }]}>{formatParamChip(param)}</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={onDelete} style={chip.del} activeOpacity={0.7}>
+      <TouchableOpacity onPress={onDelete} style={[chip.del, { borderLeftColor: C.border }]} activeOpacity={0.7}>
         <GBIcon name="close" size={10} color={C.textDim} />
       </TouchableOpacity>
     </View>
@@ -179,6 +180,7 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
   onSubmit: (u: EinheitUebung, saveToLib: boolean) => void;
   onCancel: () => void;
 }) {
+  const C = useColors();
   const [name, setName]           = useState(initialUebung?.name ?? '');
   const [params, setParams]       = useState<UebungParam[]>(initialUebung?.parameter ?? []);
   const [addMode, setAddMode]     = useState<AddMode>(null);
@@ -236,14 +238,14 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
   const preview = buildPreview(name, params);
 
   return (
-    <View style={[form.wrap, { borderColor: `${phaseColor}55` }]}>
+    <View style={[form.wrap, { borderColor: `${phaseColor}55`, backgroundColor: C.surface }]}>
       <Text style={[form.title, { color: phaseColor }]}>
         {PHASE_CFG[phase].label} · {initialUebung ? 'Übung bearbeiten' : 'Neue Übung'}
       </Text>
 
       <View style={form.nameRow}>
         <TextInput
-          style={[form.nameInput, nameErr ? form.inputErr : null]}
+          style={[form.nameInput, { backgroundColor: C.surfaceAlt, borderColor: C.border, color: C.text }, nameErr ? form.inputErr : null]}
           value={name}
           onChangeText={(v) => { setName(v); setNameErr(''); }}
           placeholder="Übungsname…"
@@ -252,7 +254,7 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
           autoFocus={!initialUebung}
         />
         <TouchableOpacity
-          style={[form.libBtn, showLib && form.libBtnOn]}
+          style={[form.libBtn, { backgroundColor: C.surfaceAlt, borderColor: C.border }, showLib && form.libBtnOn]}
           onPress={() => setShowLib((v) => !v)}
           activeOpacity={0.7}
         >
@@ -262,14 +264,14 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
       {nameErr ? <Text style={form.errText}>{nameErr}</Text> : null}
 
       {showLib && (
-        <View style={form.libList}>
+        <View style={[form.libList, { backgroundColor: C.surfaceAlt, borderColor: C.border }]}>
           {uebungLib.length === 0
-            ? <Text style={form.libEmpty}>Keine gespeicherten Übungen</Text>
+            ? <Text style={[form.libEmpty, { color: C.textDim }]}>Keine gespeicherten Übungen</Text>
             : uebungLib.map((tpl) => (
-              <TouchableOpacity key={tpl.id} style={form.libItem} onPress={() => pickLib(tpl)} activeOpacity={0.7}>
-                <Text style={form.libItemName}>{tpl.name}</Text>
+              <TouchableOpacity key={tpl.id} style={[form.libItem, { borderBottomColor: C.border }]} onPress={() => pickLib(tpl)} activeOpacity={0.7}>
+                <Text style={[form.libItemName, { color: C.text }]}>{tpl.name}</Text>
                 {tpl.parameter.length > 0 && (
-                  <Text style={form.libItemParams}>{buildSuffix(tpl.parameter)}</Text>
+                  <Text style={[form.libItemParams, { color: C.textMuted }]}>{buildSuffix(tpl.parameter)}</Text>
                 )}
               </TouchableOpacity>
             ))
@@ -297,8 +299,8 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
       )}
 
       {addMode === 'picking' && (
-        <View style={form.picker}>
-          <Text style={form.pickerTitle}>Element wählen</Text>
+        <View style={[form.picker, { backgroundColor: C.surfaceAlt, borderColor: C.border }]}>
+          <Text style={[form.pickerTitle, { color: C.textMuted }]}>Element wählen</Text>
           <View style={form.pickerGrid}>
             {ALL_TYPES.map((typ) => {
               const c = PARAM_CFG[typ];
@@ -306,29 +308,29 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
               return (
                 <TouchableOpacity
                   key={typ}
-                  style={[form.pickerBtn, added && form.pickerBtnAdded]}
+                  style={[form.pickerBtn, { backgroundColor: C.surface, borderColor: C.border }, added && form.pickerBtnAdded]}
                   onPress={() => selectType(typ)}
                   activeOpacity={0.75}
                 >
                   <GBIcon name={c.icon as any} size={18} color={added ? C.accent : C.text} />
-                  <Text style={[form.pickerLabel, added && form.pickerLabelAdded]}>{c.label}</Text>
+                  <Text style={[form.pickerLabel, { color: C.textSub }, added && form.pickerLabelAdded]}>{c.label}</Text>
                   {added && <View style={form.pickerCheck}><GBIcon name="check" size={9} color={C.accentContrast} /></View>}
                 </TouchableOpacity>
               );
             })}
           </View>
           <TouchableOpacity onPress={() => setAddMode(null)} style={form.cancelPickBtn}>
-            <Text style={form.cancelPickText}>Abbrechen</Text>
+            <Text style={[form.cancelPickText, { color: C.textDim }]}>Abbrechen</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {cfg && addMode !== 'picking' && (
-        <View style={form.paramInput}>
-          <Text style={form.paramInputTitle}>{cfg.label}</Text>
+        <View style={[form.paramInput, { backgroundColor: C.surfaceAlt, borderColor: C.border }]}>
+          <Text style={[form.paramInputTitle, { color: C.textMuted }]}>{cfg.label}</Text>
           <View style={form.paramInputRow}>
             <TextInput
-              style={[form.paramInputField, { flex: 1 }]}
+              style={[form.paramInputField, { flex: 1, backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
               value={newWert}
               onChangeText={setNewWert}
               placeholder={cfg.placeholder}
@@ -341,11 +343,11 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
                 {cfg.units.map((u) => (
                   <TouchableOpacity
                     key={u}
-                    style={[form.unitBtn, newUnit === u && form.unitBtnOn]}
+                    style={[form.unitBtn, { borderColor: C.border, backgroundColor: C.surface }, newUnit === u && form.unitBtnOn]}
                     onPress={() => setNewUnit(u)}
                     activeOpacity={0.7}
                   >
-                    <Text style={[form.unitText, newUnit === u && form.unitTextOn]}>{u}</Text>
+                    <Text style={[form.unitText, { color: C.textSub }, newUnit === u && form.unitTextOn]}>{u}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -353,7 +355,7 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
           </View>
           {cfg.hasBez && (
             <TextInput
-              style={form.paramInputField}
+              style={[form.paramInputField, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
               value={newBez}
               onChangeText={setNewBez}
               placeholder='Bezeichnung (z.B. "Trabpause")'
@@ -362,8 +364,8 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
             />
           )}
           <View style={form.paramBtns}>
-            <TouchableOpacity style={form.backBtn} onPress={() => setAddMode('picking')}>
-              <Text style={form.backBtnText}>← Zurück</Text>
+            <TouchableOpacity style={[form.backBtn, { backgroundColor: C.surface }]} onPress={() => setAddMode('picking')}>
+              <Text style={[form.backBtnText, { color: C.textMuted }]}>← Zurück</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[form.confirmBtn, { backgroundColor: newWert.trim() ? phaseColor : C.surfaceAlt }]}
@@ -385,15 +387,15 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
       )}
 
       <TouchableOpacity style={form.libToggle} onPress={() => setSaveToLib((v) => !v)} activeOpacity={0.7}>
-        <View style={[form.check, saveToLib && form.checkOn]}>
+        <View style={[form.check, { borderColor: C.border, backgroundColor: C.surfaceAlt }, saveToLib && form.checkOn]}>
           {saveToLib && <GBIcon name="check" size={11} color={C.accentContrast} />}
         </View>
-        <Text style={form.libToggleLabel}>In Übungsbibliothek speichern</Text>
+        <Text style={[form.libToggleLabel, { color: C.textMuted }]}>In Übungsbibliothek speichern</Text>
       </TouchableOpacity>
 
       <View style={form.btns}>
-        <TouchableOpacity style={form.cancelBtn} onPress={onCancel} activeOpacity={0.7}>
-          <Text style={form.cancelBtnText}>Abbrechen</Text>
+        <TouchableOpacity style={[form.cancelBtn, { backgroundColor: C.surfaceAlt }]} onPress={onCancel} activeOpacity={0.7}>
+          <Text style={[form.cancelBtnText, { color: C.textMuted }]}>Abbrechen</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[form.submitBtn, { backgroundColor: phaseColor }]}
@@ -418,6 +420,7 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
   onSubmit: (u: EinheitUebung) => void;
   onCancel: () => void;
 }) {
+  const C = useColors();
   const ip = (t: UebungParamTyp) => initialKreis?.parameter.find(p => p.typ === t);
 
   const [name, setName]             = useState(initialKreis?.name ?? 'Kraftkreis');
@@ -469,14 +472,14 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
   const prevParts = [serien ? `${serien}×` : '', exStr, pause ? `${pause}${pauseUnit} Pause` : '', sp ? `${sp}${spUnit} Serienpause` : ''].filter(Boolean);
 
   return (
-    <View style={[form.wrap, { borderColor: `${phaseColor}55` }]}>
+    <View style={[form.wrap, { borderColor: `${phaseColor}55`, backgroundColor: C.surface }]}>
       <Text style={[form.title, { color: phaseColor }]}>
         {PHASE_CFG[phase].label} · {initialKreis ? 'Kreis bearbeiten' : 'Neuer Kraftkreis'}
       </Text>
 
       {/* Circuit name */}
       <TextInput
-        style={form.nameInputFull}
+        style={[form.nameInputFull, { backgroundColor: C.surfaceAlt, borderColor: C.border, color: C.text }]}
         value={name}
         onChangeText={setName}
         placeholder="Kreisname…"
@@ -485,19 +488,19 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
       />
 
       {/* Exercise list */}
-      <View style={kf.section}>
-        <Text style={kf.sectionLabel}>Übungen im Kreis</Text>
+      <View style={[kf.section, { backgroundColor: C.surfaceAlt, borderColor: C.border }]}>
+        <Text style={[kf.sectionLabel, { color: C.textMuted }]}>Übungen im Kreis</Text>
 
         {exercises.map((ku, i) => (
           <View key={ku.id} style={[kf.exRow, editId === ku.id && kf.exRowDim]}>
-            <View style={kf.exNum}><Text style={kf.exNumText}>{i + 1}</Text></View>
+            <View style={[kf.exNum, { backgroundColor: C.surface }]}><Text style={[kf.exNumText, { color: C.textMuted }]}>{i + 1}</Text></View>
             <View style={{ flex: 1 }}>
-              <Text style={kf.exName}>{ku.name}</Text>
+              <Text style={[kf.exName, { color: C.text }]}>{ku.name}</Text>
               <Text style={kf.exVal}>{ku.wert} {ku.einheit}</Text>
             </View>
             {editId !== ku.id && (
               <View style={{ flexDirection: 'row', gap: 4 }}>
-                <TouchableOpacity onPress={() => startEdit(ku)} style={styles.miniBtn} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => startEdit(ku)} style={[styles.miniBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
                   <GBIcon name="edit" size={13} color={C.textMuted} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => deleteEx(ku.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>
@@ -509,9 +512,9 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
         ))}
 
         {editId !== null ? (
-          <View style={kf.editor}>
+          <View style={[kf.editor, { backgroundColor: C.surface, borderColor: C.border }]}>
             <TextInput
-              style={form.nameInputFull}
+              style={[form.nameInputFull, { backgroundColor: C.surfaceAlt, borderColor: C.border, color: C.text }]}
               value={exName}
               onChangeText={setExName}
               placeholder="Übungsname…"
@@ -521,7 +524,7 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
             />
             <View style={{ flexDirection: 'row', gap: SP.sm, alignItems: 'center', flexWrap: 'wrap' }}>
               <TextInput
-                style={[form.paramInputField, { flex: 1, minWidth: 80 }]}
+                style={[form.paramInputField, { flex: 1, minWidth: 80, backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
                 value={exWert}
                 onChangeText={setExWert}
                 placeholder="Anzahl / Dauer"
@@ -530,15 +533,15 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
               />
               <View style={form.unitRow}>
                 {KREIS_EINHEITEN.map(u => (
-                  <TouchableOpacity key={u} style={[form.unitBtn, exEin === u && form.unitBtnOn]} onPress={() => setExEin(u)} activeOpacity={0.7}>
-                    <Text style={[form.unitText, exEin === u && form.unitTextOn]}>{u}</Text>
+                  <TouchableOpacity key={u} style={[form.unitBtn, { borderColor: C.border, backgroundColor: C.surface }, exEin === u && form.unitBtnOn]} onPress={() => setExEin(u)} activeOpacity={0.7}>
+                    <Text style={[form.unitText, { color: C.textSub }, exEin === u && form.unitTextOn]}>{u}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
             <View style={form.paramBtns}>
-              <TouchableOpacity style={form.backBtn} onPress={cancelEdit} activeOpacity={0.7}>
-                <Text style={form.backBtnText}>Abbrechen</Text>
+              <TouchableOpacity style={[form.backBtn, { backgroundColor: C.surface }]} onPress={cancelEdit} activeOpacity={0.7}>
+                <Text style={[form.backBtnText, { color: C.textMuted }]}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[form.confirmBtn, { backgroundColor: exName.trim() && exWert.trim() ? phaseColor : C.surfaceAlt }]}

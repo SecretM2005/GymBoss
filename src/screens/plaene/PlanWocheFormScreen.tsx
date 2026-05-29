@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlaeneStackParamList } from '../../types';
 import { usePlanStore } from '../../store/planStore';
 import { GBIcon } from '../../components/GBIcon';
-import { C, SP, R, FONT, FONT_MONO } from '../../theme';
+import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 
 type Props = {
   navigation: StackNavigationProp<PlaeneStackParamList, 'PlanWocheForm'>;
@@ -17,6 +17,7 @@ type Props = {
 };
 
 export default function PlanWocheFormScreen({ navigation, route }: Props) {
+  const C = useColors();
   const { getPlanById, addWoche, updateWoche } = usePlanStore();
   const insets = useSafeAreaInsets();
 
@@ -39,17 +40,17 @@ export default function PlanWocheFormScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
         {/* Top Bar */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
             <GBIcon name="chevronLeft" size={22} color={C.text} />
           </TouchableOpacity>
           <View style={styles.topCenter}>
-            <Text style={styles.topSub}>{isEdit ? 'Bearbeiten' : 'Neue Woche'}</Text>
-            <Text style={styles.topTitle}>Woche {wochennummer}</Text>
+            <Text style={[styles.topSub, { color: C.textMuted }]}>{isEdit ? 'Bearbeiten' : 'Neue Woche'}</Text>
+            <Text style={[styles.topTitle, { color: C.text }]}>Woche {wochennummer}</Text>
           </View>
-          <TouchableOpacity onPress={handleSave} style={styles.saveBtn} activeOpacity={0.8}>
+          <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, { backgroundColor: C.accent }]} activeOpacity={0.8}>
             <Text style={styles.saveBtnText}>Speichern</Text>
           </TouchableOpacity>
         </View>
@@ -57,13 +58,13 @@ export default function PlanWocheFormScreen({ navigation, route }: Props) {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
           {/* Week Number Display */}
-          <View style={styles.wocheDisplay}>
-            <View style={styles.wocheNumberBadge}>
+          <View style={[styles.wocheDisplay, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <View style={[styles.wocheNumberBadge, { backgroundColor: C.accent }]}>
               <Text style={styles.wocheNumberText}>{wochennummer}</Text>
             </View>
             <View>
-              <Text style={styles.wocheLabel}>Woche {wochennummer}</Text>
-              <Text style={styles.wocheSub}>
+              <Text style={[styles.wocheLabel, { color: C.text }]}>Woche {wochennummer}</Text>
+              <Text style={[styles.wocheSub, { color: C.textMuted }]}>
                 {plan?.name ?? '—'}
               </Text>
             </View>
@@ -71,9 +72,9 @@ export default function PlanWocheFormScreen({ navigation, route }: Props) {
 
           {/* Notes */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Notizen <Text style={styles.optional}>(optional)</Text></Text>
+            <Text style={[styles.fieldLabel, { color: C.textMuted }]}>Notizen <Text style={[styles.optional, { color: C.textDim }]}>(optional)</Text></Text>
             <TextInput
-              style={[styles.input, styles.inputMulti]}
+              style={[styles.input, styles.inputMulti, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
               value={notizen}
               onChangeText={setNotizen}
               placeholder="z. B. Fokus auf Technik, Volumen anpassen…"
@@ -88,7 +89,7 @@ export default function PlanWocheFormScreen({ navigation, route }: Props) {
           {/* Info box */}
           <View style={styles.infoBox}>
             <GBIcon name="bolt" size={14} color={C.accent} />
-            <Text style={styles.infoText}>
+            <Text style={[styles.infoText, { color: C.textSub }]}>
               Einheiten können später in der Wochenübersicht hinzugefügt werden.
             </Text>
           </View>

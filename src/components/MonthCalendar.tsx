@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { GBIcon } from './GBIcon';
-import { C, SP, R, FONT, FONT_MONO } from '../theme';
+import { C, useColors, SP, R, FONT, FONT_MONO } from '../theme';
 
 const MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const WOCHENTAGE = ['Mo','Di','Mi','Do','Fr','Sa','So'];
@@ -30,6 +30,7 @@ export default function MonthCalendar({
   selectedIso,
   onMonthChange,
 }: Props) {
+  const C = useColors();
   const today = new Date();
   const [year, setYear]   = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -63,20 +64,20 @@ export default function MonthCalendar({
   while (cells.length % 7 !== 0) cells.push(null);
 
   return (
-    <View style={s.wrap}>
+    <View style={[s.wrap, { backgroundColor: C.surface, borderColor: C.border }]}>
       <View style={s.header}>
-        <TouchableOpacity onPress={prevMonth} style={s.navBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={prevMonth} style={[s.navBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
           <GBIcon name="chevronLeft" size={18} color={C.text} />
         </TouchableOpacity>
-        <Text style={s.monthTitle}>{MONATE[month]} {year}</Text>
-        <TouchableOpacity onPress={nextMonth} style={s.navBtn} activeOpacity={0.7}>
+        <Text style={[s.monthTitle, { color: C.text }]}>{MONATE[month]} {year}</Text>
+        <TouchableOpacity onPress={nextMonth} style={[s.navBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
           <GBIcon name="chevronRight" size={18} color={C.text} />
         </TouchableOpacity>
       </View>
 
       <View style={s.weekRow}>
         {WOCHENTAGE.map((d) => (
-          <Text key={d} style={s.weekDay}>{d}</Text>
+          <Text key={d} style={[s.weekDay, { color: C.textDim }]}>{d}</Text>
         ))}
       </View>
 
@@ -106,12 +107,16 @@ export default function MonthCalendar({
                       s.dayCircle,
                       isToday && s.dayCircleToday,
                       isSelected && !isToday && s.dayCircleSelected,
+                      isSelected && !isToday && { borderColor: C.accent },
                     ]}>
                       <Text style={[
                         s.dayText,
+                        { color: C.text },
                         isToday && s.dayTextToday,
                         isSelected && !isToday && s.dayTextSelected,
+                        isSelected && !isToday && { color: C.accent },
                         isPast && !isToday && !isSelected && s.dayTextPast,
+                        isPast && !isToday && !isSelected && { color: C.textDim },
                       ]}>
                         {day}
                       </Text>
@@ -125,13 +130,13 @@ export default function MonthCalendar({
         </View>
       ))}
 
-      <View style={s.legend}>
+      <View style={[s.legend, { borderTopColor: C.border }]}>
         <View style={s.legendItem}>
           <View style={[s.dot, { position: 'relative', top: 0 }]} />
-          <Text style={s.legendText}>{legendLabel}</Text>
+          <Text style={[s.legendText, { color: C.textDim }]}>{legendLabel}</Text>
         </View>
         {onDayPress && (
-          <Text style={s.legendText}>· Tag antippen zum Hinzufügen</Text>
+          <Text style={[s.legendText, { color: C.textDim }]}>· Tag antippen zum Hinzufügen</Text>
         )}
       </View>
     </View>

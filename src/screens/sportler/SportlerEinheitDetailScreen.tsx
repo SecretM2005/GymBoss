@@ -14,7 +14,7 @@ import { GBIcon } from '../../components/GBIcon';
 import {
   PHASE_CFG, PHASES, UebungForm, buildUebSuffix, newUebId,
 } from '../plaene/EinheitDetailScreen';
-import { C, SP, R, FONT, FONT_MONO } from '../../theme';
+import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 
 type Props = {
   navigation: StackNavigationProp<SportlerStackParamList, 'SportlerEinheitDetail'>;
@@ -29,6 +29,7 @@ export default function SportlerEinheitDetailScreen({ navigation, route }: Props
   const { uebungen: uebungLib } = useUebungStore();
   const { getSportlerById } = useAthletenStore();
   const insets = useSafeAreaInsets();
+  const C = useColors();
 
   const plan = getPlanById(planId);
   const woche = plan?.wochen.find((w) => w.id === wocheId);
@@ -92,7 +93,7 @@ export default function SportlerEinheitDetailScreen({ navigation, route }: Props
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
 
         {/* Top Bar */}
         <View style={styles.topBar}>
@@ -100,20 +101,20 @@ export default function SportlerEinheitDetailScreen({ navigation, route }: Props
             <GBIcon name="chevronLeft" size={20} color={C.text} />
           </TouchableOpacity>
           <View style={styles.topCenter}>
-            <Text style={styles.topSub} numberOfLines={1}>
+            <Text style={[styles.topSub, { color: C.accent }]} numberOfLines={1}>
               Nur für {sportler?.name ?? sportlerId}
             </Text>
-            <Text style={styles.topTitle} numberOfLines={1}>{name.trim() || '—'}</Text>
+            <Text style={[styles.topTitle, { color: C.text }]} numberOfLines={1}>{name.trim() || '—'}</Text>
           </View>
-          <TouchableOpacity onPress={handleSave} style={styles.saveBtn} activeOpacity={0.8}>
-            <Text style={styles.saveBtnText}>Speichern</Text>
+          <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, { backgroundColor: C.accent }]} activeOpacity={0.8}>
+            <Text style={[styles.saveBtnText, { color: C.accentContrast }]}>Speichern</Text>
           </TouchableOpacity>
         </View>
 
         {/* Override info banner */}
         <View style={styles.banner}>
           <GBIcon name="user" size={14} color={C.accent} />
-          <Text style={styles.bannerText}>
+          <Text style={[styles.bannerText, { color: C.textSub }]}>
             Änderungen gelten nur für {sportler?.name ?? 'diesen Sportler'} — der Originalplan bleibt unberührt.
           </Text>
         </View>
@@ -122,10 +123,10 @@ export default function SportlerEinheitDetailScreen({ navigation, route }: Props
 
           {/* Stats row */}
           <View style={styles.statsRow}>
-            <Text style={styles.statsText}>{totalEx} Übungen · 3 Phasen</Text>
+            <Text style={[styles.statsText, { color: C.textDim }]}>{totalEx} Übungen · 3 Phasen</Text>
             {override && (
               <View style={styles.overridePill}>
-                <Text style={styles.overridePillText}>Individuelle Version</Text>
+                <Text style={[styles.overridePillText, { color: C.accent }]}>Individuelle Version</Text>
               </View>
             )}
           </View>
@@ -140,20 +141,20 @@ export default function SportlerEinheitDetailScreen({ navigation, route }: Props
               <View key={phase} style={styles.phaseSection}>
                 <View style={[styles.phaseHeader, { borderLeftColor: cfg.color }]}>
                   <Text style={[styles.phaseTitle, { color: cfg.color }]}>{cfg.label}</Text>
-                  <Text style={styles.phaseCount}>{exercises.length} Übungen</Text>
+                  <Text style={[styles.phaseCount, { color: C.textDim }]}>{exercises.length} Übungen</Text>
                 </View>
 
                 {exercises.map((u) => (
-                  <View key={u.id} style={[styles.uebRow, editingUebId === u.id && styles.uebRowActive]}>
+                  <View key={u.id} style={[styles.uebRow, { backgroundColor: C.surface, borderColor: C.border }, editingUebId === u.id && styles.uebRowActive, editingUebId === u.id && { borderColor: C.accent }]}>
                     <View style={[styles.uebDot, { backgroundColor: cfg.color }]} />
                     <View style={styles.uebInfo}>
-                      <Text style={styles.uebName}>{u.name}</Text>
+                      <Text style={[styles.uebName, { color: C.text }]}>{u.name}</Text>
                       {buildUebSuffix(u).length > 0 && (
-                        <Text style={styles.uebParams}>{buildUebSuffix(u)}</Text>
+                        <Text style={[styles.uebParams, { color: C.textMuted }]}>{buildUebSuffix(u)}</Text>
                       )}
                     </View>
                     <View style={styles.uebActions}>
-                      <TouchableOpacity onPress={() => openEdit(phase, u.id)} style={styles.miniBtn} activeOpacity={0.7}>
+                      <TouchableOpacity onPress={() => openEdit(phase, u.id)} style={[styles.miniBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
                         <GBIcon name="edit" size={13} color={C.textMuted} />
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => deleteUeb(phase, u.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>

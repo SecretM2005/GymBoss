@@ -11,7 +11,7 @@ import { SportlerStackParamList } from '../../types';
 import { useAthletenStore } from '../../store/athletenStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
-import { C, SP, R, FONT } from '../../theme';
+import { C, useColors, SP, R, FONT } from '../../theme';
 import DatePickerField from '../../components/DatePickerField';
 
 type Props = {
@@ -35,6 +35,7 @@ export default function SportlerFormScreen({ navigation, route }: Props) {
   const isEdit = !!route.params?.sportlerId;
   const existing = isEdit ? getSportlerById(route.params.sportlerId!) : undefined;
   const insets = useSafeAreaInsets();
+  const C = useColors();
 
   const [form, setForm] = useState<Form>(
     existing
@@ -80,18 +81,18 @@ export default function SportlerFormScreen({ navigation, route }: Props) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
         {/* Top Bar */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
             <GBIcon name="chevronLeft" size={22} color={C.text} />
           </TouchableOpacity>
           <View style={styles.topCenter}>
-            <Text style={styles.topSub}>{isEdit ? 'Bearbeiten' : 'Neuer Sportler'}</Text>
-            <Text style={styles.topTitle} numberOfLines={1}>{form.name.trim() || '—'}</Text>
+            <Text style={[styles.topSub, { color: C.textMuted }]}>{isEdit ? 'Bearbeiten' : 'Neuer Sportler'}</Text>
+            <Text style={[styles.topTitle, { color: C.text }]} numberOfLines={1}>{form.name.trim() || '—'}</Text>
           </View>
-          <TouchableOpacity onPress={handleSave} style={styles.saveBtn} activeOpacity={0.8}>
-            <Text style={styles.saveBtnText}>Speichern</Text>
+          <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, { backgroundColor: C.accent }]} activeOpacity={0.8}>
+            <Text style={[styles.saveBtnText, { color: C.accentContrast }]}>Speichern</Text>
           </TouchableOpacity>
         </View>
 
@@ -99,13 +100,13 @@ export default function SportlerFormScreen({ navigation, route }: Props) {
           {/* Avatar preview */}
           <View style={styles.avatarWrap}>
             <GBAvatar name={form.name || '?'} initials={initials} size={84} />
-            <Text style={styles.avatarHint}>Initialen werden automatisch generiert</Text>
+            <Text style={[styles.avatarHint, { color: C.textDim }]}>Initialen werden automatisch generiert</Text>
           </View>
 
           {/* Name */}
           <Field label="Name" required error={errors.name}>
             <TextInput
-              style={[styles.input, errors.name && styles.inputError]}
+              style={[styles.input, errors.name && styles.inputError, { backgroundColor: C.surface, borderColor: errors.name ? undefined : C.border, color: C.text }]}
               value={form.name}
               onChangeText={(v) => set('name', v)}
               placeholder="Vorname Nachname"
@@ -131,10 +132,10 @@ export default function SportlerFormScreen({ navigation, route }: Props) {
                   <TouchableOpacity
                     key={s}
                     onPress={() => set('sportart', s)}
-                    style={[styles.sportartChip, active && styles.sportartChipActive]}
+                    style={[styles.sportartChip, active && styles.sportartChipActive, { borderColor: active ? C.accent : C.border, backgroundColor: active ? 'rgba(203,255,62,0.10)' : C.surface }]}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.sportartChipText, active && styles.sportartChipTextActive]}>{s}</Text>
+                    <Text style={[styles.sportartChipText, active && styles.sportartChipTextActive, { color: active ? C.accent : C.textSub }]}>{s}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -144,7 +145,7 @@ export default function SportlerFormScreen({ navigation, route }: Props) {
           {/* Ziel */}
           <Field label="Trainingsziel">
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
               value={form.ziel}
               onChangeText={(v) => set('ziel', v)}
               placeholder="z. B. Kraftaufbau, Wettkampfvorbereitung…"
@@ -169,9 +170,10 @@ export default function SportlerFormScreen({ navigation, route }: Props) {
 }
 
 function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
+  const C = useColors();
   return (
     <View style={styles.fieldGroup}>
-      <Text style={styles.fieldLabel}>{label}{required && <Text style={{ color: C.accent }}> *</Text>}</Text>
+      <Text style={[styles.fieldLabel, { color: C.textMuted }]}>{label}{required && <Text style={{ color: C.accent }}> *</Text>}</Text>
       {children}
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>

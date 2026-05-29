@@ -13,7 +13,8 @@ import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import MonthCalendar from '../../components/MonthCalendar';
 import { buildUebSuffix } from './EinheitDetailScreen';
-import { C, SP, R, FONT, FONT_MONO } from '../../theme';
+import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
+import { useSettingsStore } from '../../store/settingsStore';
 
 type Props = {
   navigation: StackNavigationProp<PlaeneStackParamList, 'PlanDetail'>;
@@ -78,7 +79,9 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
   const { getPlanById, deletePlan, deleteWoche } = usePlanStore();
   const { sportler } = useAthletenStore();
   const insets = useSafeAreaInsets();
-  const [viewMode, setViewMode] = useState<ViewMode>('wochen');
+  const C = useColors();
+  const coachingView = useSettingsStore((s) => s.coachingView);
+  const [viewMode, setViewMode] = useState<ViewMode>(coachingView);
   const [calYear, setCalYear]   = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
@@ -150,7 +153,7 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
       {/* Top Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn} activeOpacity={0.7}>
@@ -169,13 +172,13 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
       <ScrollView contentContainerStyle={styles.content}>
 
         {/* Plan Header Card */}
-        <View style={styles.headerCard}>
+        <View style={[styles.headerCard, { backgroundColor: C.surface, borderColor: C.border }]}>
           <View style={styles.headerCardTop}>
             <View style={styles.planIconWrap}>
               <GBIcon name="dumbbell" size={28} color={C.accentContrast} />
             </View>
             <View style={styles.headerInfo}>
-              <Text style={styles.planName}>{plan.name}</Text>
+              <Text style={[styles.planName, { color: C.text }]}>{plan.name}</Text>
               {plan.sportart && (
                 <View style={[styles.chip, { backgroundColor: sc.bg }]}>
                   <View style={[styles.chipDot, { backgroundColor: sc.dot }]} />
@@ -185,29 +188,29 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
             </View>
           </View>
           {plan.beschreibung ? (
-            <Text style={styles.planDesc}>{plan.beschreibung}</Text>
+            <Text style={[styles.planDesc, { color: C.textSub }]}>{plan.beschreibung}</Text>
           ) : null}
           {plan.startdatum ? (
             <View style={styles.datumRow}>
               <GBIcon name="calendar" size={13} color={C.textMuted} />
-              <Text style={styles.datumText}>Start: {plan.startdatum}</Text>
+              <Text style={[styles.datumText, { color: C.textMuted }]}>Start: {plan.startdatum}</Text>
             </View>
           ) : null}
         </View>
 
         {/* Assigned Athletes */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Sportler</Text>
+          <Text style={[styles.sectionLabel, { color: C.textMuted }]}>Sportler</Text>
           {assignedSportler.length === 0 ? (
-            <View style={styles.noAthletes}>
-              <Text style={styles.noAthletesText}>Kein Sportler zugewiesen</Text>
+            <View style={[styles.noAthletes, { backgroundColor: C.surface, borderColor: C.border }]}>
+              <Text style={[styles.noAthletesText, { color: C.textDim }]}>Kein Sportler zugewiesen</Text>
             </View>
           ) : (
             <View style={styles.athleteRow}>
               {assignedSportler.map((sp) => (
-                <View key={sp.id} style={styles.athleteChip}>
+                <View key={sp.id} style={[styles.athleteChip, { backgroundColor: C.surface, borderColor: C.border }]}>
                   <GBAvatar name={sp.name} initials={sp.initials} size={32} />
-                  <Text style={styles.athleteName}>{sp.name.split(' ')[0]}</Text>
+                  <Text style={[styles.athleteName, { color: C.text }]}>{sp.name.split(' ')[0]}</Text>
                 </View>
               ))}
             </View>
@@ -215,14 +218,14 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
         </View>
 
         {/* View Mode Toggle */}
-        <View style={styles.toggle}>
+        <View style={[styles.toggle, { backgroundColor: C.surface, borderColor: C.border }]}>
           <TouchableOpacity
             style={[styles.toggleBtn, viewMode === 'wochen' && styles.toggleBtnActive]}
             onPress={() => setViewMode('wochen')}
             activeOpacity={0.7}
           >
             <GBIcon name="layers" size={14} color={viewMode === 'wochen' ? C.accentContrast : C.textMuted} />
-            <Text style={[styles.toggleText, viewMode === 'wochen' && styles.toggleTextActive]}>
+            <Text style={[styles.toggleText, { color: C.textMuted }, viewMode === 'wochen' && styles.toggleTextActive]}>
               Wochen
             </Text>
           </TouchableOpacity>
@@ -232,7 +235,7 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
             activeOpacity={0.7}
           >
             <GBIcon name="calendar" size={14} color={viewMode === 'kalender' ? C.accentContrast : C.textMuted} />
-            <Text style={[styles.toggleText, viewMode === 'kalender' && styles.toggleTextActive]}>
+            <Text style={[styles.toggleText, { color: C.textMuted }, viewMode === 'kalender' && styles.toggleTextActive]}>
               Kalender
             </Text>
           </TouchableOpacity>
@@ -244,25 +247,25 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
             {plan.wochen.length === 0 ? (
               <View style={styles.emptyWochen}>
                 <GBIcon name="layers" size={36} color={C.textDim} />
-                <Text style={styles.emptyWochenTitle}>Noch keine Wochen</Text>
-                <Text style={styles.emptyWochenSub}>Füge die erste Trainingswoche hinzu.</Text>
+                <Text style={[styles.emptyWochenTitle, { color: C.textSub }]}>Noch keine Wochen</Text>
+                <Text style={[styles.emptyWochenSub, { color: C.textDim }]}>Füge die erste Trainingswoche hinzu.</Text>
               </View>
             ) : (
               plan.wochen.map((woche) => (
                 <TouchableOpacity
                   key={woche.id}
-                  style={styles.wocheCard}
+                  style={[styles.wocheCard, { backgroundColor: C.surface, borderColor: C.border }]}
                   activeOpacity={0.75}
                   onPress={() => navigation.navigate('PlanWocheDetail', { planId: plan.id, wocheId: woche.id })}
                 >
                   <View style={styles.wocheStripe} />
                   <View style={styles.wocheBody}>
                     <View style={styles.wocheTop}>
-                      <Text style={styles.wocheTitle}>Woche {woche.wochennummer}</Text>
+                      <Text style={[styles.wocheTitle, { color: C.text }]}>Woche {woche.wochennummer}</Text>
                       <View style={styles.wocheActions}>
                         <TouchableOpacity
                           onPress={() => navigation.navigate('PlanWocheForm', { planId: plan.id, wocheId: woche.id })}
-                          style={styles.wocheEditBtn}
+                          style={[styles.wocheEditBtn, { backgroundColor: C.surfaceAlt }]}
                           activeOpacity={0.7}
                         >
                           <GBIcon name="edit" size={14} color={C.textMuted} />
@@ -277,12 +280,12 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
                       </View>
                     </View>
                     {woche.notizen ? (
-                      <Text style={styles.wocheNotiz}>{woche.notizen}</Text>
+                      <Text style={[styles.wocheNotiz, { color: C.textSub }]}>{woche.notizen}</Text>
                     ) : (
-                      <Text style={styles.wocheNotizEmpty}>Keine Notizen</Text>
+                      <Text style={[styles.wocheNotizEmpty, { color: C.textDim }]}>Keine Notizen</Text>
                     )}
-                    <View style={styles.wocheBadge}>
-                      <Text style={styles.wocheBadgeText}>
+                    <View style={[styles.wocheBadge, { backgroundColor: C.surfaceAlt }]}>
+                      <Text style={[styles.wocheBadgeText, { color: C.textDim }]}>
                         {woche.einheiten.length} {woche.einheiten.length === 1 ? 'Einheit' : 'Einheiten'}
                       </Text>
                     </View>
@@ -292,12 +295,12 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
             )}
 
             <TouchableOpacity
-              style={styles.addWocheBtn}
+              style={[styles.addWocheBtn, { borderColor: C.accent }]}
               onPress={() => navigation.navigate('PlanWocheForm', { planId: plan.id })}
               activeOpacity={0.8}
             >
               <GBIcon name="plus" size={18} color={C.accent} />
-              <Text style={styles.addWocheBtnText}>Woche hinzufügen</Text>
+              <Text style={[styles.addWocheBtnText, { color: C.accent }]}>Woche hinzufügen</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -315,9 +318,9 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
 
             {/* Day detail panel */}
             {selectedIso && (
-              <View style={styles.dayPanel}>
-                <View style={styles.dayPanelHeader}>
-                  <Text style={styles.dayPanelTitle}>{formatDay(selectedIso)}</Text>
+              <View style={[styles.dayPanel, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <View style={[styles.dayPanelHeader, { borderBottomColor: C.border }]}>
+                  <Text style={[styles.dayPanelTitle, { color: C.text }]}>{formatDay(selectedIso)}</Text>
                   <TouchableOpacity style={styles.dayAddBtn} onPress={handleAddOnDay} activeOpacity={0.8}>
                     <GBIcon name="plus" size={16} color={C.accentContrast} />
                     <Text style={styles.dayAddBtnText}>Einheit</Text>
@@ -326,7 +329,7 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
 
                 {dayEinheiten.length === 0 ? (
                   <View style={styles.dayEmpty}>
-                    <Text style={styles.dayEmptyText}>Keine Einheiten an diesem Tag</Text>
+                    <Text style={[styles.dayEmptyText, { color: C.textDim }]}>Keine Einheiten an diesem Tag</Text>
                   </View>
                 ) : (
                   dayEinheiten.map(({ einheit, wocheId }) => {
@@ -334,15 +337,15 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
                     return (
                       <TouchableOpacity
                         key={einheit.id}
-                        style={styles.dayEinheitCard}
+                        style={[styles.dayEinheitCard, { borderBottomColor: C.border }]}
                         activeOpacity={0.75}
                         onPress={() => navigation.navigate('EinheitDetail', { planId: plan.id, wocheId, einheitId: einheit.id })}
                       >
                         <View style={styles.dayEinheitDot} />
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.dayEinheitName}>{einheit.name}</Text>
+                          <Text style={[styles.dayEinheitName, { color: C.text }]}>{einheit.name}</Text>
                           {einheit.haupteinheit.length > 0 && (
-                            <Text style={styles.dayEinheitSub} numberOfLines={1}>
+                            <Text style={[styles.dayEinheitSub, { color: C.textMuted }]} numberOfLines={1}>
                               {buildUebSuffix(einheit.haupteinheit[0]) || `${totalEx} Übungen`}
                             </Text>
                           )}
@@ -356,9 +359,9 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
             )}
 
             {plan.wochen.length === 0 && (
-              <View style={styles.kalenderHint}>
+              <View style={[styles.kalenderHint, { backgroundColor: C.surface, borderColor: C.border }]}>
                 <GBIcon name="layers" size={20} color={C.textDim} />
-                <Text style={styles.kalenderHintText}>
+                <Text style={[styles.kalenderHintText, { color: C.textMuted }]}>
                   Lege Wochen an und setze ein Startdatum, um Einheiten im Kalender zu planen.
                 </Text>
               </View>

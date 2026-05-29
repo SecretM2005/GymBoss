@@ -9,7 +9,7 @@ import { SportlerStackParamList } from '../../types';
 import { useAthletenStore } from '../../store/athletenStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
-import { C, SP, R, FONT, FONT_MONO } from '../../theme';
+import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 
 type Props = { navigation: StackNavigationProp<SportlerStackParamList, 'SportlerList'> };
 
@@ -32,6 +32,7 @@ function ageFromIso(iso?: string): number | null {
 }
 
 function SportartChip({ sportart }: { sportart?: string }) {
+  const C = useColors();
   if (!sportart) return null;
   const c = SPORTART_COLORS[sportart] ?? { bg: 'rgba(255,255,255,0.08)', fg: C.textMuted, dot: C.textDim };
   return (
@@ -43,6 +44,7 @@ function SportartChip({ sportart }: { sportart?: string }) {
 }
 
 export default function SportlerListScreen({ navigation }: Props) {
+  const C = useColors();
   const { sportler, deleteSportler } = useAthletenStore();
   const [q, setQ] = useState('');
   const insets = useSafeAreaInsets();
@@ -64,12 +66,12 @@ export default function SportlerListScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
       {/* Top Bar */}
       <View style={styles.topBar}>
         <View>
-          <Text style={styles.topSub}>Trainer · Verwaltung</Text>
-          <Text style={styles.topTitle}>Sportler</Text>
+          <Text style={[styles.topSub, { color: C.textMuted }]}>Trainer · Verwaltung</Text>
+          <Text style={[styles.topTitle, { color: C.text }]}>Sportler</Text>
         </View>
       </View>
 
@@ -80,23 +82,23 @@ export default function SportlerListScreen({ navigation }: Props) {
             <Text style={[styles.statVal, styles.statValAccent]}>{sportler.length}</Text>
             <Text style={[styles.statLabel, styles.statLabelAccent]}>Sportler</Text>
           </View>
-          <View style={styles.statTile}>
-            <Text style={styles.statVal}>{sportler.filter((s) => s.sportart).length}</Text>
-            <Text style={styles.statLabel}>Aktiv</Text>
+          <View style={[styles.statTile, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <Text style={[styles.statVal, { color: C.text }]}>{sportler.filter((s) => s.sportart).length}</Text>
+            <Text style={[styles.statLabel, { color: C.textMuted }]}>Aktiv</Text>
           </View>
-          <View style={styles.statTile}>
-            <Text style={styles.statVal}>
+          <View style={[styles.statTile, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <Text style={[styles.statVal, { color: C.text }]}>
               {[...new Set(sportler.map((s) => s.sportart).filter(Boolean))].length}
             </Text>
-            <Text style={styles.statLabel}>Sportarten</Text>
+            <Text style={[styles.statLabel, { color: C.textMuted }]}>Sportarten</Text>
           </View>
         </View>
 
         {/* Search */}
-        <View style={styles.searchBox}>
+        <View style={[styles.searchBox, { backgroundColor: C.surface, borderColor: C.border }]}>
           <GBIcon name="search" size={16} color={C.textMuted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: C.text }]}
             value={q}
             onChangeText={setQ}
             placeholder="Sportler suchen…"
@@ -112,14 +114,14 @@ export default function SportlerListScreen({ navigation }: Props) {
 
         {/* Section header */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionLabel}>Alle Sportler · {filtered.length}</Text>
+          <Text style={[styles.sectionLabel, { color: C.textMuted }]}>Alle Sportler · {filtered.length}</Text>
         </View>
 
         {/* Cards */}
         {filtered.map((sp) => (
           <TouchableOpacity
             key={sp.id}
-            style={styles.card}
+            style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}
             activeOpacity={0.75}
             onPress={() => navigation.navigate('SportlerDetail', { sportlerId: sp.id })}
           >
@@ -128,10 +130,10 @@ export default function SportlerListScreen({ navigation }: Props) {
               <View style={styles.cardRow}>
                 <GBAvatar name={sp.name} initials={sp.initials} size={52} />
                 <View style={styles.cardInfo}>
-                  <Text style={styles.cardName}>{sp.name}</Text>
+                  <Text style={[styles.cardName, { color: C.text }]}>{sp.name}</Text>
                   <View style={styles.cardMeta}>
                     {sp.geburtsdatum != null && (
-                      <Text style={styles.cardAge}>{ageFromIso(sp.geburtsdatum)} J.</Text>
+                      <Text style={[styles.cardAge, { color: C.textMuted }]}>{ageFromIso(sp.geburtsdatum)} J.</Text>
                     )}
                     <SportartChip sportart={sp.sportart} />
                   </View>
@@ -147,7 +149,7 @@ export default function SportlerListScreen({ navigation }: Props) {
               {sp.ziel && (
                 <View style={styles.zielRow}>
                   <GBIcon name="bolt" size={12} color={C.accent} />
-                  <Text style={styles.zielText}>{sp.ziel}</Text>
+                  <Text style={[styles.zielText, { color: C.textSub }]}>{sp.ziel}</Text>
                 </View>
               )}
             </View>
@@ -157,10 +159,10 @@ export default function SportlerListScreen({ navigation }: Props) {
         {filtered.length === 0 && (
           <View style={styles.empty}>
             <GBIcon name="users" size={44} color={C.textDim} />
-            <Text style={styles.emptyTitle}>
+            <Text style={[styles.emptyTitle, { color: C.textSub }]}>
               {q ? 'Kein Treffer' : 'Noch keine Sportler'}
             </Text>
-            <Text style={styles.emptySub}>
+            <Text style={[styles.emptySub, { color: C.textDim }]}>
               {q
                 ? `Keine Übereinstimmung für „${q}"`
                 : 'Tippe auf + um den ersten Sportler hinzuzufügen.'}
