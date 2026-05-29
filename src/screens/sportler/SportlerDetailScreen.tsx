@@ -16,6 +16,8 @@ import MonthCalendar from '../../components/MonthCalendar';
 import { buildUebSuffix } from '../plaene/EinheitDetailScreen';
 import DatePickerField from '../../components/DatePickerField';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
+import { useSettingsStore } from '../../store/settingsStore';
+import { getWocheMonday, getWocheDayIso, formatWocheRange } from '../plaene/EinheitDetailScreen';
 
 type Props = {
   navigation: StackNavigationProp<SportlerStackParamList, 'SportlerDetail'>;
@@ -95,6 +97,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
   const sportler = getSportlerById(route.params.sportlerId);
   const insets = useSafeAreaInsets();
   const C = useColors();
+  const coachingView = useSettingsStore((s) => s.coachingView);
 
   const [form, setForm] = useState<Form>({
     name:         sportler?.name ?? '',
@@ -309,143 +312,201 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
             />
           </Field>
 
-          {/* ── Trainingskalender ── */}
-          <SectionHead>Trainingskalender</SectionHead>
+          {/* ── Training view (Wochen or Kalender) ── */}
+          {coachingView === 'wochen' ? (
+            <>
+              <SectionHead>Trainingspläne</SectionHead>
 
-          <MonthCalendar
-            markedDays={markedDays}
-            legendLabel="Einheit geplant"
-            onDayPress={plaene.length > 0 ? handleDayPress : undefined}
-            selectedIso={selectedIso}
-            onMonthChange={(y, m) => { setCalYear(y); setCalMonth(m); setSelectedIso(null); }}
-          />
-
-          {/* Day detail panel */}
-          {selectedIso && (
-            <View style={[styles.dayPanel, { backgroundColor: C.surface, borderColor: C.border }]}>
-              <View style={[styles.dayPanelHeader, { borderBottomColor: C.border }]}>
-                <Text style={[styles.dayPanelTitle, { color: C.text }]}>{formatDay(selectedIso)}</Text>
-                <TouchableOpacity style={[styles.dayAddBtn, { backgroundColor: C.accent }]} onPress={handleAddOnDay} activeOpacity={0.8}>
-                  <GBIcon name="plus" size={16} color={C.accentContrast} />
-                  <Text style={[styles.dayAddBtnText, { color: C.accentContrast }]}>Einheit</Text>
-                </TouchableOpacity>
-              </View>
-
-              {dayEinheiten.length === 0 ? (
-                <View style={styles.dayEmpty}>
-                  <Text style={[styles.dayEmptyText, { color: C.textDim }]}>Keine Einheiten an diesem Tag</Text>
+              {plaene.length === 0 ? (
+                <View style={[styles.emptyPlans, { backgroundColor: C.surface, borderColor: C.border }]}>
+                  <GBIcon name="layers" size={28} color={C.textDim} />
+                  <Text style={[styles.emptyPlansText, { color: C.textDim }]}>Kein Trainingsplan zugewiesen</Text>
                 </View>
               ) : (
-                dayEinheiten.map(({ einheit, wocheId, plan }) => {
-                  const override = einheit.sportlerOverrides?.[sportler.id];
-                  const display = override ? { ...einheit, ...override } : einheit;
-                  const hasSuffix = !!display.haupteinheit[0] && buildUebSuffix(display.haupteinheit[0]).length > 0;
+                plaene.map((plan) => {
+                  const sc2 = SPORTART_COLORS[plan.sportart ?? ''] ?? { bg: 'rgba(255,255,255,0.08)', fg: C.textMuted, dot: C.textDim };
                   return (
-                    <View key={einheit.id} style={[styles.dayEinheitCard, { borderBottomColor: C.border }]}>
-                      <View style={styles.dayEinheitLeft}>
-                        <View style={[styles.dayEinheitDot, { backgroundColor: C.accent }]} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.dayEinheitName, { color: C.text }]}>
-                            {display.name}
-                            {override && <Text style={[styles.overrideMark, { color: C.accent }]}> ✎</Text>}
-                          </Text>
-                          <Text style={[styles.dayPlanLabel, { color: C.textMuted }]}>{plan.name}</Text>
-                          {hasSuffix && (
-                            <Text style={[styles.dayEinheitSub, { color: C.textMuted }]} numberOfLines={1}>
-                              {buildUebSuffix(display.haupteinheit[0])}
-                            </Text>
-                          )}
-                        </View>
+                    <View key={plan.id} style={[styles.planCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+                      {/* Plan header */}
+                      <View style={[styles.planCardHeader, { borderBottomColor: C.border }]}>
+                        <Text style={[styles.planCardName, { color: C.text }]}>{plan.name}</Text>
+                        {plan.sportart && (
+                          <View style={[styles.planChip, { backgroundColor: sc2.bg }]}>
+                            <View style={[styles.planChipDot, { backgroundColor: sc2.dot }]} />
+                            <Text style={[styles.planChipText, { color: sc2.fg }]}>{plan.sportart}</Text>
+                          </View>
+                        )}
                       </View>
-                      <TouchableOpacity
-                        style={[styles.dayEditBtn, { backgroundColor: C.surfaceAlt }]}
-                        activeOpacity={0.7}
-                        onPress={() =>
-                          navigation.navigate('SportlerEinheitDetail', {
-                            planId: plan.id,
-                            wocheId,
-                            einheitId: einheit.id,
-                            sportlerId: sportler.id,
+
+                      {!plan.startdatum && (
+                        <View style={[styles.noStartdatumRow, { borderBottomColor: C.border }]}>
+                          <GBIcon name="info" size={13} color={C.warn} />
+                          <Text style={[styles.noStartdatumText, { color: C.warn }]}>
+                            Kein Startdatum gesetzt — Datumsberechnung nicht möglich.
+                          </Text>
+                        </View>
+                      )}
+
+                      {plan.wochen.length === 0 ? (
+                        <Text style={[styles.planNoEinheiten, { color: C.textDim }]}>Keine Wochen im Plan</Text>
+                      ) : (
+                        [...plan.wochen]
+                          .sort((a, b) => a.wochennummer - b.wochennummer)
+                          .map((woche) => {
+                            const dateRange = plan.startdatum
+                              ? formatWocheRange(plan.startdatum, woche.wochennummer)
+                              : null;
+                            return (
+                              <View key={woche.id} style={[styles.wocheBlock, { borderBottomColor: C.border }]}>
+                                {/* Week header */}
+                                <View style={[styles.wocheBlockHeader, { backgroundColor: C.surfaceAlt }]}>
+                                  <View style={[styles.wocheNumBadge, { backgroundColor: C.accent }]}>
+                                    <Text style={[styles.wocheNumText, { color: C.accentContrast }]}>{woche.wochennummer}</Text>
+                                  </View>
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={[styles.wocheLabel, { color: C.text }]}>Woche {woche.wochennummer}</Text>
+                                    {dateRange && (
+                                      <Text style={[styles.wocheDateRange, { color: C.textDim }]}>{dateRange}</Text>
+                                    )}
+                                  </View>
+                                  <TouchableOpacity
+                                    style={[styles.wocheAddBtn, { backgroundColor: C.accentLight, borderColor: C.accent }]}
+                                    onPress={() => {
+                                      navigation.getParent<any>()?.navigate('Plaene', {
+                                        screen: 'EinheitDetail',
+                                        params: { planId: plan.id, wocheId: woche.id },
+                                      });
+                                    }}
+                                    activeOpacity={0.7}
+                                  >
+                                    <GBIcon name="plus" size={13} color={C.accent} />
+                                  </TouchableOpacity>
+                                </View>
+
+                                {/* Sessions in this week */}
+                                {woche.einheiten.length === 0 ? (
+                                  <Text style={[styles.planNoEinheiten, { color: C.textDim, paddingHorizontal: SP.md, paddingVertical: SP.sm }]}>
+                                    Keine Einheiten
+                                  </Text>
+                                ) : (
+                                  woche.einheiten
+                                    .slice()
+                                    .sort((a, b) => (a.datum ?? '').localeCompare(b.datum ?? ''))
+                                    .map((einheit) => {
+                                      const override = einheit.sportlerOverrides?.[sportler.id];
+                                      const display = override ? { ...einheit, ...override } : einheit;
+                                      const hasSuffix = !!display.haupteinheit[0] && buildUebSuffix(display.haupteinheit[0]).length > 0;
+                                      const dayLabel = einheit.datum
+                                        ? (() => {
+                                            const d = new Date(einheit.datum);
+                                            const DOW = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+                                            const MONK = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+                                            return `${DOW[d.getDay()]} ${d.getDate()}. ${MONK[d.getMonth()]}`;
+                                          })()
+                                        : null;
+                                      return (
+                                        <View key={einheit.id} style={[styles.einheitRow, { borderBottomColor: C.border }]}>
+                                          {dayLabel && (
+                                            <View style={[styles.dayLabelBadge, { backgroundColor: C.surfaceAlt }]}>
+                                              <Text style={[styles.dayLabelText, { color: C.textMuted }]}>{dayLabel}</Text>
+                                            </View>
+                                          )}
+                                          <View style={styles.einheitRowInfo}>
+                                            <View style={[styles.einheitDot, { backgroundColor: C.accent }]} />
+                                            <View style={{ flex: 1 }}>
+                                              <Text style={[styles.einheitName, { color: C.text }]}>
+                                                {display.name}
+                                                {override && <Text style={[styles.overrideBadge, { color: C.accent }]}> ✎</Text>}
+                                              </Text>
+                                              {hasSuffix ? (
+                                                <Text style={[styles.einheitParams, { color: C.textMuted }]} numberOfLines={1}>
+                                                  {buildUebSuffix(display.haupteinheit[0])}
+                                                </Text>
+                                              ) : (
+                                                <Text style={[styles.einheitParams, { color: C.textMuted }]}>
+                                                  {display.warmup.length + display.haupteinheit.length + display.cooldown.length} Übungen
+                                                </Text>
+                                              )}
+                                            </View>
+                                          </View>
+                                          <TouchableOpacity
+                                            style={[styles.einheitEditBtn, { backgroundColor: C.surfaceAlt }]}
+                                            activeOpacity={0.7}
+                                            onPress={() => navigation.navigate('SportlerEinheitDetail', {
+                                              planId: plan.id, wocheId: woche.id,
+                                              einheitId: einheit.id, sportlerId: sportler.id,
+                                            })}
+                                          >
+                                            <GBIcon name="edit" size={14} color={C.textMuted} />
+                                          </TouchableOpacity>
+                                        </View>
+                                      );
+                                    })
+                                )}
+                              </View>
+                            );
                           })
-                        }
-                      >
-                        <GBIcon name="edit" size={14} color={C.textMuted} />
-                      </TouchableOpacity>
+                      )}
                     </View>
                   );
                 })
               )}
-            </View>
-          )}
-
-          {/* ── Aktive Pläne ── */}
-          <SectionHead>Aktive Pläne</SectionHead>
-
-          {plaene.length === 0 ? (
-            <View style={[styles.emptyPlans, { backgroundColor: C.surface, borderColor: C.border }]}>
-              <GBIcon name="layers" size={28} color={C.textDim} />
-              <Text style={[styles.emptyPlansText, { color: C.textDim }]}>Kein Trainingsplan zugewiesen</Text>
-            </View>
+            </>
           ) : (
-            plaene.map((plan) => {
-              const allEinheiten = plan.wochen.flatMap((w) =>
-                w.einheiten.map((e) => ({ einheit: e, wocheId: w.id }))
-              );
-              const sc2 = SPORTART_COLORS[plan.sportart ?? ''] ?? { bg: 'rgba(255,255,255,0.08)', fg: C.textMuted, dot: C.textDim };
+            <>
+              <SectionHead>Trainingskalender</SectionHead>
 
-              return (
-                <View key={plan.id} style={[styles.planCard, { backgroundColor: C.surface, borderColor: C.border }]}>
-                  <View style={[styles.planCardHeader, { borderBottomColor: C.border }]}>
-                    <Text style={[styles.planCardName, { color: C.text }]}>{plan.name}</Text>
-                    {plan.sportart && (
-                      <View style={[styles.planChip, { backgroundColor: sc2.bg }]}>
-                        <View style={[styles.planChipDot, { backgroundColor: sc2.dot }]} />
-                        <Text style={[styles.planChipText, { color: sc2.fg }]}>{plan.sportart}</Text>
-                      </View>
-                    )}
+              <MonthCalendar
+                markedDays={markedDays}
+                legendLabel="Einheit geplant"
+                onDayPress={plaene.length > 0 ? handleDayPress : undefined}
+                selectedIso={selectedIso}
+                onMonthChange={(y, m) => { setCalYear(y); setCalMonth(m); setSelectedIso(null); }}
+              />
+
+              {/* Day detail panel */}
+              {selectedIso && (
+                <View style={[styles.dayPanel, { backgroundColor: C.surface, borderColor: C.border }]}>
+                  <View style={[styles.dayPanelHeader, { borderBottomColor: C.border }]}>
+                    <Text style={[styles.dayPanelTitle, { color: C.text }]}>{formatDay(selectedIso)}</Text>
+                    <TouchableOpacity style={[styles.dayAddBtn, { backgroundColor: C.accent }]} onPress={handleAddOnDay} activeOpacity={0.8}>
+                      <GBIcon name="plus" size={16} color={C.accentContrast} />
+                      <Text style={[styles.dayAddBtnText, { color: C.accentContrast }]}>Einheit</Text>
+                    </TouchableOpacity>
                   </View>
 
-                  {allEinheiten.length === 0 ? (
-                    <Text style={[styles.planNoEinheiten, { color: C.textDim }]}>Noch keine Einheiten</Text>
+                  {dayEinheiten.length === 0 ? (
+                    <View style={styles.dayEmpty}>
+                      <Text style={[styles.dayEmptyText, { color: C.textDim }]}>Keine Einheiten an diesem Tag</Text>
+                    </View>
                   ) : (
-                    allEinheiten.map(({ einheit, wocheId }) => {
+                    dayEinheiten.map(({ einheit, wocheId, plan }) => {
                       const override = einheit.sportlerOverrides?.[sportler.id];
                       const display = override ? { ...einheit, ...override } : einheit;
-                      const totalEx = display.warmup.length + display.haupteinheit.length + display.cooldown.length;
                       const hasSuffix = !!display.haupteinheit[0] && buildUebSuffix(display.haupteinheit[0]).length > 0;
-
                       return (
-                        <View key={einheit.id} style={[styles.einheitRow, { borderBottomColor: C.border }]}>
-                          <View style={styles.einheitRowInfo}>
-                            <View style={[styles.einheitDot, { backgroundColor: C.accent }]} />
+                        <View key={einheit.id} style={[styles.dayEinheitCard, { borderBottomColor: C.border }]}>
+                          <View style={styles.dayEinheitLeft}>
+                            <View style={[styles.dayEinheitDot, { backgroundColor: C.accent }]} />
                             <View style={{ flex: 1 }}>
-                              <Text style={[styles.einheitName, { color: C.text }]}>
+                              <Text style={[styles.dayEinheitName, { color: C.text }]}>
                                 {display.name}
-                                {override && <Text style={[styles.overrideBadge, { color: C.accent }]}> ✎</Text>}
+                                {override && <Text style={[styles.overrideMark, { color: C.accent }]}> ✎</Text>}
                               </Text>
-                              {hasSuffix ? (
-                                <Text style={[styles.einheitParams, { color: C.textMuted }]} numberOfLines={1}>
+                              <Text style={[styles.dayPlanLabel, { color: C.textMuted }]}>{plan.name}</Text>
+                              {hasSuffix && (
+                                <Text style={[styles.dayEinheitSub, { color: C.textMuted }]} numberOfLines={1}>
                                   {buildUebSuffix(display.haupteinheit[0])}
                                 </Text>
-                              ) : (
-                                <Text style={[styles.einheitParams, { color: C.textMuted }]}>{totalEx} Übungen</Text>
-                              )}
-                              {einheit.datum && (
-                                <Text style={[styles.einheitDatum, { color: C.textDim }]}>{new Date(einheit.datum).toLocaleDateString('de-DE')}</Text>
                               )}
                             </View>
                           </View>
                           <TouchableOpacity
-                            style={[styles.einheitEditBtn, { backgroundColor: C.surfaceAlt }]}
+                            style={[styles.dayEditBtn, { backgroundColor: C.surfaceAlt }]}
                             activeOpacity={0.7}
-                            onPress={() =>
-                              navigation.navigate('SportlerEinheitDetail', {
-                                planId: plan.id,
-                                wocheId,
-                                einheitId: einheit.id,
-                                sportlerId: sportler.id,
-                              })
-                            }
+                            onPress={() => navigation.navigate('SportlerEinheitDetail', {
+                              planId: plan.id, wocheId, einheitId: einheit.id, sportlerId: sportler.id,
+                            })}
                           >
                             <GBIcon name="edit" size={14} color={C.textMuted} />
                           </TouchableOpacity>
@@ -454,8 +515,79 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                     })
                   )}
                 </View>
-              );
-            })
+              )}
+
+              {/* ── Alle Pläne kompakt ── */}
+              <SectionHead>Aktive Pläne</SectionHead>
+              {plaene.length === 0 ? (
+                <View style={[styles.emptyPlans, { backgroundColor: C.surface, borderColor: C.border }]}>
+                  <GBIcon name="layers" size={28} color={C.textDim} />
+                  <Text style={[styles.emptyPlansText, { color: C.textDim }]}>Kein Trainingsplan zugewiesen</Text>
+                </View>
+              ) : (
+                plaene.map((plan) => {
+                  const allEinheiten = plan.wochen.flatMap((w) => w.einheiten.map((e) => ({ einheit: e, wocheId: w.id })));
+                  const sc2 = SPORTART_COLORS[plan.sportart ?? ''] ?? { bg: 'rgba(255,255,255,0.08)', fg: C.textMuted, dot: C.textDim };
+                  return (
+                    <View key={plan.id} style={[styles.planCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+                      <View style={[styles.planCardHeader, { borderBottomColor: C.border }]}>
+                        <Text style={[styles.planCardName, { color: C.text }]}>{plan.name}</Text>
+                        {plan.sportart && (
+                          <View style={[styles.planChip, { backgroundColor: sc2.bg }]}>
+                            <View style={[styles.planChipDot, { backgroundColor: sc2.dot }]} />
+                            <Text style={[styles.planChipText, { color: sc2.fg }]}>{plan.sportart}</Text>
+                          </View>
+                        )}
+                      </View>
+                      {allEinheiten.length === 0 ? (
+                        <Text style={[styles.planNoEinheiten, { color: C.textDim }]}>Noch keine Einheiten</Text>
+                      ) : (
+                        allEinheiten.map(({ einheit, wocheId }) => {
+                          const override = einheit.sportlerOverrides?.[sportler.id];
+                          const display = override ? { ...einheit, ...override } : einheit;
+                          const totalEx = display.warmup.length + display.haupteinheit.length + display.cooldown.length;
+                          const hasSuffix = !!display.haupteinheit[0] && buildUebSuffix(display.haupteinheit[0]).length > 0;
+                          return (
+                            <View key={einheit.id} style={[styles.einheitRow, { borderBottomColor: C.border }]}>
+                              <View style={styles.einheitRowInfo}>
+                                <View style={[styles.einheitDot, { backgroundColor: C.accent }]} />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[styles.einheitName, { color: C.text }]}>
+                                    {display.name}
+                                    {override && <Text style={[styles.overrideBadge, { color: C.accent }]}> ✎</Text>}
+                                  </Text>
+                                  {hasSuffix ? (
+                                    <Text style={[styles.einheitParams, { color: C.textMuted }]} numberOfLines={1}>
+                                      {buildUebSuffix(display.haupteinheit[0])}
+                                    </Text>
+                                  ) : (
+                                    <Text style={[styles.einheitParams, { color: C.textMuted }]}>{totalEx} Übungen</Text>
+                                  )}
+                                  {einheit.datum && (
+                                    <Text style={[styles.einheitDatum, { color: C.textDim }]}>
+                                      {new Date(einheit.datum).toLocaleDateString('de-DE')}
+                                    </Text>
+                                  )}
+                                </View>
+                              </View>
+                              <TouchableOpacity
+                                style={[styles.einheitEditBtn, { backgroundColor: C.surfaceAlt }]}
+                                activeOpacity={0.7}
+                                onPress={() => navigation.navigate('SportlerEinheitDetail', {
+                                  planId: plan.id, wocheId, einheitId: einheit.id, sportlerId: sportler.id,
+                                })}
+                              >
+                                <GBIcon name="edit" size={14} color={C.textMuted} />
+                              </TouchableOpacity>
+                            </View>
+                          );
+                        })
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </>
           )}
 
           {/* Löschen */}
@@ -562,4 +694,17 @@ const styles = StyleSheet.create({
 
   deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.lg, borderRadius: R.lg, borderWidth: 1, borderColor: 'rgba(255,106,61,0.25)', backgroundColor: 'rgba(255,106,61,0.06)' },
   deleteBtnText: { fontSize: FONT.base, fontWeight: '600', color: C.warn },
+
+  // Wochen view
+  wocheBlock:       { borderBottomWidth: 1 },
+  wocheBlockHeader: { flexDirection: 'row', alignItems: 'center', gap: SP.sm, padding: SP.md },
+  wocheNumBadge:    { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  wocheNumText:     { fontFamily: FONT_MONO, fontSize: FONT.xs, fontWeight: '800' },
+  wocheLabel:       { fontSize: FONT.sm, fontWeight: '700' },
+  wocheDateRange:   { fontSize: 11, marginTop: 1 },
+  wocheAddBtn:      { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  dayLabelBadge:    { marginHorizontal: SP.md, marginTop: SP.sm, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.full },
+  dayLabelText:     { fontSize: 10, fontWeight: '700' },
+  noStartdatumRow:  { flexDirection: 'row', alignItems: 'center', gap: SP.sm, padding: SP.md, borderBottomWidth: 1 },
+  noStartdatumText: { flex: 1, fontSize: FONT.xs, fontWeight: '600' },
 });
