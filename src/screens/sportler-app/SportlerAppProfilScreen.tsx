@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -39,31 +39,7 @@ export default function SportlerAppProfilScreen() {
        / logs.filter((l) => l.abgeschlossen && l.bewertung > 0).length)
     : null;
 
-  const handleSwitchSportler = () => {
-    if (allSportler.length === 0) { Alert.alert('Keine Sportler', 'Keine Sportler im System.'); return; }
-    Alert.alert(
-      'Sportler wechseln',
-      'Für wen möchtest du trainieren?',
-      [
-        ...allSportler.map((s) => ({
-          text: `${s.name}${s.id === activeSportlerId ? ' ✓' : ''}`,
-          onPress: () => setActiveSportlerId(s.id),
-        })),
-        { text: 'Abbrechen', style: 'cancel' as const },
-      ],
-    );
-  };
-
-  const handleSwitchToTrainer = () => {
-    Alert.alert(
-      'Trainer-Ansicht öffnen',
-      'Zur Trainer-Verwaltung wechseln?',
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Wechseln', onPress: () => { setActiveRole('trainer'); setActiveSportlerId(null); } },
-      ],
-    );
-  };
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
@@ -125,7 +101,7 @@ export default function SportlerAppProfilScreen() {
         <View style={[styles.sectionCard, { backgroundColor: C.surface, borderColor: C.border }]}>
           <TouchableOpacity
             style={[styles.actionRow, { borderBottomColor: C.border }]}
-            onPress={handleSwitchSportler}
+            onPress={() => setPickerVisible(true)}
             activeOpacity={0.7}
           >
             <View style={[styles.actionIcon, { backgroundColor: C.surfaceAlt }]}>
@@ -142,7 +118,7 @@ export default function SportlerAppProfilScreen() {
 
           <TouchableOpacity
             style={styles.actionRow}
-            onPress={handleSwitchToTrainer}
+            onPress={() => { setActiveRole('trainer'); setActiveSportlerId(null); }}
             activeOpacity={0.7}
           >
             <View style={[styles.actionIcon, { backgroundColor: 'rgba(122,191,255,0.12)' }]}>
@@ -155,6 +131,38 @@ export default function SportlerAppProfilScreen() {
             <GBIcon name="chevronRight" size={16} color={C.textDim} />
           </TouchableOpacity>
         </View>
+
+        {/* Sportler picker modal */}
+        <Modal visible={pickerVisible} transparent animationType="fade" onRequestClose={() => setPickerVisible(false)}>
+          <Pressable style={styles.overlay} onPress={() => setPickerVisible(false)}>
+            <Pressable style={[styles.sheet, { backgroundColor: C.surface }]} onPress={() => {}}>
+              <View style={[styles.handle, { backgroundColor: C.border }]} />
+              <Text style={[styles.sheetTitle, { color: C.text }]}>Sportler wechseln</Text>
+              {allSportler.map((sp, i) => (
+                <TouchableOpacity
+                  key={sp.id}
+                  style={[styles.sportlerRow, { borderTopColor: C.border }, i === 0 && { borderTopWidth: 0 }]}
+                  onPress={() => { setActiveSportlerId(sp.id); setPickerVisible(false); }}
+                  activeOpacity={0.7}
+                >
+                  <GBAvatar name={sp.name} initials={sp.initials} size={38} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.sportlerName, { color: C.text }]}>{sp.name}</Text>
+                    {sp.sportart && <Text style={[styles.sportlerSub, { color: C.textMuted }]}>{sp.sportart}</Text>}
+                  </View>
+                  {sp.id === activeSportlerId && <GBIcon name="check" size={16} color={C.accent} />}
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={[styles.cancelRow, { borderTopColor: C.border }]}
+                onPress={() => setPickerVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.cancelText, { color: C.textMuted }]}>Abbrechen</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* Letzte Logs */}
         {logs.length > 0 && (
@@ -227,4 +235,14 @@ const styles = StyleSheet.create({
   logStar:    { fontSize: FONT.sm, fontWeight: '700', color: '#FFD166' },
   logRpe:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.full },
   logRpeText: { fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700' },
+
+  overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheet:       { borderTopLeftRadius: R.xxl, borderTopRightRadius: R.xxl, paddingBottom: 32, overflow: 'hidden' },
+  handle:      { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: SP.md, marginBottom: SP.md },
+  sheetTitle:  { fontSize: FONT.lg, fontWeight: '800', color: C.text, paddingHorizontal: SP.xl, marginBottom: SP.md, letterSpacing: -0.4 },
+  sportlerRow: { flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.xl, paddingVertical: SP.md, borderTopWidth: 1 },
+  sportlerName: { fontSize: FONT.base, fontWeight: '700', color: C.text },
+  sportlerSub:  { fontSize: FONT.sm, color: C.textMuted, marginTop: 2 },
+  cancelRow:   { borderTopWidth: 1, paddingVertical: SP.lg, alignItems: 'center', marginTop: SP.sm },
+  cancelText:  { fontSize: FONT.base, fontWeight: '600', color: C.textMuted },
 });
