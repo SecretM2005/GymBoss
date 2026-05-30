@@ -131,6 +131,7 @@ export type SportlerStackParamList = {
   SportlerDetail: { sportlerId: string };
   SportlerForm: { sportlerId?: string };
   SportlerEinheitDetail: { planId: string; wocheId: string; einheitId: string; sportlerId: string };
+  EinheitDetail: { planId: string; wocheId: string; einheitId?: string; datum?: string };
 };
 
 export type PlaeneStackParamList = {

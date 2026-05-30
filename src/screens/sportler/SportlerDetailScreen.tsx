@@ -165,11 +165,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
         Alert.alert('Keine Woche', `„${plan.name}" hat noch keine Trainingswochen. Lege dort zuerst eine Woche an.`);
         return;
       }
-      // Cross-navigator navigation to PlaeneNavigator's EinheitDetail
-      navigation.getParent<any>()?.navigate('Plaene', {
-        screen: 'EinheitDetail',
-        params: { planId: plan.id, wocheId, datum: selectedIso },
-      });
+      navigation.navigate('EinheitDetail', { planId: plan.id, wocheId, datum: selectedIso });
     };
 
     if (plaene.length === 1) {
@@ -371,12 +367,7 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                                   </View>
                                   <TouchableOpacity
                                     style={[styles.wocheAddBtn, { backgroundColor: C.accentLight, borderColor: C.accent }]}
-                                    onPress={() => {
-                                      navigation.getParent<any>()?.navigate('Plaene', {
-                                        screen: 'EinheitDetail',
-                                        params: { planId: plan.id, wocheId: woche.id },
-                                      });
-                                    }}
+                                    onPress={() => navigation.navigate('EinheitDetail', { planId: plan.id, wocheId: woche.id })}
                                     activeOpacity={0.7}
                                   >
                                     <GBIcon name="plus" size={13} color={C.accent} />
