@@ -3,19 +3,22 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "start": "NODE_OPTIONS=\"--require ./polyfill.cjs\" expo start",
+    "android": "NODE_OPTIONS=\"--require ./polyfill.cjs\" expo start --android",
+    "ios": "NODE_OPTIONS=\"--require ./polyfill.cjs\" expo start --ios",
+    "web": "NODE_OPTIONS=\"--require ./polyfill.cjs\" expo start --web"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-masked-view/masked-view": "0.3.2",
+    "@react-native-ml-kit/text-recognition": "^2.0.0",
     "@react-navigation/bottom-tabs": "^7.16.1",
     "@react-navigation/native": "^7.2.4",
     "@react-navigation/stack": "^7.9.2",
     "expo": "~54.0.33",
+    "expo-document-picker": "~14.0.8",
+    "expo-image-picker": "~17.0.11",
     "expo-status-bar": "~3.0.9",
     "nativewind": "^4.2.4",
     "react": "19.1.0",
@@ -29,10 +32,12 @@
     "react-native-svg": "15.12.1",
     "react-native-web": "^0.21.0",
     "tailwindcss": "^3.4.19",
+    "tesseract.js": "^7.0.0",
     "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "babel-preset-expo": "~13.0.0",
     "typescript": "~5.9.2"
   },
   "private": true

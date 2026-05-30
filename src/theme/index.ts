@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { useSettingsStore } from '../store/settingsStore';
 
 // ─── Dark colour system ──────────────────────────────────────────────────────
 
@@ -79,6 +80,51 @@ export const TYPE_COLORS: Record<string, { bg: string; fg: string; dot: string }
   'Krafttraining':    { bg: 'rgba(203,255,62,0.14)',  fg: '#CBFF3E', dot: '#CBFF3E' },
   'Mobilität':        { bg: 'rgba(220,180,255,0.14)', fg: '#D7B5FF', dot: '#C39CFF' },
 };
+
+// ─── Light colour system ─────────────────────────────────────────────────────
+
+export const lightC = {
+  bg:          '#F4F4F6',
+  surface:     '#FFFFFF',
+  surfaceAlt:  '#EBEBED',
+
+  border:       'rgba(0,0,0,0.09)',
+  borderStrong: 'rgba(0,0,0,0.16)',
+
+  text:      '#0B0B0D',
+  textSub:   'rgba(11,11,13,0.60)',
+  textMuted: 'rgba(11,11,13,0.50)',
+  textDim:   'rgba(11,11,13,0.35)',
+
+  accent:         '#7AB300',
+  accentDark:     '#5A8500',
+  accentContrast: '#FFFFFF',
+  accentLight:    'rgba(122,179,0,0.12)',
+
+  success:   '#3D8B44',
+  successBg: 'rgba(61,139,68,0.12)',
+  good:      '#3D8B44',
+
+  warning:   '#C0522A',
+  warningBg: 'rgba(192,82,42,0.12)',
+  warn:      '#C0522A',
+
+  danger:    '#C0522A',
+  dangerBg:  'rgba(192,82,42,0.10)',
+
+  primary:      '#7AB300',
+  primaryMid:   '#5A8500',
+  primaryLight: 'rgba(122,179,0,0.12)',
+  card:         '#FFFFFF',
+  cardAlt:      '#EBEBED',
+  white:        '#FFFFFF',
+  black:        '#0B0B0D',
+} as const;
+
+export function useColors(): typeof C {
+  const theme = useSettingsStore((s) => s.theme);
+  return theme === 'light' ? (lightC as unknown as typeof C) : C;
+}
 
 export function getTypeColor(typ: string) {
   const key = Object.keys(TYPE_COLORS).find((k) => typ === k || typ.startsWith(k));

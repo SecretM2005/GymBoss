@@ -1,94 +1,104 @@
-// ─── Kunden ─────────────────────────────────────────────────────────────────
-
-export type Kunde = {
-  id: string;
-  vorname: string;
-  nachname: string;
-  email: string;
-  telefon: string;
-  status: 'aktiv' | 'inaktiv';
-  eintrittsdatum: string; // ISO: YYYY-MM-DD
-  notizen?: string;
-};
-
-// ─── Mitgliedschaften ────────────────────────────────────────────────────────
-
-export type MitgliedschaftTyp = 'Basic' | 'Premium';
-export type MitgliedschaftStatus = 'aktiv' | 'abgelaufen' | 'gekuendigt';
-
-export type Mitgliedschaft = {
-  id: string;
-  kundeId: string;
-  typ: MitgliedschaftTyp;
-  preis: number;
-  startdatum: string;
-  enddatum: string;
-  status: MitgliedschaftStatus;
-};
-
-// ─── Termine ─────────────────────────────────────────────────────────────────
-
-export type Termin = {
-  id: string;
-  kundeId: string;
-  titel: string;
-  datum: string;
-  uhrzeit: string;
-  dauer: number;
-  notizen?: string;
-};
-
-// ─── Rollen & Nutzer ─────────────────────────────────────────────────────────
+// ─── Users & Roles ────────────────────────────────────────────────────────────
 
 export type UserRole = 'trainer' | 'sportler';
 
-export type AppUser = {
+export type Sportler = {
   id: string;
   name: string;
   initials: string;
-  role: UserRole;
-  alter?: number;    // Sportler: Alter in Jahren
-  ziel?: string;     // Sportler: Trainingsziel
-  spec?: string;     // Trainer: Spezialisierung
+  geburtsdatum?: string;
+  sportart?: string;
+  ziel?: string;
 };
 
-// ─── Trainingspläne ──────────────────────────────────────────────────────────
-
-export type Wochentag = 'Mo' | 'Di' | 'Mi' | 'Do' | 'Fr' | 'Sa' | 'So';
-
-export type PlanUebung = {
+export type Trainer = {
   id: string;
   name: string;
-  saetze: number;
-  wiederholungen: number;
-  gewicht?: number;
-  pause: number;
-  notizen?: string;
+  initials: string;
+  spec?: string;
 };
 
-export type PlanWorkout = {
+// ─── Exercise Library ─────────────────────────────────────────────────────────
+
+export type Phase = 'warmup' | 'haupteinheit' | 'cooldown';
+
+export type UebungParamTyp =
+  | 'serien'
+  | 'wiederholungen'
+  | 'gewicht'
+  | 'distanz'
+  | 'dauer'
+  | 'pause'
+  | 'serienpause';
+
+export type UebungParam = {
+  typ: UebungParamTyp;
+  wert: string;         // raw value, e.g. "3", "6-8", "80", "400"
+  einheit?: string;     // e.g. "kg", "m", "s", "min"
+  bezeichnung?: string; // custom label for pause, e.g. "Trabpause"
+};
+
+export type UebungTemplate = {
   id: string;
   name: string;
-  wochentag: Wochentag;
-  typ: string;
-  uebungen: PlanUebung[];
+  beschreibung?: string;
+  parameter: UebungParam[];
 };
+
+// An exercise instance inside a phase of an Einheit
+export type EinheitUebung = {
+  id: string;
+  name: string;
+  templateId?: string; // set when imported from UebungTemplate library
+  typ?: 'kreis' | 'intervall'; // undefined = single exercise
+  parameter: UebungParam[];
+  kreisUebungen?: KreisUebung[]; // only when typ === 'kreis'
+};
+
+export type KreisUebung = {
+  id: string;
+  name: string;
+  wert: string;         // e.g. "200", "30"
+  einheit: string;      // e.g. "m", "Wdh", "s"
+  zielzeit?: string;    // optional target time for intervals (e.g. "32")
+  zeiteinheit?: string; // "s" | "min"
+  pause?: string;       // per-step pause for interval training (e.g. "90")
+  pauseeinheit?: string;// "s" | "min"
+};
+
+// ─── Training Units ───────────────────────────────────────────────────────────
+
+export type EinheitTemplate = {
+  id: string;
+  name: string;
+  warmup: EinheitUebung[];
+  haupteinheit: EinheitUebung[];
+  cooldown: EinheitUebung[];
+};
+
+export type Einheit = EinheitTemplate & {
+  templateId?: string;
+  datum?: string; // ISO date "2026-05-21" for calendar placement
+  sportlerOverrides?: Record<string, EinheitTemplate>; // sportlerId → per-athlete override
+};
+
+// ─── Training Plans ──────────────────────────────────────────────────────────
 
 export type PlanWoche = {
   id: string;
   wochennummer: number;
   notizen?: string;
-  workouts: PlanWorkout[];
+  einheiten: Einheit[];
 };
 
 export type TrainingsPlan = {
   id: string;
   name: string;
   beschreibung?: string;
-  ziel?: string;
-  sportlerId: string;
+  sportart?: string;
+  sportlerIds: string[];
   trainerId: string;
-  startdatum: string;
+  startdatum?: string;
   wochen: PlanWoche[];
 };
 
@@ -97,8 +107,8 @@ export type WorkoutFeedback = {
   workoutId: string;
   sportlerId: string;
   datum: string;
-  bewertung: number;  // 1–5
-  rpe: number;        // 1–10
+  bewertung: number;
+  rpe: number;
   notiz?: string;
   abgeschlossen: boolean;
 };
@@ -110,40 +120,56 @@ export type RootStackParamList = {
 };
 
 export type BottomTabParamList = {
-  Kunden: undefined;
-  Kalender: undefined;
-  Mitgliedschaften: undefined;
-  Trainingsplaene: undefined;
+  Dashboard: undefined;
+  Plaene: undefined;
+  Sportler: undefined;
+  Mehr: undefined;
 };
 
-export type KundenStackParamList = {
-  KundenList: undefined;
-  KundenDetail: { kundeId: string };
-  KundeForm: { kundeId?: string };
+export type SportlerStackParamList = {
+  SportlerList: undefined;
+  SportlerDetail: { sportlerId: string };
+  SportlerForm: { sportlerId?: string };
+  SportlerEinheitDetail: { planId: string; wocheId: string; einheitId: string; sportlerId: string };
+  EinheitDetail: { planId: string; wocheId: string; einheitId?: string; datum?: string };
 };
 
-export type KalenderStackParamList = {
-  KalenderOverview: undefined;
-  TerminDetail: { terminId: string };
-  TerminForm: { terminId?: string; datum?: string };
+export type PlaeneStackParamList = {
+  PlanList: undefined;
+  PlanDetail: { planId: string };
+  PlanForm: { planId?: string; preselectedSportlerId?: string };
+  ImportPlan: { preselectedSportlerId?: string } | undefined;
+  PlanWocheForm: { planId: string; wocheId?: string };
+  PlanWocheDetail: { planId: string; wocheId: string };
+  EinheitDetail: { planId: string; wocheId: string; einheitId?: string; datum?: string };
 };
 
-export type MitgliedschaftenStackParamList = {
-  MitgliedschaftenList: undefined;
-  MitgliedschaftDetail: { mitgliedschaftId: string };
-  MitgliedschaftForm: { kundeId?: string };
+export type MehrStackParamList = {
+  MehrHub: undefined;
+  Einstellungen: undefined;
+  Uebungsbibliothek: undefined;
+  EinheitTemplateDetail: { einheitTemplateId?: string };
+  UebungTemplateForm: { uebungTemplateId?: string };
 };
 
-export type TrainingsplaeneStackParamList = {
-  TrainingsplaeneHome: undefined;
-  // Trainer
-  TrainerPlanList: undefined;
-  TrainerPlanForm: { planId?: string };
-  TrainerWoche: { planId: string; wocheId: string };
-  TrainerWorkout: { planId: string; wocheId: string; workoutId?: string; wochentag?: Wochentag };
-  // Sportler
-  SportlerPlanList: undefined;
-  SportlerWochenansicht: { planId: string };
-  SportlerWorkoutDetail: { planId: string; wocheId: string; workoutId: string };
-  SportlerFeedback: { planId: string; wocheId: string; workoutId: string };
+// ─── Sportler App (Athlete View) ─────────────────────────────────────────────
+
+export type SportlerAppTabParamList = {
+  MeinTraining: undefined;
+  MeinProfil:   undefined;
+};
+
+export type MeinTrainingStackParamList = {
+  MeinTrainingMain: undefined;
+  EinheitLog:       { planId: string; wocheId: string; einheitId: string };
+  PlanForm:         { planId?: string; preselectedSportlerId?: string };
+  ImportPlan:       { preselectedSportlerId?: string } | undefined;
+  PlanWocheForm:    { planId: string; wocheId?: string };
+  PlanWocheDetail:  { planId: string; wocheId: string };
+  EinheitDetail:    { planId: string; wocheId: string; einheitId?: string; datum?: string };
+};
+
+export type MeinProfilStackParamList = {
+  MeinProfilMain:  undefined;
+  Einstellungen:   undefined;
 };

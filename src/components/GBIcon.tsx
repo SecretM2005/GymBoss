@@ -32,6 +32,19 @@ const MAP: Record<string, IoniconsName> = {
   close:        'close-outline',
   play:         'play',
   bolt:         'flash-outline',
+  list:         'list-outline',
+  layers:       'layers-outline',
+  repeat:       'repeat-outline',
+  flag:         'flag-outline',
+  stopwatch:    'stopwatch-outline',
+  book:         'book-outline',
+  globe:        'globe-outline',
+  moon:         'moon-outline',
+  sun:          'sunny-outline',
+  camera:       'camera-outline',
+  image:        'image-outline',
+  document:     'document-outline',
+  upload:       'cloud-upload-outline',
 };
 
 type Props = {
