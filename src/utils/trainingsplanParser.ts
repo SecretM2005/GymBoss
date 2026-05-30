@@ -2,6 +2,8 @@
  * Extracts training plan structure from raw OCR text (German sports plans).
  */
 
+import { UebungParam } from '../types';
+
 export type ParsedEinheit = {
   name: string;
   uebungen: ParsedUebung[];
@@ -9,7 +11,8 @@ export type ParsedEinheit = {
 
 export type ParsedUebung = {
   name: string;
-  parameter: string; // raw like "3x8 80kg" or "30min"
+  parameter: string;        // raw display string e.g. "3x8 · 80 kg"
+  params: UebungParam[];    // structured params ready for store
 };
 
 export type ParsedWoche = {
@@ -186,7 +189,11 @@ function extractUebungen(text: string): ParsedUebung[] {
     const namePart = line.replace(/\d[\d\s×x\.]*(?:kg|min|sek|s|m|wdh|reps|mal)?.*$/i, '').trim();
     if (namePart.length < 2) continue;
 
-    uebungen.push({ name: titleCase(namePart), parameter: param });
+    uebungen.push({
+      name:      titleCase(namePart),
+      parameter: param,
+      params:    paramStringToUebungParams(param),
+    });
   }
 
   return uebungen;
@@ -208,6 +215,28 @@ function extractParam(line: string): string | null {
   if (!dr && ds) parts.push(`${ds[1]} ${ds[2]}`);
 
   return parts.length ? parts.join(' · ') : null;
+}
+
+/** Converts a raw param string like "3x8 · 80 kg" into structured UebungParam[]. */
+export function paramStringToUebungParams(raw: string): UebungParam[] {
+  const params: UebungParam[] = [];
+
+  const sr = raw.match(/(\d+)\s*[×xX]\s*(\d+)/);
+  if (sr) {
+    params.push({ typ: 'serien',         wert: sr[1] });
+    params.push({ typ: 'wiederholungen', wert: sr[2] });
+  }
+
+  const wt = raw.match(/(\d+(?:[,.]\d+)?)\s*kg/i);
+  if (wt) params.push({ typ: 'gewicht', wert: wt[1].replace(',', '.'), einheit: 'kg' });
+
+  const dur = raw.match(/(\d+)\s*(min|sek|s)\b/i);
+  if (dur) params.push({ typ: 'dauer', wert: dur[1], einheit: dur[2].toLowerCase() });
+
+  const dist = raw.match(/(\d+(?:[,.]\d+)?)\s*(km|m)\b/i);
+  if (!dur && dist) params.push({ typ: 'distanz', wert: dist[1].replace(',', '.'), einheit: dist[2].toLowerCase() });
+
+  return params;
 }
 
 function titleCase(s: string): string {
