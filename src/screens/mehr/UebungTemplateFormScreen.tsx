@@ -65,11 +65,7 @@ export default function UebungTemplateFormScreen({ navigation, route }: Props) {
 
   const handleSave = () => {
     if (!name.trim()) { setNameError('Name ist erforderlich'); return; }
-    const data = {
-      name: name.trim(),
-      beschreibung: beschreibung.trim() || undefined,
-      parameter: params,
-    };
+    const data = { name: name.trim(), beschreibung: beschreibung.trim() || undefined, parameter: params };
     if (existing) {
       updateUebung(existing.id, data);
     } else {
@@ -78,9 +74,8 @@ export default function UebungTemplateFormScreen({ navigation, route }: Props) {
     navigation.goBack();
   };
 
-  const cfg = typeof addMode === 'string' && addMode !== 'picking' ? PARAM_CFG[addMode] : null;
-  const suffix = buildSuffix(params);
-  const preview = name.trim() ? (suffix ? `${name.trim()} (${suffix})` : name.trim()) : '';
+  const cfg = typeof addMode === 'string' && addMode !== 'picking' ? PARAM_CFG[addMode as UebungParamTyp] : null;
+  const preview = name.trim() ? (buildSuffix(params) ? `${name.trim()} (${buildSuffix(params)})` : name.trim()) : '';
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -125,7 +120,7 @@ export default function UebungTemplateFormScreen({ navigation, route }: Props) {
             numberOfLines={3}
           />
 
-          {/* Parameters */}
+          {/* Parameters section */}
           <View style={[s.paramSection, { backgroundColor: C.surface, borderColor: C.border }]}>
             <Text style={[s.paramSectionTitle, { color: C.textMuted }]}>Parameter</Text>
 
@@ -158,7 +153,11 @@ export default function UebungTemplateFormScreen({ navigation, route }: Props) {
                     return (
                       <TouchableOpacity
                         key={typ}
-                        style={[s.pickerBtn, { backgroundColor: C.surface, borderColor: added ? C.accent : C.border }, added && { backgroundColor: 'rgba(203,255,62,0.06)' }]}
+                        style={[
+                          s.pickerBtn,
+                          { backgroundColor: C.surface, borderColor: C.border },
+                          added && { borderColor: C.accent, backgroundColor: 'rgba(203,255,62,0.06)' },
+                        ]}
                         onPress={() => selectType(typ)}
                         activeOpacity={0.75}
                       >
@@ -173,13 +172,13 @@ export default function UebungTemplateFormScreen({ navigation, route }: Props) {
                     );
                   })}
                 </View>
-                <TouchableOpacity onPress={() => setAddMode(null)} style={s.cancelPickBtn} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => setAddMode(null)} style={s.cancelPickBtn}>
                   <Text style={[s.cancelPickText, { color: C.textDim }]}>Abbrechen</Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            {cfg && addMode !== 'picking' && (
+            {cfg && addMode !== null && addMode !== 'picking' && (
               <View style={[s.paramInput, { backgroundColor: C.surfaceAlt, borderColor: C.border }]}>
                 <Text style={[s.paramInputTitle, { color: C.textMuted }]}>{cfg.label}</Text>
                 <View style={s.paramInputRow}>
@@ -197,7 +196,11 @@ export default function UebungTemplateFormScreen({ navigation, route }: Props) {
                       {cfg.units.map((u) => (
                         <TouchableOpacity
                           key={u}
-                          style={[s.unitBtn, { borderColor: newUnit === u ? C.accent : C.border, backgroundColor: newUnit === u ? 'rgba(203,255,62,0.10)' : C.surface }]}
+                          style={[
+                            s.unitBtn,
+                            { borderColor: C.border, backgroundColor: C.surface },
+                            newUnit === u && { borderColor: C.accent, backgroundColor: 'rgba(203,255,62,0.10)' },
+                          ]}
                           onPress={() => setNewUnit(u)}
                           activeOpacity={0.7}
                         >
@@ -218,13 +221,12 @@ export default function UebungTemplateFormScreen({ navigation, route }: Props) {
                   />
                 )}
                 <View style={s.paramBtns}>
-                  <TouchableOpacity style={[s.backBtn, { backgroundColor: C.surface }]} onPress={() => setAddMode('picking')} activeOpacity={0.7}>
+                  <TouchableOpacity style={[s.backBtn, { backgroundColor: C.surface }]} onPress={() => setAddMode('picking')}>
                     <Text style={[s.backBtnText, { color: C.textMuted }]}>← Zurück</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[s.confirmBtn, { backgroundColor: newWert.trim() ? C.accent : C.surfaceAlt }]}
                     onPress={confirmParam}
-                    activeOpacity={0.8}
                   >
                     <Text style={[s.confirmBtnText, { color: newWert.trim() ? C.accentContrast : C.textDim }]}>Übernehmen</Text>
                   </TouchableOpacity>
@@ -234,12 +236,12 @@ export default function UebungTemplateFormScreen({ navigation, route }: Props) {
           </View>
 
           {/* Preview */}
-          {preview.length > 0 && (
+          {preview ? (
             <View style={[s.preview, { borderColor: 'rgba(203,255,62,0.15)' }]}>
               <Text style={[s.previewLabel, { color: C.accent }]}>Vorschau</Text>
               <Text style={[s.previewText, { color: C.text }]}>{preview}</Text>
             </View>
-          )}
+          ) : null}
 
           <View style={{ height: 80 }} />
         </ScrollView>
@@ -265,33 +267,33 @@ const s = StyleSheet.create({
   errText:   { fontSize: FONT.xs },
 
   paramSection:      { borderRadius: R.xl, borderWidth: 1, padding: SP.lg, gap: SP.md },
-  paramSectionTitle: { fontSize: FONT.xs, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.4, color: C.textMuted },
+  paramSectionTitle: { fontSize: FONT.xs, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.4 },
   chips:             { flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm },
 
   addParamBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.sm + 2, borderRadius: R.lg, borderWidth: 1.5, borderStyle: 'dashed' },
   addParamText: { fontSize: FONT.sm, fontWeight: '700' },
 
-  picker:        { borderRadius: R.lg, borderWidth: 1, padding: SP.md, gap: SP.sm },
-  pickerTitle:   { fontSize: FONT.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.2, color: C.textMuted },
-  pickerGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm },
-  pickerBtn:     { width: '30%', flexGrow: 1, flexDirection: 'column', alignItems: 'center', gap: 4, paddingVertical: SP.sm + 2, borderRadius: R.md, borderWidth: 1 },
-  pickerLabel:   { fontSize: 10, fontWeight: '700', textAlign: 'center' },
-  pickerCheck:   { position: 'absolute', top: 4, right: 4, width: 14, height: 14, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  picker:       { borderRadius: R.lg, borderWidth: 1, padding: SP.md, gap: SP.sm },
+  pickerTitle:  { fontSize: FONT.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.2 },
+  pickerGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm },
+  pickerBtn:    { width: '30%', flexGrow: 1, flexDirection: 'column', alignItems: 'center', gap: 4, paddingVertical: SP.sm + 2, borderRadius: R.md, borderWidth: 1 },
+  pickerLabel:  { fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  pickerCheck:  { position: 'absolute', top: 4, right: 4, width: 14, height: 14, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   cancelPickBtn: { alignItems: 'center', paddingVertical: SP.sm },
   cancelPickText: { fontSize: FONT.xs, fontWeight: '700' },
 
-  paramInput:      { borderRadius: R.lg, borderWidth: 1, padding: SP.md, gap: SP.sm },
-  paramInputTitle: { fontSize: FONT.xs, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.2 },
-  paramInputRow:   { flexDirection: 'row', gap: SP.sm, alignItems: 'center' },
-  paramField:      { borderWidth: 1, borderRadius: R.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, fontSize: FONT.base, fontFamily: FONT_MONO },
-  unitRow:         { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
-  unitBtn:         { paddingHorizontal: SP.sm, paddingVertical: SP.sm - 1, borderRadius: R.full, borderWidth: 1 },
-  unitText:        { fontSize: FONT.xs, fontWeight: '700' },
-  paramBtns:       { flexDirection: 'row', gap: SP.sm },
-  backBtn:         { flex: 1, paddingVertical: SP.sm, borderRadius: R.md, alignItems: 'center' },
-  backBtnText:     { fontSize: FONT.xs, fontWeight: '700' },
-  confirmBtn:      { flex: 2, paddingVertical: SP.sm, borderRadius: R.md, alignItems: 'center' },
-  confirmBtnText:  { fontSize: FONT.sm, fontWeight: '800' },
+  paramInput:       { borderRadius: R.lg, borderWidth: 1, padding: SP.md, gap: SP.sm },
+  paramInputTitle:  { fontSize: FONT.xs, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.2 },
+  paramInputRow:    { flexDirection: 'row', gap: SP.sm, alignItems: 'center' },
+  paramField:       { borderWidth: 1, borderRadius: R.md, paddingHorizontal: SP.md, paddingVertical: SP.sm, fontSize: FONT.base, fontFamily: FONT_MONO },
+  unitRow:          { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
+  unitBtn:          { paddingHorizontal: SP.sm, paddingVertical: SP.sm - 1, borderRadius: R.full, borderWidth: 1 },
+  unitText:         { fontSize: FONT.xs, fontWeight: '700' },
+  paramBtns:        { flexDirection: 'row', gap: SP.sm },
+  backBtn:          { flex: 1, paddingVertical: SP.sm, borderRadius: R.md, alignItems: 'center' },
+  backBtnText:      { fontSize: FONT.xs, fontWeight: '700' },
+  confirmBtn:       { flex: 2, paddingVertical: SP.sm, borderRadius: R.md, alignItems: 'center' },
+  confirmBtnText:   { fontSize: FONT.sm, fontWeight: '800' },
 
   preview:      { backgroundColor: 'rgba(203,255,62,0.06)', borderRadius: R.lg, borderWidth: 1, padding: SP.md, gap: 4 },
   previewLabel: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.4 },

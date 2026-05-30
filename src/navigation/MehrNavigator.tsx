@@ -1,11 +1,11 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MehrStackParamList } from '../types';
-import MehrHubScreen              from '../screens/mehr/MehrScreen';
-import EinstellungenScreen        from '../screens/mehr/EinstellungenScreen';
-import UebungsBibliothekScreen    from '../screens/mehr/UebungsBibliothekScreen';
+import MehrHubScreen from '../screens/mehr/MehrScreen';
+import EinstellungenScreen from '../screens/mehr/EinstellungenScreen';
+import UebungsBibliothekScreen from '../screens/mehr/UebungsBibliothekScreen';
 import EinheitTemplateDetailScreen from '../screens/mehr/EinheitTemplateDetailScreen';
-import UebungTemplateFormScreen   from '../screens/mehr/UebungTemplateFormScreen';
+import UebungTemplateFormScreen from '../screens/mehr/UebungTemplateFormScreen';
 
 const Stack = createStackNavigator<MehrStackParamList>();
 
