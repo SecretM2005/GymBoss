@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Image, KeyboardAvoidingView, Platform,
+  TouchableOpacity, Image, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import { PlaeneStackParamList } from '../../types';
 import { usePlanStore } from '../../store/planStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import { GBIcon } from '../../components/GBIcon';
+import { parseTrainingText, ParsedPlan } from '../../utils/trainingsplanParser';
 import { C, useColors, SP, R, FONT } from '../../theme';
 
 type Props = {
@@ -25,6 +26,8 @@ type FileInfo = {
   name: string;
 };
 
+type ScanState = 'idle' | 'scanning' | 'done' | 'error';
+
 type Form = {
   name: string;
   sportart: string;
@@ -37,10 +40,22 @@ const SPORTARTEN = ['Kraftsport', 'Kampfsport', 'Leichtathletik', 'Konditionieru
 
 function guessNameFromFilename(filename: string): string {
   return filename
-    .replace(/\.[^.]+$/, '')       // remove extension
-    .replace(/[_-]+/g, ' ')        // underscores/dashes → spaces
-    .replace(/\b\w/g, (c) => c.toUpperCase()) // title case
+    .replace(/\.[^.]+$/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
     .trim();
+}
+
+// OCR is only available on web via Tesseract.js (WASM)
+async function runOCR(uri: string, onProgress: (p: number) => void): Promise<string> {
+  const mod = await import('tesseract.js');
+  const Tesseract = mod.default ?? mod;
+  const result = await (Tesseract as any).recognize(uri, 'deu+eng', {
+    logger: (m: any) => {
+      if (m.status === 'recognizing text') onProgress(Math.round(m.progress * 100));
+    },
+  });
+  return result.data.text as string;
 }
 
 export default function ImportPlanScreen({ navigation, route }: Props) {
@@ -51,98 +66,103 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
 
   const preselectedSportlerId = route.params?.preselectedSportlerId;
 
-  const [file, setFile] = useState<FileInfo | null>(null);
-  const [form, setForm] = useState<Form>({
-    name: '',
-    sportart: 'Kraftsport',
-    beschreibung: '',
-    startdatum: '',
-    anzahlWochen: 4,
+  const [file, setFile]             = useState<FileInfo | null>(null);
+  const [scanState, setScanState]   = useState<ScanState>('idle');
+  const [scanProgress, setScanProgress] = useState(0);
+  const [parsed, setParsed]         = useState<ParsedPlan | null>(null);
+  const [form, setForm]             = useState<Form>({
+    name: '', sportart: 'Kraftsport', beschreibung: '', startdatum: '', anzahlWochen: 4,
   });
   const [nameError, setNameError] = useState('');
 
-  const set = (key: keyof Form, val: string | number) => {
+  const setField = (key: keyof Form, val: string | number) => {
     setForm((f) => ({ ...f, [key]: val }));
     if (key === 'name') setNameError('');
   };
 
+  const triggerScan = async (f: FileInfo) => {
+    if (Platform.OS !== 'web' || f.type === 'pdf' || f.type === 'other') {
+      // No OCR on native or for non-image files — just pre-fill name from filename
+      setParsed(null);
+      setScanState('done');
+      return;
+    }
+    setScanState('scanning');
+    setScanProgress(0);
+    try {
+      const text   = await runOCR(f.uri, setScanProgress);
+      const result = parseTrainingText(text);
+      setParsed(result);
+      // Pre-fill form from OCR result
+      setForm((prev) => ({
+        name:         result.name       ?? prev.name,
+        sportart:     result.sportart   ?? prev.sportart,
+        beschreibung: prev.beschreibung,
+        startdatum:   prev.startdatum,
+        anzahlWochen: result.anzahlWochen ?? prev.anzahlWochen,
+      }));
+      setScanState('done');
+    } catch {
+      setScanState('error');
+    }
+  };
+
   const applyFile = (f: FileInfo) => {
     setFile(f);
-    if (!form.name) {
-      setForm((prev) => ({ ...prev, name: guessNameFromFilename(f.name) }));
-    }
+    // Start with filename as name fallback
+    setForm((prev) => ({
+      ...prev,
+      name: prev.name || guessNameFromFilename(f.name),
+    }));
+    triggerScan(f);
   };
 
   const handleCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') return;
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      quality: 0.85,
-    });
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.9 });
     if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      applyFile({
-        uri: asset.uri,
-        type: 'image',
-        name: asset.fileName ?? 'Foto',
-      });
+      const a = result.assets[0];
+      applyFile({ uri: a.uri, type: 'image', name: a.fileName ?? 'Foto.jpg' });
     }
   };
 
   const handleGallery = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.85,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9 });
     if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      applyFile({
-        uri: asset.uri,
-        type: 'image',
-        name: asset.fileName ?? 'Bild',
-      });
+      const a = result.assets[0];
+      applyFile({ uri: a.uri, type: 'image', name: a.fileName ?? 'Bild.jpg' });
     }
   };
 
   const handleDocument = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf', 'image/*'],
-      copyToCacheDirectory: true,
-    });
+    const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true });
     if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      const isPdf = asset.mimeType?.includes('pdf');
-      const isImage = asset.mimeType?.startsWith('image/');
-      applyFile({
-        uri: asset.uri,
-        type: isPdf ? 'pdf' : isImage ? 'image' : 'other',
-        name: asset.name,
-      });
+      const a = result.assets[0];
+      const isPdf  = a.mimeType?.includes('pdf');
+      const isImg  = a.mimeType?.startsWith('image/');
+      applyFile({ uri: a.uri, type: isPdf ? 'pdf' : isImg ? 'image' : 'other', name: a.name });
     }
   };
 
   const handleSave = () => {
-    if (!form.name.trim()) {
-      setNameError('Name ist erforderlich');
-      return;
-    }
+    if (!form.name.trim()) { setNameError('Name ist erforderlich'); return; }
     const sportlerIds = preselectedSportlerId ? [preselectedSportlerId] : [];
     const planId = addPlan({
-      name: form.name.trim(),
-      sportart: form.sportart || undefined,
+      name:         form.name.trim(),
+      sportart:     form.sportart || undefined,
       beschreibung: form.beschreibung.trim() || undefined,
-      startdatum: form.startdatum.trim() || undefined,
+      startdatum:   form.startdatum.trim() || undefined,
       sportlerIds,
       trainerId: 't1',
     });
-    for (let i = 0; i < form.anzahlWochen; i++) {
-      addWoche(planId);
-    }
+    for (let i = 0; i < form.anzahlWochen; i++) addWoche(planId);
     navigation.goBack();
   };
+
+  const canSave = scanState === 'done' || scanState === 'error';
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -157,7 +177,7 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
             <Text style={[styles.topSub, { color: C.textMuted }]}>Trainingsplan</Text>
             <Text style={[styles.topTitle, { color: C.text }]}>Aus Datei importieren</Text>
           </View>
-          {file && (
+          {canSave && (
             <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, { backgroundColor: C.accent }]} activeOpacity={0.8}>
               <Text style={styles.saveBtnText}>Speichern</Text>
             </TouchableOpacity>
@@ -166,14 +186,16 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
-          {/* File picker / preview */}
-          {!file ? (
+          {/* ── Phase 1: Pick file ── */}
+          {!file && (
             <View style={styles.pickerSection}>
               <View style={[styles.pickerHero, { borderColor: C.border }]}>
                 <GBIcon name="upload" size={40} color={C.textDim} />
                 <Text style={[styles.pickerHeroTitle, { color: C.text }]}>Plan hochladen</Text>
                 <Text style={[styles.pickerHeroSub, { color: C.textDim }]}>
-                  Fotografiere deinen Plan oder wähle eine Datei. Die erkannten Daten kannst du anschließend prüfen und ergänzen.
+                  {Platform.OS === 'web'
+                    ? 'Foto oder Bild hochladen — Text wird automatisch erkannt und der Plan vorausgefüllt.'
+                    : 'Wähle eine Datei. Die Felder kannst du anschließend manuell ausfüllen.'}
                 </Text>
               </View>
 
@@ -205,14 +227,17 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.sourceBtnTitle, { color: C.text }]}>Dokument (PDF)</Text>
-                  <Text style={[styles.sourceBtnSub, { color: C.textMuted }]}>PDF oder Bilddatei hochladen</Text>
+                  <Text style={[styles.sourceBtnSub, { color: C.textMuted }]}>Datei aus deinen Dokumenten</Text>
                 </View>
                 <GBIcon name="chevronRight" size={16} color={C.textDim} />
               </TouchableOpacity>
             </View>
-          ) : (
+          )}
+
+          {/* ── Phase 2: Scanning / Form ── */}
+          {file && (
             <>
-              {/* Preview */}
+              {/* File preview */}
               <View style={[styles.previewCard, { backgroundColor: C.surface, borderColor: C.border }]}>
                 {file.type === 'image' ? (
                   <Image source={{ uri: file.uri }} style={styles.previewImage} resizeMode="contain" />
@@ -229,113 +254,164 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
                     </View>
                   </View>
                 )}
-                <TouchableOpacity style={[styles.changeFileBtn, { borderTopColor: C.border }]} onPress={() => setFile(null)} activeOpacity={0.7}>
+                <TouchableOpacity
+                  style={[styles.changeFileBtn, { borderTopColor: C.border }]}
+                  onPress={() => { setFile(null); setScanState('idle'); setParsed(null); }}
+                  activeOpacity={0.7}
+                >
                   <GBIcon name="upload" size={14} color={C.textMuted} />
                   <Text style={[styles.changeFileBtnText, { color: C.textMuted }]}>Andere Datei wählen</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Hint */}
-              <View style={[styles.hintCard, { backgroundColor: 'rgba(203,255,62,0.07)', borderColor: 'rgba(203,255,62,0.2)' }]}>
-                <GBIcon name="edit" size={14} color={C.accent} />
-                <Text style={[styles.hintText, { color: C.textSub }]}>
-                  Trage die Plandetails aus dem Bild/Dokument unten ein. Die Einheiten kannst du danach im Plan befüllen.
-                </Text>
-              </View>
-
-              {/* Form */}
-              <FieldGroup label="Planname" required error={nameError}>
-                <TextInput
-                  style={[styles.input, { backgroundColor: C.surface, borderColor: nameError ? C.warn : C.border, color: C.text }]}
-                  value={form.name}
-                  onChangeText={(v) => set('name', v)}
-                  placeholder="z. B. Kraftaufbau Basis"
-                  placeholderTextColor={C.textDim}
-                  autoCapitalize="words"
-                />
-              </FieldGroup>
-
-              <FieldGroup label="Sportart">
-                <View style={styles.chipRow}>
-                  {SPORTARTEN.map((s) => {
-                    const active = form.sportart === s;
-                    return (
-                      <TouchableOpacity
-                        key={s}
-                        onPress={() => set('sportart', s)}
-                        style={[styles.chip, { backgroundColor: C.surface, borderColor: C.border }, active && styles.chipActive]}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.chipText, { color: C.textSub }, active && styles.chipTextActive]}>{s}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+              {/* Scan state */}
+              {scanState === 'scanning' && (
+                <View style={[styles.scanCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+                  <ActivityIndicator color={C.accent} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.scanTitle, { color: C.text }]}>Text wird erkannt…</Text>
+                    <View style={[styles.progressBar, { backgroundColor: C.surfaceAlt }]}>
+                      <View style={[styles.progressFill, { width: `${scanProgress}%`, backgroundColor: C.accent }]} />
+                    </View>
+                    <Text style={[styles.scanSub, { color: C.textMuted }]}>{scanProgress}%</Text>
+                  </View>
                 </View>
-              </FieldGroup>
+              )}
 
-              <FieldGroup label="Beschreibung">
-                <TextInput
-                  style={[styles.input, styles.inputMulti, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
-                  value={form.beschreibung}
-                  onChangeText={(v) => set('beschreibung', v)}
-                  placeholder="Kurze Beschreibung des Plans…"
-                  placeholderTextColor={C.textDim}
-                  multiline
-                  numberOfLines={3}
-                  autoCapitalize="sentences"
-                />
-              </FieldGroup>
-
-              <FieldGroup label="Startdatum">
-                <TextInput
-                  style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
-                  value={form.startdatum}
-                  onChangeText={(v) => set('startdatum', v)}
-                  placeholder="TT.MM.JJJJ"
-                  placeholderTextColor={C.textDim}
-                  keyboardType="numbers-and-punctuation"
-                />
-              </FieldGroup>
-
-              <FieldGroup label="Anzahl Wochen">
-                <View style={[styles.stepperRow, { backgroundColor: C.surface, borderColor: C.border }]}>
-                  <TouchableOpacity
-                    onPress={() => set('anzahlWochen', Math.max(1, form.anzahlWochen - 1))}
-                    style={[styles.stepperBtn, { borderColor: C.border }]}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.stepperBtnText, { color: C.text }]}>−</Text>
-                  </TouchableOpacity>
-                  <Text style={[styles.stepperValue, { color: C.text }]}>
-                    {form.anzahlWochen} {form.anzahlWochen === 1 ? 'Woche' : 'Wochen'}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => set('anzahlWochen', Math.min(52, form.anzahlWochen + 1))}
-                    style={[styles.stepperBtn, { borderColor: C.border }]}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.stepperBtnText, { color: C.accent }]}>+</Text>
-                  </TouchableOpacity>
-                </View>
-              </FieldGroup>
-
-              {!preselectedSportlerId && sportler.length > 0 && (
-                <View style={[styles.infoCard, { backgroundColor: C.surface, borderColor: C.border }]}>
-                  <GBIcon name="users" size={15} color={C.textMuted} />
-                  <Text style={[styles.infoText, { color: C.textMuted }]}>
-                    Sportler kannst du nach dem Import im Plan zuweisen.
+              {scanState === 'error' && (
+                <View style={[styles.errorCard, { borderColor: 'rgba(255,106,61,0.3)', backgroundColor: 'rgba(255,106,61,0.07)' }]}>
+                  <GBIcon name="close" size={16} color={C.warn} />
+                  <Text style={[styles.errorCardText, { color: C.warn }]}>
+                    Texterkennung fehlgeschlagen — bitte Felder manuell ausfüllen.
                   </Text>
                 </View>
               )}
 
-              <TouchableOpacity
-                style={[styles.saveBtnFull, { backgroundColor: C.accent }]}
-                onPress={handleSave}
-                activeOpacity={0.85}
-              >
-                <GBIcon name="check" size={18} color={C.accentContrast} />
-                <Text style={[styles.saveBtnFullText, { color: C.accentContrast }]}>Plan erstellen</Text>
-              </TouchableOpacity>
+              {/* OCR result summary */}
+              {scanState === 'done' && parsed && (
+                <View style={[styles.resultCard, { backgroundColor: 'rgba(203,255,62,0.07)', borderColor: 'rgba(203,255,62,0.25)' }]}>
+                  <View style={styles.resultCardHead}>
+                    <GBIcon name="check" size={15} color={C.accent} />
+                    <Text style={[styles.resultCardTitle, { color: C.accent }]}>Erkannte Inhalte</Text>
+                  </View>
+                  <ResultRow icon="edit"    label="Planname"       value={parsed.name} />
+                  <ResultRow icon="bolt"    label="Sportart"       value={parsed.sportart} />
+                  <ResultRow icon="layers"  label="Wochen"         value={parsed.anzahlWochen ? `${parsed.anzahlWochen} Wochen` : undefined} />
+                  {parsed.wochen.length > 0 && (
+                    <ResultRow
+                      icon="dumbbell"
+                      label="Einheiten"
+                      value={`${parsed.wochen.reduce((s, w) => s + w.einheiten.length, 0)} Einheiten · ${parsed.wochen.reduce((s, w) => s + w.einheiten.reduce((ss, e) => ss + e.uebungen.length, 0), 0)} Übungen`}
+                    />
+                  )}
+                  {Platform.OS !== 'web' && (
+                    <Text style={[styles.resultNative, { color: C.textDim }]}>
+                      Texterkennung ist im Browser verfügbar (Expo Web).
+                    </Text>
+                  )}
+                  {!parsed.name && !parsed.sportart && !parsed.anzahlWochen && Platform.OS === 'web' && (
+                    <Text style={[styles.resultNative, { color: C.textDim }]}>
+                      Kein strukturierter Trainingsplan erkannt — bitte manuell ausfüllen.
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Form — only show after scan attempt */}
+              {(scanState === 'done' || scanState === 'error') && (
+                <>
+                  <Text style={[styles.formSectionLabel, { color: C.textMuted }]}>PLANDETAILS PRÜFEN UND ERGÄNZEN</Text>
+
+                  <FieldGroup label="Planname" required error={nameError}>
+                    <TextInput
+                      style={[styles.input, { backgroundColor: C.surface, borderColor: nameError ? C.warn : C.border, color: C.text }]}
+                      value={form.name}
+                      onChangeText={(v) => setField('name', v)}
+                      placeholder="z. B. Kraftaufbau Basis"
+                      placeholderTextColor={C.textDim}
+                      autoCapitalize="words"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="Sportart">
+                    <View style={styles.chipRow}>
+                      {SPORTARTEN.map((s) => {
+                        const active = form.sportart === s;
+                        return (
+                          <TouchableOpacity
+                            key={s}
+                            onPress={() => setField('sportart', s)}
+                            style={[styles.chip, { backgroundColor: C.surface, borderColor: C.border }, active && styles.chipActive]}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.chipText, { color: C.textSub }, active && styles.chipTextActive]}>{s}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </FieldGroup>
+
+                  <FieldGroup label="Beschreibung">
+                    <TextInput
+                      style={[styles.input, styles.inputMulti, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
+                      value={form.beschreibung}
+                      onChangeText={(v) => setField('beschreibung', v)}
+                      placeholder="Kurze Beschreibung des Plans…"
+                      placeholderTextColor={C.textDim}
+                      multiline
+                      numberOfLines={3}
+                      autoCapitalize="sentences"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="Startdatum">
+                    <TextInput
+                      style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
+                      value={form.startdatum}
+                      onChangeText={(v) => setField('startdatum', v)}
+                      placeholder="TT.MM.JJJJ"
+                      placeholderTextColor={C.textDim}
+                      keyboardType="numbers-and-punctuation"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup label="Anzahl Wochen">
+                    <View style={[styles.stepperRow, { backgroundColor: C.surface, borderColor: C.border }]}>
+                      <TouchableOpacity
+                        onPress={() => setField('anzahlWochen', Math.max(1, form.anzahlWochen - 1))}
+                        style={[styles.stepperBtn, { borderColor: C.border }]}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.stepperBtnText, { color: C.text }]}>−</Text>
+                      </TouchableOpacity>
+                      <Text style={[styles.stepperValue, { color: C.text }]}>
+                        {form.anzahlWochen} {form.anzahlWochen === 1 ? 'Woche' : 'Wochen'}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => setField('anzahlWochen', Math.min(52, form.anzahlWochen + 1))}
+                        style={[styles.stepperBtn, { borderColor: C.border }]}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.stepperBtnText, { color: C.accent }]}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </FieldGroup>
+
+                  {!preselectedSportlerId && sportler.length > 0 && (
+                    <View style={[styles.infoCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+                      <GBIcon name="users" size={15} color={C.textMuted} />
+                      <Text style={[styles.infoText, { color: C.textMuted }]}>
+                        Sportler kannst du nach dem Import im Plan zuweisen.
+                      </Text>
+                    </View>
+                  )}
+
+                  <TouchableOpacity style={[styles.saveBtnFull, { backgroundColor: C.accent }]} onPress={handleSave} activeOpacity={0.85}>
+                    <GBIcon name="check" size={18} color={C.accentContrast} />
+                    <Text style={[styles.saveBtnFullText, { color: C.accentContrast }]}>Plan erstellen</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </>
           )}
 
@@ -343,6 +419,18 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+function ResultRow({ icon, label, value }: { icon: any; label: string; value?: string }) {
+  const C = useColors();
+  if (!value) return null;
+  return (
+    <View style={styles.resultRow}>
+      <GBIcon name={icon} size={13} color={C.textMuted} />
+      <Text style={[styles.resultLabel, { color: C.textMuted }]}>{label}:</Text>
+      <Text style={[styles.resultValue, { color: C.text }]} numberOfLines={1}>{value}</Text>
+    </View>
   );
 }
 
@@ -371,9 +459,8 @@ const styles = StyleSheet.create({
 
   content: { paddingHorizontal: SP.xl, paddingTop: SP.sm, gap: SP.lg },
 
-  // Picker phase
-  pickerSection: { gap: SP.md },
-  pickerHero:    { alignItems: 'center', gap: SP.md, borderRadius: R.xl, borderWidth: 1, borderStyle: 'dashed', paddingVertical: SP.xxxl, paddingHorizontal: SP.xl },
+  pickerSection:   { gap: SP.md },
+  pickerHero:      { alignItems: 'center', gap: SP.md, borderRadius: R.xl, borderWidth: 1, borderStyle: 'dashed', paddingVertical: SP.xxxl, paddingHorizontal: SP.xl },
   pickerHeroTitle: { fontSize: FONT.lg, fontWeight: '800', letterSpacing: -0.4 },
   pickerHeroSub:   { fontSize: FONT.sm, textAlign: 'center', lineHeight: 20 },
 
@@ -382,9 +469,8 @@ const styles = StyleSheet.create({
   sourceBtnTitle: { fontSize: FONT.md, fontWeight: '700' },
   sourceBtnSub:   { fontSize: FONT.sm, marginTop: 2 },
 
-  // Preview phase
   previewCard:    { borderRadius: R.xl, borderWidth: 1, overflow: 'hidden' },
-  previewImage:   { width: '100%', height: 240, backgroundColor: '#1a1a1a' },
+  previewImage:   { width: '100%', height: 260, backgroundColor: '#111' },
   previewDocRow:  { flexDirection: 'row', alignItems: 'center', gap: SP.md, padding: SP.lg },
   previewDocIcon: { width: 56, height: 56, borderRadius: R.lg, alignItems: 'center', justifyContent: 'center' },
   previewDocName: { fontSize: FONT.base, fontWeight: '700' },
@@ -392,26 +478,42 @@ const styles = StyleSheet.create({
   changeFileBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.xs, borderTopWidth: 1, paddingVertical: SP.md },
   changeFileBtnText: { fontSize: FONT.sm, fontWeight: '600' },
 
-  hintCard: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.sm, borderRadius: R.lg, borderWidth: 1, padding: SP.md },
-  hintText: { flex: 1, fontSize: FONT.sm, lineHeight: 18 },
+  scanCard:     { flexDirection: 'row', alignItems: 'center', gap: SP.md, borderRadius: R.lg, borderWidth: 1, padding: SP.md },
+  scanTitle:    { fontSize: FONT.sm, fontWeight: '700', marginBottom: 6 },
+  scanSub:      { fontSize: 11, marginTop: 4 },
+  progressBar:  { height: 4, borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 2 },
+
+  errorCard:     { flexDirection: 'row', alignItems: 'center', gap: SP.sm, borderRadius: R.lg, borderWidth: 1, padding: SP.md },
+  errorCardText: { flex: 1, fontSize: FONT.sm, fontWeight: '600' },
+
+  resultCard:     { borderRadius: R.lg, borderWidth: 1, padding: SP.md, gap: 6 },
+  resultCardHead: { flexDirection: 'row', alignItems: 'center', gap: SP.xs, marginBottom: 2 },
+  resultCardTitle:{ fontSize: FONT.sm, fontWeight: '800', letterSpacing: 0.2 },
+  resultRow:      { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  resultLabel:    { fontSize: FONT.xs, fontWeight: '600', width: 70 },
+  resultValue:    { flex: 1, fontSize: FONT.xs, fontWeight: '700' },
+  resultNative:   { fontSize: FONT.xs, marginTop: 4, fontStyle: 'italic' },
+
+  formSectionLabel: { fontSize: FONT.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.6, marginBottom: -SP.xs },
 
   fieldGroup: { gap: SP.xs + 2 },
   fieldLabel: { fontSize: FONT.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.4 },
   errorText:  { fontSize: FONT.xs, marginTop: 2 },
 
-  input:       { borderWidth: 1, borderRadius: R.md, paddingHorizontal: SP.lg, paddingVertical: SP.md, fontSize: FONT.base },
-  inputMulti:  { minHeight: 80, textAlignVertical: 'top' },
+  input:      { borderWidth: 1, borderRadius: R.md, paddingHorizontal: SP.lg, paddingVertical: SP.md, fontSize: FONT.base },
+  inputMulti: { minHeight: 80, textAlignVertical: 'top' },
 
-  chipRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm },
-  chip:          { paddingHorizontal: SP.md, paddingVertical: SP.sm, borderRadius: R.full, borderWidth: 1.5 },
-  chipActive:    { borderColor: C.accent, backgroundColor: 'rgba(203,255,62,0.10)' },
-  chipText:      { fontSize: FONT.sm, fontWeight: '600' },
+  chipRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm },
+  chip:           { paddingHorizontal: SP.md, paddingVertical: SP.sm, borderRadius: R.full, borderWidth: 1.5 },
+  chipActive:     { borderColor: C.accent, backgroundColor: 'rgba(203,255,62,0.10)' },
+  chipText:       { fontSize: FONT.sm, fontWeight: '600' },
   chipTextActive: { color: C.accent },
 
-  stepperRow:   { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: R.md, overflow: 'hidden' },
-  stepperBtn:   { paddingHorizontal: SP.xl, paddingVertical: SP.md, borderRightWidth: 1 },
+  stepperRow:     { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: R.md, overflow: 'hidden' },
+  stepperBtn:     { paddingHorizontal: SP.xl, paddingVertical: SP.md, borderRightWidth: 1 },
   stepperBtnText: { fontSize: FONT.xl, fontWeight: '700' },
-  stepperValue: { flex: 1, textAlign: 'center', fontSize: FONT.base, fontWeight: '700' },
+  stepperValue:   { flex: 1, textAlign: 'center', fontSize: FONT.base, fontWeight: '700' },
 
   infoCard: { flexDirection: 'row', alignItems: 'center', gap: SP.sm, borderRadius: R.lg, borderWidth: 1, padding: SP.md },
   infoText: { flex: 1, fontSize: FONT.sm, lineHeight: 18 },
