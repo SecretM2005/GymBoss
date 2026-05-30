@@ -12,7 +12,7 @@ import { useAthletenStore } from '../../store/athletenStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import MonthCalendar from '../../components/MonthCalendar';
-import { buildUebSuffix } from './EinheitDetailScreen';
+import { buildUebSuffix, formatWocheRange } from './EinheitDetailScreen';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 import { useSettingsStore } from '../../store/settingsStore';
 
@@ -32,8 +32,6 @@ const SPORTART_COLORS: Record<string, { bg: string; fg: string; dot: string }> =
   'Mobility':        { bg: 'rgba(220,180,255,0.14)', fg: '#D7B5FF', dot: '#C39CFF' },
   'Crossfit':        { bg: 'rgba(122,229,130,0.14)', fg: '#7AE582', dot: '#7AE582' },
 };
-
-type ViewMode = 'wochen' | 'kalender';
 
 function parseDatum(str: string): Date | null {
   const parts = str.split('.');
@@ -80,8 +78,7 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
   const { sportler } = useAthletenStore();
   const insets = useSafeAreaInsets();
   const C = useColors();
-  const coachingView = useSettingsStore((s) => s.coachingView);
-  const [viewMode, setViewMode] = useState<ViewMode>(coachingView);
+  const viewMode = useSettingsStore((s) => s.coachingView);
   const [calYear, setCalYear]   = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
@@ -217,33 +214,17 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
           )}
         </View>
 
-        {/* View Mode Toggle */}
-        <View style={[styles.toggle, { backgroundColor: C.surface, borderColor: C.border }]}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'wochen' && styles.toggleBtnActive]}
-            onPress={() => setViewMode('wochen')}
-            activeOpacity={0.7}
-          >
-            <GBIcon name="layers" size={14} color={viewMode === 'wochen' ? C.accentContrast : C.textMuted} />
-            <Text style={[styles.toggleText, { color: C.textMuted }, viewMode === 'wochen' && styles.toggleTextActive]}>
-              Wochen
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'kalender' && styles.toggleBtnActive]}
-            onPress={() => setViewMode('kalender')}
-            activeOpacity={0.7}
-          >
-            <GBIcon name="calendar" size={14} color={viewMode === 'kalender' ? C.accentContrast : C.textMuted} />
-            <Text style={[styles.toggleText, { color: C.textMuted }, viewMode === 'kalender' && styles.toggleTextActive]}>
-              Kalender
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Wochen View */}
         {viewMode === 'wochen' && (
           <View style={styles.wochenSection}>
+            {!plan.startdatum && (
+              <View style={[styles.startdatumHint, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <GBIcon name="info" size={14} color={C.warn} />
+                <Text style={[styles.startdatumHintText, { color: C.warn }]}>
+                  Kein Startdatum gesetzt — Datumsberechnung nicht möglich. Im Stift-Menü festlegen.
+                </Text>
+              </View>
+            )}
             {plan.wochen.length === 0 ? (
               <View style={styles.emptyWochen}>
                 <GBIcon name="layers" size={36} color={C.textDim} />
@@ -251,47 +232,55 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
                 <Text style={[styles.emptyWochenSub, { color: C.textDim }]}>Füge die erste Trainingswoche hinzu.</Text>
               </View>
             ) : (
-              plan.wochen.map((woche) => (
-                <TouchableOpacity
-                  key={woche.id}
-                  style={[styles.wocheCard, { backgroundColor: C.surface, borderColor: C.border }]}
-                  activeOpacity={0.75}
-                  onPress={() => navigation.navigate('PlanWocheDetail', { planId: plan.id, wocheId: woche.id })}
-                >
-                  <View style={styles.wocheStripe} />
-                  <View style={styles.wocheBody}>
-                    <View style={styles.wocheTop}>
-                      <Text style={[styles.wocheTitle, { color: C.text }]}>Woche {woche.wochennummer}</Text>
-                      <View style={styles.wocheActions}>
-                        <TouchableOpacity
-                          onPress={() => navigation.navigate('PlanWocheForm', { planId: plan.id, wocheId: woche.id })}
-                          style={[styles.wocheEditBtn, { backgroundColor: C.surfaceAlt }]}
-                          activeOpacity={0.7}
-                        >
-                          <GBIcon name="edit" size={14} color={C.textMuted} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => handleDeleteWoche(woche.id, woche.wochennummer)}
-                          style={styles.wocheDeleteBtn}
-                          activeOpacity={0.7}
-                        >
-                          <GBIcon name="trash" size={15} color={C.warn} />
-                        </TouchableOpacity>
+              plan.wochen.map((woche) => {
+                const dateRange = plan.startdatum
+                  ? formatWocheRange(plan.startdatum, woche.wochennummer)
+                  : null;
+                return (
+                  <TouchableOpacity
+                    key={woche.id}
+                    style={[styles.wocheCard, { backgroundColor: C.surface, borderColor: C.border }]}
+                    activeOpacity={0.75}
+                    onPress={() => navigation.navigate('PlanWocheDetail', { planId: plan.id, wocheId: woche.id })}
+                  >
+                    <View style={styles.wocheStripe} />
+                    <View style={styles.wocheBody}>
+                      <View style={styles.wocheTop}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.wocheTitle, { color: C.text }]}>Woche {woche.wochennummer}</Text>
+                          {dateRange && (
+                            <Text style={[styles.wocheDateRange, { color: C.textDim }]}>{dateRange}</Text>
+                          )}
+                        </View>
+                        <View style={styles.wocheActions}>
+                          <TouchableOpacity
+                            onPress={() => navigation.navigate('PlanWocheForm', { planId: plan.id, wocheId: woche.id })}
+                            style={[styles.wocheEditBtn, { backgroundColor: C.surfaceAlt }]}
+                            activeOpacity={0.7}
+                          >
+                            <GBIcon name="edit" size={14} color={C.textMuted} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => handleDeleteWoche(woche.id, woche.wochennummer)}
+                            style={styles.wocheDeleteBtn}
+                            activeOpacity={0.7}
+                          >
+                            <GBIcon name="trash" size={15} color={C.warn} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      {woche.notizen ? (
+                        <Text style={[styles.wocheNotiz, { color: C.textSub }]}>{woche.notizen}</Text>
+                      ) : null}
+                      <View style={[styles.wocheBadge, { backgroundColor: C.surfaceAlt }]}>
+                        <Text style={[styles.wocheBadgeText, { color: C.textDim }]}>
+                          {woche.einheiten.length} {woche.einheiten.length === 1 ? 'Einheit' : 'Einheiten'}
+                        </Text>
                       </View>
                     </View>
-                    {woche.notizen ? (
-                      <Text style={[styles.wocheNotiz, { color: C.textSub }]}>{woche.notizen}</Text>
-                    ) : (
-                      <Text style={[styles.wocheNotizEmpty, { color: C.textDim }]}>Keine Notizen</Text>
-                    )}
-                    <View style={[styles.wocheBadge, { backgroundColor: C.surfaceAlt }]}>
-                      <Text style={[styles.wocheBadgeText, { color: C.textDim }]}>
-                        {woche.einheiten.length} {woche.einheiten.length === 1 ? 'Einheit' : 'Einheiten'}
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))
+                  </TouchableOpacity>
+                );
+              })
             )}
 
             <TouchableOpacity
@@ -412,24 +401,21 @@ const styles = StyleSheet.create({
   noAthletes:     { backgroundColor: C.surface, borderRadius: R.md, borderWidth: 1, borderColor: C.border, padding: SP.lg, alignItems: 'center' },
   noAthletesText: { fontSize: FONT.sm, color: C.textDim, fontStyle: 'italic' },
 
-  toggle:          { flexDirection: 'row', backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: 4, gap: 4 },
-  toggleBtn:       { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: SP.sm, borderRadius: R.md },
-  toggleBtnActive: { backgroundColor: C.accent },
-  toggleText:      { fontSize: FONT.sm, fontWeight: '700', color: C.textMuted },
-  toggleTextActive: { color: C.accentContrast },
-
   wochenSection: { gap: SP.sm },
+
+  startdatumHint:     { flexDirection: 'row', alignItems: 'flex-start', gap: SP.sm, backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: 'rgba(255,106,61,0.25)', padding: SP.md },
+  startdatumHintText: { flex: 1, fontSize: FONT.sm, color: C.warn, lineHeight: 20 },
 
   wocheCard:      { flexDirection: 'row', backgroundColor: C.surface, borderRadius: R.xl, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
   wocheStripe:    { width: 3, backgroundColor: C.accent },
   wocheBody:      { flex: 1, padding: SP.lg, gap: SP.sm },
   wocheTop:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   wocheTitle:     { fontSize: FONT.md, fontWeight: '700', color: C.text, letterSpacing: -0.2 },
+  wocheDateRange: { fontFamily: FONT_MONO, fontSize: FONT.xs, color: C.textDim, fontWeight: '600', marginTop: 2 },
   wocheActions:   { flexDirection: 'row', gap: 6 },
   wocheEditBtn:   { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   wocheDeleteBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,106,61,0.10)', alignItems: 'center', justifyContent: 'center' },
   wocheNotiz:     { fontSize: FONT.sm, color: C.textSub },
-  wocheNotizEmpty: { fontSize: FONT.sm, color: C.textDim, fontStyle: 'italic' },
   wocheBadge:     { alignSelf: 'flex-start', backgroundColor: C.surfaceAlt, borderRadius: R.full, paddingHorizontal: SP.sm, paddingVertical: 3 },
   wocheBadgeText: { fontFamily: FONT_MONO, fontSize: 11, color: C.textDim, fontWeight: '600' },
 
