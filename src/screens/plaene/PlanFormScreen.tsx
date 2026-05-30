@@ -115,6 +115,19 @@ export default function PlanFormScreen({ navigation, route }: Props) {
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
+          {/* Import shortcut */}
+          {!isEdit && (
+            <TouchableOpacity
+              style={[styles.importRow, { backgroundColor: C.surface, borderColor: C.border }]}
+              onPress={() => navigation.replace('ImportPlan', { preselectedSportlerId: route.params?.preselectedSportlerId })}
+              activeOpacity={0.75}
+            >
+              <GBIcon name="camera" size={17} color={C.textMuted} />
+              <Text style={[styles.importRowText, { color: C.textMuted }]}>Lieber aus Foto/PDF importieren?</Text>
+              <GBIcon name="chevronRight" size={14} color={C.textDim} />
+            </TouchableOpacity>
+          )}
+
           {/* Name */}
           <Field label="Planname" required error={errors.name}>
             <TextInput
@@ -242,6 +255,9 @@ const styles = StyleSheet.create({
   topTitle:     { fontSize: 20, fontWeight: '700', color: C.text, letterSpacing: -0.4 },
   saveBtn:      { backgroundColor: C.accent, paddingHorizontal: SP.md, paddingVertical: SP.sm - 1, borderRadius: R.full },
   saveBtnText:  { fontSize: FONT.sm, fontWeight: '700', color: C.accentContrast },
+
+  importRow:     { flexDirection: 'row', alignItems: 'center', gap: SP.sm, borderRadius: R.lg, borderWidth: 1, padding: SP.md },
+  importRowText: { flex: 1, fontSize: FONT.sm, fontWeight: '600' },
 
   content: { paddingHorizontal: SP.xl, paddingTop: SP.lg, gap: SP.xl },
 

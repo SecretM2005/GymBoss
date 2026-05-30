@@ -138,6 +138,7 @@ export type PlaeneStackParamList = {
   PlanList: undefined;
   PlanDetail: { planId: string };
   PlanForm: { planId?: string; preselectedSportlerId?: string };
+  ImportPlan: { preselectedSportlerId?: string } | undefined;
   PlanWocheForm: { planId: string; wocheId?: string };
   PlanWocheDetail: { planId: string; wocheId: string };
   EinheitDetail: { planId: string; wocheId: string; einheitId?: string; datum?: string };
@@ -162,6 +163,7 @@ export type MeinTrainingStackParamList = {
   MeinTrainingMain: undefined;
   EinheitLog:       { planId: string; wocheId: string; einheitId: string };
   PlanForm:         { planId?: string; preselectedSportlerId?: string };
+  ImportPlan:       { preselectedSportlerId?: string } | undefined;
   PlanWocheForm:    { planId: string; wocheId?: string };
   PlanWocheDetail:  { planId: string; wocheId: string };
   EinheitDetail:    { planId: string; wocheId: string; einheitId?: string; datum?: string };
