@@ -451,7 +451,7 @@ export function UebungForm({ phase, phaseColor, initialUebung, uebungLib, onSubm
 
 const KREIS_EINHEITEN = ['Wdh', 's', 'min', 'm', 'km'] as const;
 
-function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
+export function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
   phase: Phase;
   phaseColor: string;
   initialKreis?: EinheitUebung;
@@ -690,7 +690,7 @@ function KreisForm({ phase, phaseColor, initialKreis, onSubmit, onCancel }: {
 
 // ─── Kreis Card (display) ─────────────────────────────────────────────────────
 
-function KreisCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
+export function KreisCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
   ueb: EinheitUebung;
   phaseColor: string;
   isEditing?: boolean;
@@ -756,7 +756,7 @@ function KreisCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
 const INTERVAL_EINHEITEN = ['m', 'km', 's', 'min'] as const;
 const TIME_EINHEITEN     = ['s', 'min'] as const;
 
-function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel }: {
+export function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel }: {
   phase: Phase;
   phaseColor: string;
   initialIntervall?: EinheitUebung;
@@ -1053,7 +1053,7 @@ function IntervallForm({ phase, phaseColor, initialIntervall, onSubmit, onCancel
 
 // ─── Intervall Card (display) ─────────────────────────────────────────────────
 
-function IntervallCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
+export function IntervallCard({ ueb, phaseColor, isEditing, onEdit, onDelete }: {
   ueb: EinheitUebung;
   phaseColor: string;
   isEditing?: boolean;
