@@ -141,3 +141,11 @@ export type PlaeneStackParamList = {
   PlanWocheDetail: { planId: string; wocheId: string };
   EinheitDetail: { planId: string; wocheId: string; einheitId?: string; datum?: string };
 };
+
+export type MehrStackParamList = {
+  MehrHub: undefined;
+  Einstellungen: undefined;
+  Uebungsbibliothek: undefined;
+  EinheitTemplateDetail: { einheitTemplateId?: string };
+  UebungTemplateForm: { uebungTemplateId?: string };
+};

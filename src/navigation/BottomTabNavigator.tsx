@@ -8,7 +8,7 @@ import { useT } from '../i18n';
 import DashboardScreen   from '../screens/dashboard/DashboardScreen';
 import PlaeneNavigator   from './PlaeneNavigator';
 import SportlerNavigator from './SportlerNavigator';
-import MehrScreen        from '../screens/mehr/MehrScreen';
+import MehrNavigator     from './MehrNavigator';
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
@@ -49,7 +49,7 @@ export default function BottomTabNavigator() {
       <Tab.Screen name="Dashboard" component={DashboardScreen}   options={{ title: t('tab_home') }} />
       <Tab.Screen name="Plaene"    component={PlaeneNavigator}   options={{ title: t('tab_plaene') }} />
       <Tab.Screen name="Sportler"  component={SportlerNavigator} options={{ title: t('tab_sportler') }} />
-      <Tab.Screen name="Mehr"      component={MehrScreen}        options={{ title: t('tab_mehr') }} />
+      <Tab.Screen name="Mehr"      component={MehrNavigator}     options={{ title: t('tab_mehr') }} />
     </Tab.Navigator>
   );
 }
