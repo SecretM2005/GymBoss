@@ -12,6 +12,7 @@ import { PlaeneStackParamList } from '../../types';
 import { usePlanStore } from '../../store/planStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import { GBIcon } from '../../components/GBIcon';
+import { recognizeText } from '../../utils/ocr';
 import { parseTrainingText, ParsedPlan } from '../../utils/trainingsplanParser';
 import { C, useColors, SP, R, FONT } from '../../theme';
 
@@ -26,7 +27,7 @@ type FileInfo = {
   name: string;
 };
 
-type ScanState = 'idle' | 'scanning' | 'done' | 'error';
+type ScanState = 'idle' | 'scanning' | 'done' | 'error' | 'not_linked';
 
 type Form = {
   name: string;
@@ -46,18 +47,6 @@ function guessNameFromFilename(filename: string): string {
     .trim();
 }
 
-// OCR is only available on web via Tesseract.js (WASM)
-async function runOCR(uri: string, onProgress: (p: number) => void): Promise<string> {
-  const mod = await import('tesseract.js');
-  const Tesseract = mod.default ?? mod;
-  const result = await (Tesseract as any).recognize(uri, 'deu+eng', {
-    logger: (m: any) => {
-      if (m.status === 'recognizing text') onProgress(Math.round(m.progress * 100));
-    },
-  });
-  return result.data.text as string;
-}
-
 export default function ImportPlanScreen({ navigation, route }: Props) {
   const C = useColors();
   const insets = useSafeAreaInsets();
@@ -67,9 +56,10 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
   const preselectedSportlerId = route.params?.preselectedSportlerId;
 
   const [file, setFile]             = useState<FileInfo | null>(null);
-  const [scanState, setScanState]   = useState<ScanState>('idle');
+  const [scanState, setScanState]     = useState<ScanState>('idle');
   const [scanProgress, setScanProgress] = useState(0);
-  const [parsed, setParsed]         = useState<ParsedPlan | null>(null);
+  const [scanMessage, setScanMessage] = useState('');
+  const [parsed, setParsed]           = useState<ParsedPlan | null>(null);
   const [form, setForm]             = useState<Form>({
     name: '', sportart: 'Kraftsport', beschreibung: '', startdatum: '', anzahlWochen: 4,
   });
@@ -81,30 +71,31 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
   };
 
   const triggerScan = async (f: FileInfo) => {
-    if (Platform.OS !== 'web' || f.type === 'pdf' || f.type === 'other') {
-      // No OCR on native or for non-image files — just pre-fill name from filename
+    if (f.type === 'pdf' || f.type === 'other') {
+      // No OCR for non-image files — form only
       setParsed(null);
       setScanState('done');
       return;
     }
     setScanState('scanning');
     setScanProgress(0);
-    try {
-      const text   = await runOCR(f.uri, setScanProgress);
-      const result = parseTrainingText(text);
-      setParsed(result);
-      // Pre-fill form from OCR result
-      setForm((prev) => ({
-        name:         result.name       ?? prev.name,
-        sportart:     result.sportart   ?? prev.sportart,
-        beschreibung: prev.beschreibung,
-        startdatum:   prev.startdatum,
-        anzahlWochen: result.anzahlWochen ?? prev.anzahlWochen,
-      }));
-      setScanState('done');
-    } catch {
-      setScanState('error');
+    setScanMessage('');
+    const ocr = await recognizeText(f.uri, setScanProgress);
+    if (!ocr.ok) {
+      setScanMessage(ocr.message);
+      setScanState(ocr.reason === 'not_linked' ? 'not_linked' : 'error');
+      return;
     }
+    const result = parseTrainingText(ocr.text);
+    setParsed(result);
+    setForm((prev) => ({
+      name:         result.name        ?? prev.name,
+      sportart:     result.sportart    ?? prev.sportart,
+      beschreibung: prev.beschreibung,
+      startdatum:   prev.startdatum,
+      anzahlWochen: result.anzahlWochen ?? prev.anzahlWochen,
+    }));
+    setScanState('done');
   };
 
   const applyFile = (f: FileInfo) => {
@@ -162,7 +153,7 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
     navigation.goBack();
   };
 
-  const canSave = scanState === 'done' || scanState === 'error';
+  const canSave = scanState === 'done' || scanState === 'error' || scanState === 'not_linked';
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -195,7 +186,7 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
                 <Text style={[styles.pickerHeroSub, { color: C.textDim }]}>
                   {Platform.OS === 'web'
                     ? 'Foto oder Bild hochladen — Text wird automatisch erkannt und der Plan vorausgefüllt.'
-                    : 'Wähle eine Datei. Die Felder kannst du anschließend manuell ausfüllen.'}
+                    : 'Foto aufnehmen oder Datei wählen. Text wird mit Google ML Kit erkannt (Expo Dev Build erforderlich).'}
                 </Text>
               </View>
 
@@ -279,11 +270,33 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
               )}
 
               {scanState === 'error' && (
-                <View style={[styles.errorCard, { borderColor: 'rgba(255,106,61,0.3)', backgroundColor: 'rgba(255,106,61,0.07)' }]}>
+                <View style={[styles.statusCard, { borderColor: 'rgba(255,106,61,0.3)', backgroundColor: 'rgba(255,106,61,0.07)' }]}>
                   <GBIcon name="close" size={16} color={C.warn} />
-                  <Text style={[styles.errorCardText, { color: C.warn }]}>
+                  <Text style={[styles.statusCardText, { color: C.warn }]}>
                     Texterkennung fehlgeschlagen — bitte Felder manuell ausfüllen.
                   </Text>
+                </View>
+              )}
+
+              {scanState === 'not_linked' && (
+                <View style={[styles.statusCard, styles.statusCardInfo, { borderColor: 'rgba(122,191,255,0.3)', backgroundColor: 'rgba(122,191,255,0.07)' }]}>
+                  <GBIcon name="bolt" size={16} color="#7ABFFF" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.statusCardTitle, { color: '#7ABFFF' }]}>
+                      Expo Dev Build erforderlich
+                    </Text>
+                    <Text style={[styles.statusCardText, { color: C.textSub }]}>
+                      Google ML Kit braucht einmalig einen nativen Build. Danach funktioniert OCR on-device ohne Internet und kostenlos.
+                    </Text>
+                    <View style={[styles.codeBlock, { backgroundColor: C.surfaceAlt }]}>
+                      <Text style={[styles.codeText, { color: C.accent }]}>
+                        {'npx expo run:android\nnpx expo run:ios'}
+                      </Text>
+                    </View>
+                    <Text style={[styles.statusCardSub, { color: C.textDim }]}>
+                      Bis dahin: Felder manuell ausfüllen.
+                    </Text>
+                  </View>
                 </View>
               )}
 
@@ -484,8 +497,13 @@ const styles = StyleSheet.create({
   progressBar:  { height: 4, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 2 },
 
-  errorCard:     { flexDirection: 'row', alignItems: 'center', gap: SP.sm, borderRadius: R.lg, borderWidth: 1, padding: SP.md },
-  errorCardText: { flex: 1, fontSize: FONT.sm, fontWeight: '600' },
+  statusCard:      { flexDirection: 'row', alignItems: 'flex-start', gap: SP.sm, borderRadius: R.lg, borderWidth: 1, padding: SP.md },
+  statusCardInfo:  { alignItems: 'flex-start' },
+  statusCardTitle: { fontSize: FONT.sm, fontWeight: '800', marginBottom: 4 },
+  statusCardText:  { fontSize: FONT.sm, fontWeight: '500', lineHeight: 18 },
+  statusCardSub:   { fontSize: FONT.xs, marginTop: 6, fontStyle: 'italic' },
+  codeBlock:       { borderRadius: R.sm, padding: SP.sm, marginTop: SP.sm, marginBottom: 2 },
+  codeText:        { fontFamily: 'monospace', fontSize: 12, lineHeight: 20 },
 
   resultCard:     { borderRadius: R.lg, borderWidth: 1, padding: SP.md, gap: 6 },
   resultCardHead: { flexDirection: 'row', alignItems: 'center', gap: SP.xs, marginBottom: 2 },
