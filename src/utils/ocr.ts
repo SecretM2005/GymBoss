@@ -1,62 +1,100 @@
 import { Platform } from 'react-native';
 
 export type OcrResult =
-  | { ok: true; text: string }
+  | { ok: true;  text: string }
   | { ok: false; reason: 'unsupported' | 'not_linked' | 'error'; message: string };
 
 /**
- * Runs OCR on a local image URI.
+ * Runs OCR on a local image URI using Google ML Kit (on-device, free).
+ * Requires an Expo Development Build — does NOT work in Expo Go.
  *
- * Web    → Tesseract.js (WASM, runs in browser, ~15 MB first load)
- * Native → Google ML Kit (on-device, free, requires Expo Dev Build)
+ * Web: not supported (ML Kit is native-only).
  */
-export async function recognizeText(
-  uri: string,
-  onProgress?: (percent: number) => void,
-): Promise<OcrResult> {
+export async function recognizeText(uri: string): Promise<OcrResult> {
   if (Platform.OS === 'web') {
-    return runTesseract(uri, onProgress ?? (() => {}));
-  } else {
-    return runMlKit(uri);
+    return {
+      ok: false,
+      reason: 'unsupported',
+      message:
+        'Bilderkennung ist nur in der nativen App verfügbar (Android/iOS).\n' +
+        'Erstelle einen Expo Development Build:\n\nnpx expo run:android\nnpx expo run:ios',
+    };
   }
-}
-
-async function runTesseract(
-  uri: string,
-  onProgress: (p: number) => void,
-): Promise<OcrResult> {
-  try {
-    const mod = await import('tesseract.js');
-    const Tesseract = (mod.default ?? mod) as any;
-    const result = await Tesseract.recognize(uri, 'deu+eng', {
-      logger: (m: any) => {
-        if (m.status === 'recognizing text') onProgress(Math.round(m.progress * 100));
-      },
-    });
-    return { ok: true, text: result.data.text as string };
-  } catch (e: any) {
-    return { ok: false, reason: 'error', message: String(e?.message ?? e) };
-  }
+  return runMlKit(uri);
 }
 
 async function runMlKit(uri: string): Promise<OcrResult> {
   try {
-    // Dynamic require so Metro doesn't bundle this on web
+    // Dynamic require keeps Metro from bundling native code into web builds
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const TextRecognition = require('@react-native-ml-kit/text-recognition').default;
     const result = await TextRecognition.recognize(uri);
-    return { ok: true, text: result.text as string };
+
+    const text = extractOrderedText(result);
+    return { ok: true, text };
   } catch (e: any) {
     const msg = String(e?.message ?? e);
-    // ML Kit native module throws this specific error when not linked
     if (msg.includes("doesn't seem to be linked") || msg.includes('not linked')) {
       return {
         ok: false,
         reason: 'not_linked',
         message:
-          'Google ML Kit ist noch nicht verknüpft. Erstelle einen Expo Development Build:\n\nnpx expo run:android\n—oder—\nnpx expo run:ios',
+          'Google ML Kit ist noch nicht verknüpft.\n' +
+          'Erstelle einen Expo Development Build:\n\n' +
+          'npx expo run:android\n—oder—\nnpx expo run:ios',
       };
     }
     return { ok: false, reason: 'error', message: msg };
   }
+}
+
+/**
+ * Reconstructs reading order from ML Kit's block/line structure.
+ *
+ * ML Kit returns TextBlocks with frame (top/left/width/height).
+ * We sort blocks top-to-bottom, then left-to-right within the same
+ * horizontal band. This correctly orders table cells that OCR might
+ * otherwise interleave.
+ */
+function extractOrderedText(result: any): string {
+  const blocks: any[] = result?.blocks ?? [];
+
+  if (blocks.length === 0) return result?.text ?? '';
+
+  // Group blocks into horizontal bands (rows).
+  // Two blocks are in the same row if their vertical centres overlap within a tolerance.
+  const withCenter = blocks.map((b) => ({
+    b,
+    cy: (b.frame?.top ?? 0) + (b.frame?.height ?? 0) / 2,
+    left: b.frame?.left ?? 0,
+  }));
+
+  withCenter.sort((a, b) => a.cy - b.cy);
+
+  const rows: (typeof withCenter)[] = [];
+  const ROW_TOLERANCE = 24; // px — blocks within 24px vertically → same row
+
+  for (const item of withCenter) {
+    const lastRow = rows[rows.length - 1];
+    const lastCy = lastRow
+      ? lastRow.reduce((s, x) => s + x.cy, 0) / lastRow.length
+      : -Infinity;
+
+    if (Math.abs(item.cy - lastCy) <= ROW_TOLERANCE) {
+      lastRow.push(item);
+    } else {
+      rows.push([item]);
+    }
+  }
+
+  // Within each row, sort left-to-right
+  for (const row of rows) {
+    row.sort((a, b) => a.left - b.left);
+  }
+
+  // Join: blocks in the same row separated by tab, rows by newline
+  return rows
+    .map((row) => row.map((x) => x.b.text.trim()).filter(Boolean).join('\t'))
+    .filter(Boolean)
+    .join('\n');
 }

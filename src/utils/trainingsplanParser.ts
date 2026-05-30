@@ -71,7 +71,10 @@ const REST_RE    = /^(rest|ruhe|off|pause|erholung|regeneration|frei)$/i;
 
 // ─── Public API ────────────────────────────────────────────────────────────────
 
-export function parseTrainingText(text: string): ParsedPlan {
+export function parseTrainingText(rawText: string): ParsedPlan {
+  // ML Kit block-ordering outputs tab-separated columns in a row.
+  // Expand tabs into newlines so each cell is treated as a separate line.
+  const text  = rawText.replace(/\t/g, '\n');
   const lower = text.toLowerCase();
   const lines  = text.split('\n').map((l) => l.trim());
 
@@ -251,7 +254,7 @@ function extractUebungen(text: string): ParsedUebung[] {
 // ─── Param extraction ──────────────────────────────────────────────────────────
 
 function normalizeLine(raw: string): string {
-  return raw.replace(/[|]/g, ' ').replace(/\s+/g, ' ').trim();
+  return raw.replace(/[|\t]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function extractParam(line: string): string | null {
