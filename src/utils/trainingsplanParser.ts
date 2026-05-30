@@ -1,5 +1,7 @@
 /**
- * Extracts training plan structure from raw OCR text (German sports plans).
+ * Extracts training plan structure from raw OCR text (German and English sports plans).
+ * Handles both inline format ("Bankdrücken 3x8 80kg") and
+ * table OCR where name and params may be on separate lines.
  */
 
 import { UebungParam } from '../types';
@@ -11,8 +13,8 @@ export type ParsedEinheit = {
 
 export type ParsedUebung = {
   name: string;
-  parameter: string;        // raw display string e.g. "3x8 · 80 kg"
-  params: UebungParam[];    // structured params ready for store
+  parameter: string;
+  params: UebungParam[];
 };
 
 export type ParsedWoche = {
@@ -28,52 +30,61 @@ export type ParsedPlan = {
   rawText: string;
 };
 
+// ─── Sportart detection ────────────────────────────────────────────────────────
+
 const SPORTARTEN = ['Kraftsport', 'Kampfsport', 'Leichtathletik', 'Konditionierung', 'Mobility', 'Crossfit'];
 
 const SPORTART_KEYWORDS: Record<string, string[]> = {
-  Kraftsport:      ['kraft', 'bench', 'bankdruck', 'squat', 'kniebeuge', 'deadlift', 'kreuzheben', 'kg', 'gewicht', 'hantel'],
-  Leichtathletik:  ['lauf', 'sprint', 'meter', 'km', 'marathon', 'jogging', 'tempo'],
+  Kraftsport:      ['kraft', 'bench', 'bankdruck', 'squat', 'kniebeuge', 'deadlift', 'kreuzheben', 'kg', 'hantel'],
+  Leichtathletik:  ['lauf', 'run', 'sprint', 'marathon', 'jogging', 'tempo', 'km', 'miles'],
   Kampfsport:      ['kampf', 'box', 'kick', 'sparring', 'judo', 'mma', 'karate'],
-  Konditionierung: ['ausdauer', 'kondition', 'cardio', 'intervall', 'hiit'],
-  Mobility:        ['dehnen', 'stretch', 'mobilität', 'yoga', 'beweglichkeit'],
+  Konditionierung: ['ausdauer', 'kondition', 'cardio', 'intervall', 'hiit', 'conditioning', 'cross-train'],
+  Mobility:        ['dehnen', 'stretch', 'mobilität', 'yoga', 'beweglichkeit', 'pilates'],
   Crossfit:        ['crossfit', 'wod', 'amrap', 'emom', 'burpee'],
 };
 
 // ─── Parameter patterns ────────────────────────────────────────────────────────
 
 // "3x8", "3 x 8", "3×8"
-const SETS_REPS_X  = /(\d+)\s*[×xX]\s*(\d+)/;
-// "3 Sätze" or "3 sets"
-const SAETZE_KW    = /\b(\d)\s*(?:sätze|satz|sets?)\b/i;
-// "8 Wdh" or "10 Wiederholungen" or "8 reps"
-const WDH_KW       = /\b(\d{1,2})\s*(?:wdh|wh|wiederholungen?|reps?|mal)\b/i;
-// Two standalone short numbers close together → treat as Sätze + Wdh
-// First must be 1–8 (typical set count), second up to 2 digits
-const SAETZE_WDH   = /\b([1-8])\s{1,4}(\d{1,2})\b/;
+const SETS_REPS_X = /(\d+)\s*[×xX]\s*(\d+)/;
+// "3 Sätze" / "3 sets" / "3 Set"
+const SAETZE_KW   = /\b(\d)\s*(?:sätze|satz|sets?)\b/i;
+// "8 Wdh" / "8 Wiederholungen" / "8 reps"
+const WDH_KW      = /\b(\d{1,2})\s*(?:wdh|wh|wiederholungen?|reps?|mal)\b/i;
+// Two adjacent short numbers from table columns (Sätze + Wdh), e.g. "3  8"
+const SAETZE_WDH  = /\b([1-8])\s{1,4}(\d{1,2})\b/;
+// Weight
+const WEIGHT      = /(\d+(?:[,.]\d+)?)\s*kg/i;
+// Duration: covers "35mins", "40 min", "30 Minuten", "90s", "45sec"
+// min(?:uten?|s)? handles min / mins / minute / minuten
+const DURATION    = /(\d+(?:\s*[-–]\s*\d+)?)\s*(min(?:uten?|s)?|sek(?:unden?)?|secs?|seconds?|h|hours?)\b/i;
+// Distance
+const DISTANCE    = /(\d+(?:[,.]\d+)?)\s*(km|miles?|m)\b/i;
 
-const WEIGHT       = /(\d+(?:[,.]\d+)?)\s*kg/i;
-// "s" only when not followed by a letter (avoids matching "Sätze", "Satz", "sets")
-const DURATION     = /(\d+)\s*(min(?:uten?)?|sek(?:unden?)?|s(?![a-zäöüA-ZÄÖÜ])|h)\b/i;
-const DISTANCE     = /(\d+(?:[,.]\d+)?)\s*(km|m)\b/i;
+// ─── Structural noise filters ──────────────────────────────────────────────────
 
-// ─── Structural patterns ───────────────────────────────────────────────────────
+// Lines that are column headers or pure separators — skip entirely
+const HEADING_RE = /^(woche|week|tag|day|einheit|training|session|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|monday|tuesday|wednesday|thursday|friday|saturday|sunday|übung|exercise|sätze|wdh|gewicht|sets?|reps?|weight|warm.?up|cool.?down)\b/i;
+const NOISE_RE   = /^[\d\s\-—|•·,.:;#*\/\\]+$/;
+// Lines that are only a label like "Rest", "Ruhe", "Off" — no exercise content
+const REST_RE    = /^(rest|ruhe|off|pause|erholung|regeneration|frei)$/i;
 
-const HEADING_RE   = /^(woche|week|tag|day|einheit|training|session|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|übung|exercise|sätze|wdh|gewicht|sets?|reps?)/i;
-const NOISE_RE     = /^[\d\s\-—|•·,.:;#*]+$/; // lines that are pure separators/numbers
+// ─── Public API ────────────────────────────────────────────────────────────────
 
 export function parseTrainingText(text: string): ParsedPlan {
   const lower = text.toLowerCase();
   const lines  = text.split('\n').map((l) => l.trim());
 
-  // ── Plan name ──────────────────────────────────────────────────────────────
+  // Plan name: first substantial non-heading, non-noise line
   const nameLine = lines.find((l) =>
-    l.length > 3 &&
+    l.length > 4 &&
     !NOISE_RE.test(l) &&
+    !REST_RE.test(l) &&
     !/^\d+$/.test(l) &&
     !/^(woche|week|tag|day|einheit)/i.test(l)
   );
 
-  // ── Sportart ───────────────────────────────────────────────────────────────
+  // Sportart detection
   let sportart: string | undefined;
   let maxScore = 0;
   for (const [art, keywords] of Object.entries(SPORTART_KEYWORDS)) {
@@ -83,36 +94,37 @@ export function parseTrainingText(text: string): ParsedPlan {
   const directMatch = SPORTARTEN.find((s) => lower.includes(s.toLowerCase()));
   if (directMatch) sportart = directMatch;
 
-  // ── Wochen count ───────────────────────────────────────────────────────────
-  const wochenPhrase  = lower.match(/(\d+)\s*wochen/);
-  const wocheHeads    = [...lower.matchAll(/woche\s*\.?\s*(\d+)/g)];
-  const maxWocheNum   = wocheHeads.length
-    ? Math.max(...wocheHeads.map((m) => parseInt(m[1])))
-    : 0;
-  const wochentageCount = (lower.match(/\b(montag|dienstag|mittwoch|donnerstag|freitag)\b/g) ?? []).length;
+  // Week count detection
+  const wochenPhrase   = lower.match(/(\d+)\s*(?:wochen|weeks?)/);
+  const wocheHeads     = [...lower.matchAll(/(?:woche|week)\s*\.?\s*(\d+)/g)];
+  const maxWocheNum    = wocheHeads.length ? Math.max(...wocheHeads.map((m) => parseInt(m[1]))) : 0;
+  const dateRangeCount = (lower.match(/\d+\.\s*[-–]\s*\d+\./g) ?? []).length; // "1.-7."
+  const wochentageDE   = (lower.match(/\b(montag|dienstag|mittwoch|donnerstag|freitag)\b/g) ?? []).length;
+  const wochentageEN   = (lower.match(/\b(monday|tuesday|wednesday|thursday|friday)\b/g) ?? []).length;
 
   const anzahlWochen =
-    maxWocheNum > 0      ? maxWocheNum :
-    wochenPhrase         ? parseInt(wochenPhrase[1]) :
-    wochentageCount >= 3 ? Math.ceil(wochentageCount / 3) :
+    maxWocheNum > 0           ? maxWocheNum :
+    wochenPhrase              ? parseInt(wochenPhrase[1]) :
+    dateRangeCount >= 2       ? dateRangeCount :
+    wochentageDE >= 3         ? Math.ceil(wochentageDE / 3) :
+    wochentageEN >= 3         ? Math.ceil(wochentageEN / 3) :
     undefined;
 
-  const wochen = buildWochenStructure(text, lower, anzahlWochen ?? 1);
+  const wochen = buildWochenStructure(text, anzahlWochen ?? 1);
 
   return {
     name:         nameLine,
-    sportart:     maxScore > 0 || directMatch ? sportart : undefined,
+    sportart:     (maxScore > 0 || directMatch) ? sportart : undefined,
     anzahlWochen: anzahlWochen,
     wochen,
     rawText: text,
   };
 }
 
-// ─── Week / Session structure ──────────────────────────────────────────────────
+// ─── Week / session structure ──────────────────────────────────────────────────
 
-function buildWochenStructure(text: string, lower: string, fallbackWochen: number): ParsedWoche[] {
+function buildWochenStructure(text: string, fallbackWochen: number): ParsedWoche[] {
   const wochen: ParsedWoche[] = [];
-
   const wocheSegments = splitByPattern(text, /(?:woche|week)\s*\.?\s*(\d+)/gi);
 
   if (wocheSegments.length > 0) {
@@ -120,8 +132,6 @@ function buildWochenStructure(text: string, lower: string, fallbackWochen: numbe
       wochen.push({ wochennummer: parseInt(seg.label), einheiten: extractEinheiten(seg.content) });
     }
   } else {
-    // No explicit week headings — put all exercises into week 1,
-    // create remaining empty weeks up to fallbackWochen.
     const allEinheiten = extractEinheiten(text);
     const numWeeks = Math.max(1, fallbackWochen);
     for (let i = 1; i <= numWeeks; i++) {
@@ -135,11 +145,15 @@ function buildWochenStructure(text: string, lower: string, fallbackWochen: numbe
 function extractEinheiten(text: string): ParsedEinheit[] {
   const einheiten: ParsedEinheit[] = [];
 
-  const daySegs = splitByPattern(text, /(?:tag|einheit|training|session)\s*\.?\s*(\d+|[A-D])/gi);
-  const tagSegs = splitByDayName(text);
-  const segs    = daySegs.length > 0 ? daySegs
-                : tagSegs.length > 0 ? tagSegs
-                : [{ label: '1', content: text }];
+  const daySegsNum = splitByPattern(text, /(?:tag|einheit|training|session)\s*\.?\s*(\d+|[A-D])/gi);
+  const daySegsDE  = splitByDayName(text, ['montag','dienstag','mittwoch','donnerstag','freitag','samstag','sonntag']);
+  const daySegsEN  = splitByDayName(text, ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']);
+
+  const segs =
+    daySegsNum.length > 0 ? daySegsNum :
+    daySegsDE.length > 0  ? daySegsDE :
+    daySegsEN.length > 0  ? daySegsEN :
+    [{ label: '1', content: text }];
 
   for (const seg of segs) {
     const uebungen = extractUebungen(seg.content);
@@ -159,37 +173,70 @@ function extractEinheiten(text: string): ParsedEinheit[] {
 
 // ─── Exercise extraction ───────────────────────────────────────────────────────
 
-/** Strip OCR noise chars and normalize whitespace for pattern matching. */
-function normalizeLine(raw: string): string {
-  return raw
-    .replace(/[|]/g, ' ')   // pipe-separated table columns → space
-    .replace(/\s+/g, ' ')   // collapse whitespace
-    .trim();
+/**
+ * Merge lines where the exercise name is on one line and parameters
+ * are on the next (common in table OCR output).
+ * e.g. ["Easy effort Run,", "35mins"] → ["Easy effort Run, 35mins"]
+ */
+function mergeMultilineExercises(lines: string[]): string[] {
+  const result: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const cur  = normalizeLine(lines[i]);
+    const next = i + 1 < lines.length ? normalizeLine(lines[i + 1]) : null;
+
+    // Current line has no params but next looks like a param continuation
+    if (
+      cur.length > 2 &&
+      !HEADING_RE.test(cur) &&
+      !NOISE_RE.test(cur) &&
+      !REST_RE.test(cur) &&
+      extractParam(cur) === null &&
+      next &&
+      !HEADING_RE.test(next) &&
+      !REST_RE.test(next) &&
+      isParamContinuation(next)
+    ) {
+      result.push(cur + ' ' + next);
+      i += 2;
+    } else {
+      result.push(cur);
+      i++;
+    }
+  }
+  return result;
+}
+
+/** A line that starts with a number (params only, no name). */
+function isParamContinuation(line: string): boolean {
+  return /^\d/.test(line) && extractParam(line) !== null;
 }
 
 function extractUebungen(text: string): ParsedUebung[] {
   const uebungen: ParsedUebung[] = [];
-  const lines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 2);
+  const rawLines  = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 1);
+  const lines     = mergeMultilineExercises(rawLines);
 
   for (const raw of lines) {
     if (HEADING_RE.test(raw)) continue;
     if (NOISE_RE.test(raw))   continue;
+    if (REST_RE.test(raw))    continue;
 
     const line  = normalizeLine(raw);
     const param = extractParam(line);
     if (!param) continue;
 
-    // Exercise name: everything before the first digit block
-    // Also strip common OCR noise: leading numbers, bullets
-    const cleaned  = line.replace(/^[\d\s\-—•·.]+/, '');
-    const namePart = cleaned
-      .replace(/\d+(?:[,.]\d+)?\s*(?:kg|min|sek|s|h|km|m\b|wdh|wh|reps?|sätze?|sets?)?.*$/i, '')
+    // Name = everything before the first number + unit block
+    // \d[\d\s,.–-]* allows ranges like "150-180" before the unit
+    const stripped = line.replace(/^[\d\s\-—•·.]+/, '');
+    const namePart = stripped
+      .replace(/\s*\d[\d\s,.–\-]*(?:kg|min(?:uten?|s)?|sek(?:unden?)?|secs?|seconds?|km|miles?|m\b|wdh|wh|reps?|sätze?|sets?|h\b).*$/i, '')
+      .replace(/\s*\+\s*.+$/, '')   // cut off "+ something" after first exercise
+      .replace(/[,.\s]+$/, '')       // trailing comma / period / whitespace
       .replace(/[|]+/g, '')
       .trim();
 
-    if (namePart.length < 2) continue;
-    // Skip if the "name" is just a number
-    if (/^\d+$/.test(namePart)) continue;
+    if (namePart.length < 2 || /^\d+$/.test(namePart)) continue;
 
     uebungen.push({
       name:      titleCase(namePart),
@@ -201,48 +248,49 @@ function extractUebungen(text: string): ParsedUebung[] {
   return uebungen;
 }
 
+// ─── Param extraction ──────────────────────────────────────────────────────────
+
+function normalizeLine(raw: string): string {
+  return raw.replace(/[|]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function extractParam(line: string): string | null {
   const parts: string[] = [];
   let foundSets = false;
 
-  // Priority 1: explicit "NxM" notation
+  // 1. Explicit NxM
   const srX = line.match(SETS_REPS_X);
-  if (srX) {
-    parts.push(`${srX[1]}x${srX[2]}`);
-    foundSets = true;
-  }
+  if (srX) { parts.push(`${srX[1]}x${srX[2]}`); foundSets = true; }
 
-  // Priority 2: keyword-based "N Sätze" / "N Wdh"
+  // 2. Keyword Sätze/Wdh
   if (!foundSets) {
-    const saetzeKw = line.match(SAETZE_KW);
-    const wdhKw    = line.match(WDH_KW);
-    if (saetzeKw && wdhKw) {
-      parts.push(`${saetzeKw[1]}x${wdhKw[1]}`);
-      foundSets = true;
-    } else if (saetzeKw) {
-      parts.push(`${saetzeKw[1]} Sätze`);
-      foundSets = true;
-    } else if (wdhKw) {
-      parts.push(`${wdhKw[1]} Wdh`);
-    }
+    const sk = line.match(SAETZE_KW);
+    const wk = line.match(WDH_KW);
+    if (sk && wk)      { parts.push(`${sk[1]}x${wk[1]}`); foundSets = true; }
+    else if (sk)       { parts.push(`${sk[1]} Sätze`); foundSets = true; }
+    else if (wk)       { parts.push(`${wk[1]} Wdh`); }
   }
 
-  // Priority 3: two adjacent short numbers (table OCR: "3  8")
+  // 3. Two adjacent numbers (table column style)
   if (!foundSets) {
-    const twoNums = line.match(SAETZE_WDH);
-    if (twoNums) {
-      parts.push(`${twoNums[1]}x${twoNums[2]}`);
-      foundSets = true;
-    }
+    const tw = line.match(SAETZE_WDH);
+    if (tw) { parts.push(`${tw[1]}x${tw[2]}`); foundSets = true; }
   }
 
-  const wt  = line.match(WEIGHT);
-  if (wt)  parts.push(`${wt[1].replace(',', '.')} kg`);
+  // Weight
+  const wt = line.match(WEIGHT);
+  if (wt) parts.push(`${wt[1].replace(',', '.')} kg`);
 
+  // Duration (covers "35mins", "40 min", "30 Minuten", "150-180 Minuten")
   const dur = line.match(DURATION);
-  const durUnit = dur ? normalizeDurUnit(dur[2]) : null;
-  if (dur) parts.push(`${dur[1]} ${durUnit}`);
+  if (dur) {
+    const unit = normalizeDurUnit(dur[2]);
+    // Normalize range "150-180" → "150-180"
+    const val  = dur[1].replace(/\s+/g, '');
+    parts.push(`${val} ${unit}`);
+  }
 
+  // Distance
   const dist = line.match(DISTANCE);
   if (!dur && dist) parts.push(`${dist[1].replace(',', '.')} ${dist[2].toLowerCase()}`);
 
@@ -252,34 +300,12 @@ function extractParam(line: string): string | null {
 function normalizeDurUnit(raw: string): string {
   const l = raw.toLowerCase();
   if (l.startsWith('min')) return 'min';
-  if (l.startsWith('sek') || l === 's') return 'sek';
-  if (l === 'h') return 'h';
+  if (l.startsWith('sek') || l === 's' || l.startsWith('sec')) return 'sek';
+  if (l === 'h' || l.startsWith('hour')) return 'h';
   return l;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-type Segment = { label: string; content: string };
-
-function splitByPattern(text: string, re: RegExp): Segment[] {
-  const results: Segment[] = [];
-  const matches = [...text.matchAll(re)];
-  for (let i = 0; i < matches.length; i++) {
-    const start = (matches[i].index ?? 0) + matches[i][0].length;
-    const end   = i + 1 < matches.length ? (matches[i + 1].index ?? text.length) : text.length;
-    results.push({ label: matches[i][1], content: text.slice(start, end) });
-  }
-  return results;
-}
-
-function splitByDayName(text: string): Segment[] {
-  const DAYS = ['montag','dienstag','mittwoch','donnerstag','freitag','samstag','sonntag'];
-  const re   = new RegExp(`(${DAYS.join('|')})`, 'gi');
-  const segs = splitByPattern(text, re);
-  return segs.map((s, i) => ({ ...s, label: String(i + 1) }));
-}
-
-/** Converts a raw param string like "3x8 · 80 kg" into structured UebungParam[]. */
+/** Converts a raw param string into structured UebungParam[]. */
 export function paramStringToUebungParams(raw: string): UebungParam[] {
   const params: UebungParam[] = [];
 
@@ -298,13 +324,36 @@ export function paramStringToUebungParams(raw: string): UebungParam[] {
   const wt = raw.match(/(\d+(?:[,.]\d+)?)\s*kg/i);
   if (wt) params.push({ typ: 'gewicht', wert: wt[1].replace(',', '.'), einheit: 'kg' });
 
-  const dur = raw.match(/(\d+)\s*(min(?:uten?)?|sek(?:unden?)?|s|h)\b/i);
-  if (dur) params.push({ typ: 'dauer', wert: dur[1], einheit: normalizeDurUnit(dur[2]) });
+  const dur = raw.match(DURATION);
+  if (dur) {
+    params.push({ typ: 'dauer', wert: dur[1].replace(/\s+/g, ''), einheit: normalizeDurUnit(dur[2]) });
+  }
 
-  const dist = raw.match(/(\d+(?:[,.]\d+)?)\s*(km|m)\b/i);
+  const dist = raw.match(DISTANCE);
   if (!dur && dist) params.push({ typ: 'distanz', wert: dist[1].replace(',', '.'), einheit: dist[2].toLowerCase() });
 
   return params;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+type Segment = { label: string; content: string };
+
+function splitByPattern(text: string, re: RegExp): Segment[] {
+  const results: Segment[] = [];
+  const matches = [...text.matchAll(re)];
+  for (let i = 0; i < matches.length; i++) {
+    const start = (matches[i].index ?? 0) + matches[i][0].length;
+    const end   = i + 1 < matches.length ? (matches[i + 1].index ?? text.length) : text.length;
+    results.push({ label: matches[i][1], content: text.slice(start, end) });
+  }
+  return results;
+}
+
+function splitByDayName(text: string, days: string[]): Segment[] {
+  const re   = new RegExp(`\\b(${days.join('|')})\\b`, 'gi');
+  const segs = splitByPattern(text, re);
+  return segs.map((s) => ({ ...s, label: titleCase(s.label) }));
 }
 
 function titleCase(s: string): string {
