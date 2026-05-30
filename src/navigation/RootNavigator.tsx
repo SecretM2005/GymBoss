@@ -15,7 +15,7 @@ export default function RootNavigator() {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
+      <NavigationContainer key={activeRole}>
         {activeRole === 'sportler' ? (
           <SportlerAppNavigator />
         ) : (
