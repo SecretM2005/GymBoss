@@ -34,6 +34,7 @@ export default function PlanFormScreen({ navigation, route }: Props) {
 
   const isEdit = !!route.params?.planId;
   const existing = isEdit ? getPlanById(route.params.planId!) : undefined;
+  const preselectedSportlerId = route.params?.preselectedSportlerId;
 
   const [form, setForm] = useState<Form>(
     existing
@@ -45,9 +46,11 @@ export default function PlanFormScreen({ navigation, route }: Props) {
         }
       : { name: '', sportart: 'Kraftsport', beschreibung: '', startdatum: '' }
   );
-  const [selectedSportler, setSelectedSportler] = useState<Set<string>>(
-    new Set(existing?.sportlerIds ?? [])
-  );
+  const [selectedSportler, setSelectedSportler] = useState<Set<string>>(() => {
+    const ids = new Set(existing?.sportlerIds ?? []);
+    if (preselectedSportlerId) ids.add(preselectedSportlerId);
+    return ids;
+  });
   const [errors, setErrors] = useState<Partial<Record<keyof Form, string>>>({});
 
   const set = (key: keyof Form, val: string) => {
@@ -170,36 +173,38 @@ export default function PlanFormScreen({ navigation, route }: Props) {
           </Field>
 
           {/* Sportler */}
-          <Field label="Sportler zuweisen">
-            {sportler.length === 0 ? (
-              <View style={[styles.emptyAthletes, { backgroundColor: C.surface, borderColor: C.border }]}>
-                <Text style={[styles.emptyAthletesText, { color: C.textDim }]}>Noch keine Sportler angelegt</Text>
-              </View>
-            ) : (
-              <View style={styles.athleteList}>
-                {sportler.map((sp) => {
-                  const selected = selectedSportler.has(sp.id);
-                  return (
-                    <TouchableOpacity
-                      key={sp.id}
-                      style={[styles.athleteRow, { backgroundColor: C.surface, borderColor: C.border }, selected && styles.athleteRowSelected]}
-                      onPress={() => toggleSportler(sp.id)}
-                      activeOpacity={0.75}
-                    >
-                      <GBAvatar name={sp.name} initials={sp.initials} size={38} />
-                      <View style={styles.athleteInfo}>
-                        <Text style={[styles.athleteName, { color: C.text }]}>{sp.name}</Text>
-                        {sp.sportart && <Text style={[styles.athleteSport, { color: C.textMuted }]}>{sp.sportart}</Text>}
-                      </View>
-                      <View style={[styles.checkBox, { borderColor: C.border, backgroundColor: C.surfaceAlt }, selected && styles.checkBoxSelected]}>
-                        {selected && <GBIcon name="check" size={14} color={C.accentContrast} />}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </Field>
+          {!preselectedSportlerId && (
+            <Field label="Sportler zuweisen">
+              {sportler.length === 0 ? (
+                <View style={[styles.emptyAthletes, { backgroundColor: C.surface, borderColor: C.border }]}>
+                  <Text style={[styles.emptyAthletesText, { color: C.textDim }]}>Noch keine Sportler angelegt</Text>
+                </View>
+              ) : (
+                <View style={styles.athleteList}>
+                  {sportler.map((sp) => {
+                    const selected = selectedSportler.has(sp.id);
+                    return (
+                      <TouchableOpacity
+                        key={sp.id}
+                        style={[styles.athleteRow, { backgroundColor: C.surface, borderColor: C.border }, selected && styles.athleteRowSelected]}
+                        onPress={() => toggleSportler(sp.id)}
+                        activeOpacity={0.75}
+                      >
+                        <GBAvatar name={sp.name} initials={sp.initials} size={38} />
+                        <View style={styles.athleteInfo}>
+                          <Text style={[styles.athleteName, { color: C.text }]}>{sp.name}</Text>
+                          {sp.sportart && <Text style={[styles.athleteSport, { color: C.textMuted }]}>{sp.sportart}</Text>}
+                        </View>
+                        <View style={[styles.checkBox, { borderColor: C.border, backgroundColor: C.surfaceAlt }, selected && styles.checkBoxSelected]}>
+                          {selected && <GBIcon name="check" size={14} color={C.accentContrast} />}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </Field>
+          )}
 
           {/* Delete */}
           {isEdit && (

@@ -16,6 +16,7 @@ import PlanFormScreen              from '../screens/plaene/PlanFormScreen';
 import PlanWocheFormScreen         from '../screens/plaene/PlanWocheFormScreen';
 import PlanWocheDetailScreen       from '../screens/plaene/PlanWocheDetailScreen';
 import EinheitDetailScreen         from '../screens/plaene/EinheitDetailScreen';
+import EinstellungenScreen         from '../screens/mehr/EinstellungenScreen';
 
 const Tab          = createBottomTabNavigator<SportlerAppTabParamList>();
 const TrainingStack = createStackNavigator<MeinTrainingStackParamList>();
@@ -39,7 +40,8 @@ function MeinTrainingNavigator() {
 function MeinProfilNavigator() {
   return (
     <ProfilStack.Navigator screenOptions={{ headerShown: false }}>
-      <ProfilStack.Screen name="MeinProfilMain" component={SportlerAppProfilScreen} />
+      <ProfilStack.Screen name="MeinProfilMain"  component={SportlerAppProfilScreen} />
+      <ProfilStack.Screen name="Einstellungen"   component={EinstellungenScreen as any} />
     </ProfilStack.Navigator>
   );
 }
