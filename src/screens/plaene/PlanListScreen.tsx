@@ -52,11 +52,19 @@ export default function PlanListScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }]}>
         <View>
           <Text style={[styles.topSub, { color: C.textMuted }]}>Trainer · Verwaltung</Text>
           <Text style={[styles.topTitle, { color: C.text }]}>Trainingspläne</Text>
         </View>
+        <TouchableOpacity
+          style={[styles.importBtn, { backgroundColor: C.surface, borderColor: C.border }]}
+          onPress={() => navigation.navigate('ImportPlan', {})}
+          activeOpacity={0.75}
+        >
+          <GBIcon name="camera" size={16} color={C.textMuted} />
+          <Text style={[styles.importBtnText, { color: C.textMuted }]}>Import</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -173,9 +181,11 @@ export default function PlanListScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
 
-  topBar:   { paddingHorizontal: SP.xl, paddingBottom: SP.md, paddingTop: SP.md },
-  topSub:   { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: 4 },
-  topTitle: { fontSize: 32, fontWeight: '700', color: C.text, letterSpacing: -0.8, lineHeight: 36 },
+  topBar:        { paddingHorizontal: SP.xl, paddingBottom: SP.md, paddingTop: SP.md },
+  topSub:        { fontSize: FONT.xs, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: 4 },
+  topTitle:      { fontSize: 32, fontWeight: '700', color: C.text, letterSpacing: -0.8, lineHeight: 36 },
+  importBtn:     { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: SP.md, paddingVertical: SP.sm, borderRadius: R.full, borderWidth: 1, marginBottom: 4 },
+  importBtnText: { fontSize: FONT.sm, fontWeight: '600' },
 
   content: { paddingHorizontal: SP.xl, paddingTop: SP.sm, gap: SP.md },
 

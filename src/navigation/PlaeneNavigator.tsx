@@ -7,6 +7,7 @@ import PlanFormScreen       from '../screens/plaene/PlanFormScreen';
 import PlanWocheFormScreen  from '../screens/plaene/PlanWocheFormScreen';
 import PlanWocheDetailScreen from '../screens/plaene/PlanWocheDetailScreen';
 import EinheitDetailScreen  from '../screens/plaene/EinheitDetailScreen';
+import ImportPlanScreen     from '../screens/plaene/ImportPlanScreen';
 
 const Stack = createStackNavigator<PlaeneStackParamList>();
 
@@ -16,6 +17,7 @@ export default function PlaeneNavigator() {
       <Stack.Screen name="PlanList"        component={PlanListScreen} />
       <Stack.Screen name="PlanDetail"      component={PlanDetailScreen} />
       <Stack.Screen name="PlanForm"        component={PlanFormScreen} />
+      <Stack.Screen name="ImportPlan"      component={ImportPlanScreen} />
       <Stack.Screen name="PlanWocheForm"   component={PlanWocheFormScreen} />
       <Stack.Screen name="PlanWocheDetail" component={PlanWocheDetailScreen} />
       <Stack.Screen name="EinheitDetail"   component={EinheitDetailScreen} />

@@ -144,14 +144,23 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
             </Text>
           </View>
         </View>
-        <TouchableOpacity
-          style={[styles.newPlanBtn, { backgroundColor: C.accent }]}
-          onPress={() => navigation.navigate('PlanForm', { preselectedSportlerId: activeSportlerId ?? undefined })}
-          activeOpacity={0.8}
-        >
-          <GBIcon name="plus" size={15} color={C.accentContrast} />
-          <Text style={[styles.newPlanBtnText, { color: C.accentContrast }]}>Plan</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={[styles.iconBtn, { backgroundColor: C.surface, borderColor: C.border }]}
+            onPress={() => navigation.navigate('ImportPlan', { preselectedSportlerId: activeSportlerId ?? undefined })}
+            activeOpacity={0.8}
+          >
+            <GBIcon name="camera" size={17} color={C.textMuted} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.newPlanBtn, { backgroundColor: C.accent }]}
+            onPress={() => navigation.navigate('PlanForm', { preselectedSportlerId: activeSportlerId ?? undefined })}
+            activeOpacity={0.8}
+          >
+            <GBIcon name="plus" size={15} color={C.accentContrast} />
+            <Text style={[styles.newPlanBtnText, { color: C.accentContrast }]}>Plan</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -164,14 +173,24 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
             <Text style={[styles.emptySub, { color: C.textDim }]}>
               Dein Trainer weist dir Pläne zu, oder erstelle selbst einen.
             </Text>
-            <TouchableOpacity
-              style={[styles.emptyBtn, { backgroundColor: C.accent }]}
-              onPress={() => navigation.navigate('PlanForm', { preselectedSportlerId: activeSportlerId ?? undefined })}
-              activeOpacity={0.8}
-            >
-              <GBIcon name="plus" size={16} color={C.accentContrast} />
-              <Text style={[styles.emptyBtnText, { color: C.accentContrast }]}>Neuer Plan</Text>
-            </TouchableOpacity>
+            <View style={styles.emptyBtnRow}>
+              <TouchableOpacity
+                style={[styles.emptyBtn, { backgroundColor: C.accent }]}
+                onPress={() => navigation.navigate('PlanForm', { preselectedSportlerId: activeSportlerId ?? undefined })}
+                activeOpacity={0.8}
+              >
+                <GBIcon name="plus" size={16} color={C.accentContrast} />
+                <Text style={[styles.emptyBtnText, { color: C.accentContrast }]}>Neuer Plan</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.emptyBtnAlt, { borderColor: C.border }]}
+                onPress={() => navigation.navigate('ImportPlan', { preselectedSportlerId: activeSportlerId ?? undefined })}
+                activeOpacity={0.8}
+              >
+                <GBIcon name="camera" size={16} color={C.textMuted} />
+                <Text style={[styles.emptyBtnAltText, { color: C.textMuted }]}>Importieren</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -386,7 +405,9 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
 
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SP.xl, paddingVertical: SP.md, borderBottomWidth: 1 },
-  headerLeft:  { flexDirection: 'row', alignItems: 'center', gap: SP.md, flex: 1 },
+  headerLeft:   { flexDirection: 'row', alignItems: 'center', gap: SP.md, flex: 1 },
+  headerButtons: { flexDirection: 'row', alignItems: 'center', gap: SP.sm },
+  iconBtn:       { width: 34, height: 34, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   headerSub:   { fontSize: 10, fontWeight: '800', color: C.accent, textTransform: 'uppercase', letterSpacing: 1.2 },
   headerName:  { fontSize: FONT.md, fontWeight: '700', color: C.text, letterSpacing: -0.3 },
   newPlanBtn:     { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: SP.md, paddingVertical: SP.sm - 1, borderRadius: R.full },
@@ -397,8 +418,11 @@ const styles = StyleSheet.create({
   emptyCard:  { alignItems: 'center', borderRadius: R.xl, borderWidth: 1, padding: SP.xxxl, gap: SP.md },
   emptyTitle: { fontSize: FONT.md, fontWeight: '700', color: C.textSub },
   emptySub:   { fontSize: FONT.sm, color: C.textDim, textAlign: 'center', lineHeight: 20 },
-  emptyBtn:      { flexDirection: 'row', alignItems: 'center', gap: SP.sm, paddingHorizontal: SP.lg, paddingVertical: SP.md, borderRadius: R.full, marginTop: SP.sm },
+  emptyBtnRow:   { flexDirection: 'row', gap: SP.sm, marginTop: SP.sm },
+  emptyBtn:      { flexDirection: 'row', alignItems: 'center', gap: SP.sm, paddingHorizontal: SP.lg, paddingVertical: SP.md, borderRadius: R.full },
   emptyBtnText:  { fontSize: FONT.sm, fontWeight: '700' },
+  emptyBtnAlt:   { flexDirection: 'row', alignItems: 'center', gap: SP.sm, paddingHorizontal: SP.lg, paddingVertical: SP.md, borderRadius: R.full, borderWidth: 1 },
+  emptyBtnAltText: { fontSize: FONT.sm, fontWeight: '700' },
 
   dayPanel:        { borderRadius: R.xl, borderWidth: 1, overflow: 'hidden' },
   dayPanelHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SP.md, borderBottomWidth: 1 },

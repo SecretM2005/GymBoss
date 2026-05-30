@@ -41,6 +41,10 @@ const MAP: Record<string, IoniconsName> = {
   globe:        'globe-outline',
   moon:         'moon-outline',
   sun:          'sunny-outline',
+  camera:       'camera-outline',
+  image:        'image-outline',
+  document:     'document-outline',
+  upload:       'cloud-upload-outline',
 };
 
 type Props = {
