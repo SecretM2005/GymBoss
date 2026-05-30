@@ -50,7 +50,7 @@ function guessNameFromFilename(filename: string): string {
 export default function ImportPlanScreen({ navigation, route }: Props) {
   const C = useColors();
   const insets = useSafeAreaInsets();
-  const { addPlan, addWoche } = usePlanStore();
+  const { addPlan, addWoche, saveEinheit } = usePlanStore();
   const { sportler } = useAthletenStore();
 
   const preselectedSportlerId = route.params?.preselectedSportlerId;
@@ -149,7 +149,35 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
       sportlerIds,
       trainerId: 't1',
     });
-    for (let i = 0; i < form.anzahlWochen; i++) addWoche(planId);
+
+    // Create weeks and collect their IDs so we can fill them with parsed Einheiten
+    const wocheIds: string[] = [];
+    for (let i = 0; i < form.anzahlWochen; i++) {
+      wocheIds.push(addWoche(planId));
+    }
+
+    // Save parsed Einheiten + Übungen into the correct weeks
+    if (parsed) {
+      for (const pw of parsed.wochen) {
+        const wocheId = wocheIds[pw.wochennummer - 1];
+        if (!wocheId) continue;
+        for (const pe of pw.einheiten) {
+          const einheitId = `imp_e_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+          saveEinheit(planId, wocheId, {
+            id:           einheitId,
+            name:         pe.name,
+            warmup:       [],
+            haupteinheit: pe.uebungen.map((u, ui) => ({
+              id:        `imp_u_${einheitId}_${ui}`,
+              name:      u.name,
+              parameter: u.params,
+            })),
+            cooldown: [],
+          });
+        }
+      }
+    }
+
     navigation.goBack();
   };
 
