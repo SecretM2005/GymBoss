@@ -80,7 +80,7 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
     setScanState('scanning');
     setScanProgress(0);
     setScanMessage('');
-    const ocr = await recognizeText(f.uri);
+    const ocr = await recognizeText(f.uri, setScanProgress);
     if (!ocr.ok) {
       setScanMessage(ocr.message);
       setScanState(ocr.reason === 'not_linked' ? 'not_linked' : 'error');
@@ -292,8 +292,20 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
                 <View style={[styles.scanCard, { backgroundColor: C.surface, borderColor: C.border }]}>
                   <ActivityIndicator color={C.accent} />
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.scanTitle, { color: C.text }]}>ML Kit erkennt Text…</Text>
-                    <Text style={[styles.scanSub, { color: C.textMuted }]}>On-device · kein Internet nötig</Text>
+                    {Platform.OS === 'web' ? (
+                      <>
+                        <Text style={[styles.scanTitle, { color: C.text }]}>Text wird erkannt…</Text>
+                        <View style={[styles.progressBar, { backgroundColor: C.surfaceAlt }]}>
+                          <View style={[styles.progressFill, { width: `${scanProgress}%` as any, backgroundColor: C.accent }]} />
+                        </View>
+                        <Text style={[styles.scanSub, { color: C.textMuted }]}>{scanProgress}%</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={[styles.scanTitle, { color: C.text }]}>ML Kit erkennt Text…</Text>
+                        <Text style={[styles.scanSub, { color: C.textMuted }]}>On-device · kein Internet nötig</Text>
+                      </>
+                    )}
                   </View>
                 </View>
               )}
