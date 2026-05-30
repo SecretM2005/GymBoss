@@ -5,6 +5,7 @@ import SportlerListScreen           from '../screens/sportler/SportlerListScreen
 import SportlerDetailScreen         from '../screens/sportler/SportlerDetailScreen';
 import SportlerFormScreen           from '../screens/sportler/SportlerFormScreen';
 import SportlerEinheitDetailScreen  from '../screens/sportler/SportlerEinheitDetailScreen';
+import EinheitDetailScreen          from '../screens/plaene/EinheitDetailScreen';
 
 const Stack = createStackNavigator<SportlerStackParamList>();
 
@@ -15,6 +16,7 @@ export default function SportlerNavigator() {
       <Stack.Screen name="SportlerDetail"         component={SportlerDetailScreen} />
       <Stack.Screen name="SportlerForm"           component={SportlerFormScreen} />
       <Stack.Screen name="SportlerEinheitDetail"  component={SportlerEinheitDetailScreen} />
+      <Stack.Screen name="EinheitDetail"          component={EinheitDetailScreen as any} />
     </Stack.Navigator>
   );
 }

@@ -129,7 +129,14 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
     const [yr, mo, dy] = selectedIso.split('-').map(Number);
     const wocheId = getWocheIdForDate(plan, yr, mo - 1, dy);
     if (!wocheId) {
-      Alert.alert('Keine Woche', 'Lege zuerst eine Trainingswoche an, bevor du Einheiten hinzufügst.');
+      Alert.alert(
+        'Keine Woche',
+        'Lege zuerst eine Trainingswoche an, bevor du Einheiten hinzufügst.',
+        [
+          { text: 'Abbrechen', style: 'cancel' },
+          { text: 'Woche anlegen', onPress: () => navigation.navigate('PlanWocheForm', { planId: plan.id }) },
+        ],
+      );
       return;
     }
     navigation.navigate('EinheitDetail', { planId: plan.id, wocheId, datum: selectedIso });

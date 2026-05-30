@@ -131,6 +131,7 @@ export type SportlerStackParamList = {
   SportlerDetail: { sportlerId: string };
   SportlerForm: { sportlerId?: string };
   SportlerEinheitDetail: { planId: string; wocheId: string; einheitId: string; sportlerId: string };
+  EinheitDetail: { planId: string; wocheId: string; einheitId?: string; datum?: string };
 };
 
 export type PlaeneStackParamList = {
@@ -148,4 +149,24 @@ export type MehrStackParamList = {
   Uebungsbibliothek: undefined;
   EinheitTemplateDetail: { einheitTemplateId?: string };
   UebungTemplateForm: { uebungTemplateId?: string };
+};
+
+// ─── Sportler App (Athlete View) ─────────────────────────────────────────────
+
+export type SportlerAppTabParamList = {
+  MeinTraining: undefined;
+  MeinProfil:   undefined;
+};
+
+export type MeinTrainingStackParamList = {
+  MeinTrainingMain: undefined;
+  EinheitLog:       { planId: string; wocheId: string; einheitId: string };
+  PlanForm:         { planId?: string };
+  PlanWocheForm:    { planId: string; wocheId?: string };
+  PlanWocheDetail:  { planId: string; wocheId: string };
+  EinheitDetail:    { planId: string; wocheId: string; einheitId?: string; datum?: string };
+};
+
+export type MeinProfilStackParamList = {
+  MeinProfilMain: undefined;
 };
