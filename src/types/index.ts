@@ -137,7 +137,7 @@ export type SportlerStackParamList = {
 export type PlaeneStackParamList = {
   PlanList: undefined;
   PlanDetail: { planId: string };
-  PlanForm: { planId?: string };
+  PlanForm: { planId?: string; preselectedSportlerId?: string };
   PlanWocheForm: { planId: string; wocheId?: string };
   PlanWocheDetail: { planId: string; wocheId: string };
   EinheitDetail: { planId: string; wocheId: string; einheitId?: string; datum?: string };
@@ -161,12 +161,13 @@ export type SportlerAppTabParamList = {
 export type MeinTrainingStackParamList = {
   MeinTrainingMain: undefined;
   EinheitLog:       { planId: string; wocheId: string; einheitId: string };
-  PlanForm:         { planId?: string };
+  PlanForm:         { planId?: string; preselectedSportlerId?: string };
   PlanWocheForm:    { planId: string; wocheId?: string };
   PlanWocheDetail:  { planId: string; wocheId: string };
   EinheitDetail:    { planId: string; wocheId: string; einheitId?: string; datum?: string };
 };
 
 export type MeinProfilStackParamList = {
-  MeinProfilMain: undefined;
+  MeinProfilMain:  undefined;
+  Einstellungen:   undefined;
 };

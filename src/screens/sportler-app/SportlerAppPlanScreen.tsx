@@ -146,7 +146,7 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
         </View>
         <TouchableOpacity
           style={[styles.newPlanBtn, { backgroundColor: C.accent }]}
-          onPress={() => navigation.navigate('PlanForm', {})}
+          onPress={() => navigation.navigate('PlanForm', { preselectedSportlerId: activeSportlerId ?? undefined })}
           activeOpacity={0.8}
         >
           <GBIcon name="plus" size={15} color={C.accentContrast} />
@@ -166,7 +166,7 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
             </Text>
             <TouchableOpacity
               style={[styles.emptyBtn, { backgroundColor: C.accent }]}
-              onPress={() => navigation.navigate('PlanForm', {})}
+              onPress={() => navigation.navigate('PlanForm', { preselectedSportlerId: activeSportlerId ?? undefined })}
               activeOpacity={0.8}
             >
               <GBIcon name="plus" size={16} color={C.accentContrast} />

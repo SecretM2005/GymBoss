@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Pressable,
 } from 'react-native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MeinProfilStackParamList } from '../../types';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import { usePlanStore } from '../../store/planStore';
@@ -10,6 +12,10 @@ import { useSessionLogStore } from '../../store/sessionLogStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
+
+type Props = {
+  navigation: StackNavigationProp<MeinProfilStackParamList, 'MeinProfilMain'>;
+};
 
 function ageFromIso(iso?: string | null): number | null {
   if (!iso) return null;
@@ -20,7 +26,7 @@ function ageFromIso(iso?: string | null): number | null {
   return age;
 }
 
-export default function SportlerAppProfilScreen() {
+export default function SportlerAppProfilScreen({ navigation }: Props) {
   const { activeSportlerId, setActiveRole, setActiveSportlerId } = useSettingsStore();
   const { sportler: allSportler, getSportlerById } = useAthletenStore();
   const { getPlaeneForSportler } = usePlanStore();
@@ -117,12 +123,27 @@ export default function SportlerAppProfilScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => { setActiveRole('trainer'); setActiveSportlerId(null); }}
+            style={[styles.actionRow, { borderBottomColor: C.border }]}
+            onPress={() => navigation.navigate('Einstellungen')}
             activeOpacity={0.7}
           >
             <View style={[styles.actionIcon, { backgroundColor: 'rgba(122,191,255,0.12)' }]}>
               <GBIcon name="settings" size={17} color="#7ABFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.actionTitle, { color: C.text }]}>Einstellungen</Text>
+              <Text style={[styles.actionSub, { color: C.textDim }]}>Sprache · Erscheinungsbild</Text>
+            </View>
+            <GBIcon name="chevronRight" size={16} color={C.textDim} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => { setActiveRole('trainer'); setActiveSportlerId(null); }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: 'rgba(122,229,130,0.12)' }]}>
+              <GBIcon name="user" size={17} color="#7AE582" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.actionTitle, { color: C.text }]}>Trainer-Ansicht</Text>
