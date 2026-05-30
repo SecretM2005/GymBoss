@@ -150,9 +150,11 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
       trainerId: 't1',
     });
 
-    // Create weeks and collect their IDs so we can fill them with parsed Einheiten
+    // Create weeks — use the higher of user input and what the parser found
+    const parsedWochenCount = parsed?.wochen.length ?? 0;
+    const wochenCount = Math.max(form.anzahlWochen, parsedWochenCount);
     const wocheIds: string[] = [];
-    for (let i = 0; i < form.anzahlWochen; i++) {
+    for (let i = 0; i < wochenCount; i++) {
       wocheIds.push(addWoche(planId));
     }
 
@@ -162,7 +164,9 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
         const wocheId = wocheIds[pw.wochennummer - 1];
         if (!wocheId) continue;
         for (const pe of pw.einheiten) {
-          const einheitId = `imp_e_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+          const ts = Date.now();
+          const rnd = Math.random().toString(36).slice(2, 6);
+          const einheitId = `imp_e_${ts}_${rnd}`;
           saveEinheit(planId, wocheId, {
             id:           einheitId,
             name:         pe.name,
