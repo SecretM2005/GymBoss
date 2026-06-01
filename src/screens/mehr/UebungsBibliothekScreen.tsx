@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import Svg, { Ellipse, Path, Circle } from 'react-native-svg';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MehrStackParamList, Muskelgruppe } from '../../types';
@@ -25,103 +24,6 @@ const ALL_MUSKELGRUPPEN: Muskelgruppe[] = [
   'Bauch', 'Gesäß', 'Oberschenkel', 'Hamstrings', 'Wade', 'Ganzkörper',
 ];
 
-// Simplified body outline SVG with highlighted regions
-function BodyMap({ highlighted, C }: { highlighted: Set<Muskelgruppe>; C: ReturnType<typeof useColors> }) {
-  const hi = (group: Muskelgruppe) => highlighted.has(group) || highlighted.has('Ganzkörper');
-  const fill = (group: Muskelgruppe, color = '#7ABFFF') => hi(group) ? color : C.surfaceAlt;
-  const stroke = (group: Muskelgruppe) => hi(group) ? '#7ABFFF' : C.border;
-
-  return (
-    <Svg width={120} height={200} viewBox="0 0 120 200">
-      {/* Head */}
-      <Circle cx={60} cy={18} r={14} fill={C.surface} stroke={C.border} strokeWidth={1.5} />
-
-      {/* Neck */}
-      <Path d="M53 30 Q60 38 67 30 L67 42 Q60 48 53 42 Z"
-        fill={C.surface} stroke={C.border} strokeWidth={1} />
-
-      {/* Torso - Brust/Bauch */}
-      <Path d="M40 44 L80 44 L82 110 L38 110 Z"
-        fill={C.surface} stroke={C.border} strokeWidth={1.5} />
-
-      {/* Brust */}
-      <Path d="M42 46 L78 46 L76 74 L44 74 Z"
-        fill={fill('Brust', 'rgba(203,255,62,0.6)')} stroke={hi('Brust') ? C.accent : 'transparent'}
-        strokeWidth={1} opacity={0.85} />
-
-      {/* Bauch */}
-      <Path d="M44 76 L76 76 L74 108 L46 108 Z"
-        fill={fill('Bauch', 'rgba(122,191,255,0.6)')} stroke={hi('Bauch') ? '#7ABFFF' : 'transparent'}
-        strokeWidth={1} opacity={0.85} />
-
-      {/* Left shoulder (viewer's right) */}
-      <Ellipse cx={31} cy={55} rx={10} ry={13}
-        fill={fill('Schultern', 'rgba(255,138,102,0.7)')} stroke={hi('Schultern') ? '#FF8A66' : C.border}
-        strokeWidth={1} />
-
-      {/* Right shoulder */}
-      <Ellipse cx={89} cy={55} rx={10} ry={13}
-        fill={fill('Schultern', 'rgba(255,138,102,0.7)')} stroke={hi('Schultern') ? '#FF8A66' : C.border}
-        strokeWidth={1} />
-
-      {/* Left upper arm - Bizeps */}
-      <Path d="M23 66 L18 66 L16 96 L22 96 Z"
-        fill={fill('Bizeps', 'rgba(203,255,62,0.6)')} stroke={hi('Bizeps') ? C.accent : C.border}
-        strokeWidth={1} />
-      {/* Left Trizeps (behind) */}
-      <Path d="M24 66 L28 66 L26 96 L22 96 Z"
-        fill={fill('Trizeps', 'rgba(220,180,255,0.6)')} stroke={hi('Trizeps') ? '#D7B5FF' : 'transparent'}
-        strokeWidth={1} />
-
-      {/* Right upper arm - Bizeps */}
-      <Path d="M97 66 L102 66 L104 96 L98 96 Z"
-        fill={fill('Bizeps', 'rgba(203,255,62,0.6)')} stroke={hi('Bizeps') ? C.accent : C.border}
-        strokeWidth={1} />
-      {/* Right Trizeps */}
-      <Path d="M96 66 L92 66 L94 96 L98 96 Z"
-        fill={fill('Trizeps', 'rgba(220,180,255,0.6)')} stroke={hi('Trizeps') ? '#D7B5FF' : 'transparent'}
-        strokeWidth={1} />
-
-      {/* Unterarms L/R */}
-      <Path d="M16 98 L12 98 L11 124 L17 124 Z" fill={C.surface} stroke={C.border} strokeWidth={1} />
-      <Path d="M104 98 L108 98 L109 124 L103 124 Z" fill={C.surface} stroke={C.border} strokeWidth={1} />
-
-      {/* Hips / Gesäß */}
-      <Path d="M38 112 L82 112 L80 132 L40 132 Z"
-        fill={fill('Gesäß', 'rgba(255,138,102,0.6)')} stroke={hi('Gesäß') ? '#FF8A66' : C.border}
-        strokeWidth={1.5} />
-
-      {/* Left leg - Oberschenkel */}
-      <Path d="M40 134 L58 134 L55 172 L38 172 Z"
-        fill={fill('Oberschenkel', 'rgba(203,255,62,0.55)')} stroke={hi('Oberschenkel') ? C.accent : C.border}
-        strokeWidth={1} />
-      {/* Hamstrings left (behind) */}
-      <Path d="M39 134 L42 134 L40 172 L37 172 Z"
-        fill={fill('Hamstrings', 'rgba(122,191,255,0.5)')} stroke={hi('Hamstrings') ? '#7ABFFF' : 'transparent'}
-        strokeWidth={1} />
-
-      {/* Right leg - Oberschenkel */}
-      <Path d="M62 134 L80 134 L82 172 L65 172 Z"
-        fill={fill('Oberschenkel', 'rgba(203,255,62,0.55)')} stroke={hi('Oberschenkel') ? C.accent : C.border}
-        strokeWidth={1} />
-      {/* Hamstrings right */}
-      <Path d="M81 134 L78 134 L80 172 L83 172 Z"
-        fill={fill('Hamstrings', 'rgba(122,191,255,0.5)')} stroke={hi('Hamstrings') ? '#7ABFFF' : 'transparent'}
-        strokeWidth={1} />
-
-      {/* Left calf - Wade */}
-      <Path d="M38 174 L55 174 L53 196 L40 196 Z"
-        fill={fill('Wade', 'rgba(255,209,102,0.6)')} stroke={hi('Wade') ? '#FFD166' : C.border}
-        strokeWidth={1} />
-
-      {/* Right calf - Wade */}
-      <Path d="M65 174 L82 174 L80 196 L67 196 Z"
-        fill={fill('Wade', 'rgba(255,209,102,0.6)')} stroke={hi('Wade') ? '#FFD166' : C.border}
-        strokeWidth={1} />
-    </Svg>
-  );
-}
-
 export default function UebungsBibliothekScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const C = useColors();
@@ -134,14 +36,6 @@ export default function UebungsBibliothekScreen({ navigation }: Props) {
     if (selectedMuskeln.size === 0) return uebungen;
     return uebungen.filter((u) => u.muskelgruppe && (selectedMuskeln.has(u.muskelgruppe) || selectedMuskeln.has('Ganzkörper') || u.muskelgruppe === 'Ganzkörper'));
   }, [uebungen, selectedMuskeln]);
-
-  // Which muscles are in the currently shown exercises
-  const highlightedMuskeln = useMemo(() => {
-    const source = tab === 'uebungen' ? filteredUebungen : uebungen;
-    const set = new Set<Muskelgruppe>();
-    source.forEach((u) => { if (u.muskelgruppe) set.add(u.muskelgruppe); });
-    return set;
-  }, [filteredUebungen, uebungen, tab]);
 
   const toggleMuskel = (mg: Muskelgruppe) => {
     setSelectedMuskeln((prev) => {
@@ -209,37 +103,34 @@ export default function UebungsBibliothekScreen({ navigation }: Props) {
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
-        {/* Muscle visualization + filter (uebungen tab) */}
+        {/* Muskelgruppen-Filter (uebungen tab) */}
         {tab === 'uebungen' && (
-          <View style={[s.bodyMapCard, { backgroundColor: C.surface, borderColor: C.border }]}>
-            <View style={s.bodyMapRow}>
-              <BodyMap
-                highlighted={selectedMuskeln.size > 0 ? selectedMuskeln : highlightedMuskeln}
-                C={C}
-              />
-              <View style={s.muskelChips}>
-                <Text style={[s.filterLabel, { color: C.textDim }]}>
-                  {selectedMuskeln.size > 0 ? `${filteredUebungen.length} Übungen` : 'Muskelgruppe wählen'}
-                </Text>
-                {ALL_MUSKELGRUPPEN.map((mg) => {
-                  const active = selectedMuskeln.has(mg);
-                  return (
-                    <TouchableOpacity
-                      key={mg}
-                      style={[s.muskelChip, { borderColor: active ? C.accent : C.border, backgroundColor: active ? C.accentLight : C.surfaceAlt }]}
-                      onPress={() => toggleMuskel(mg)}
-                      activeOpacity={0.75}
-                    >
-                      <Text style={[s.muskelChipText, { color: active ? C.accent : C.textMuted }]}>{mg}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-                {selectedMuskeln.size > 0 && (
-                  <TouchableOpacity onPress={() => setSelectedMuskeln(new Set())} activeOpacity={0.8}>
-                    <Text style={[s.clearFilter, { color: C.warn }]}>Filter löschen ×</Text>
+          <View style={[s.filterCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <View style={s.filterHeader}>
+              <GBIcon name="filter" size={14} color={C.textDim} />
+              <Text style={[s.filterLabel, { color: C.textDim }]}>
+                {selectedMuskeln.size > 0 ? `${filteredUebungen.length} Übungen` : 'Nach Muskelgruppe filtern'}
+              </Text>
+              {selectedMuskeln.size > 0 && (
+                <TouchableOpacity onPress={() => setSelectedMuskeln(new Set())} activeOpacity={0.8}>
+                  <Text style={[s.clearFilter, { color: C.warn }]}>Zurücksetzen ×</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={s.chipRow}>
+              {ALL_MUSKELGRUPPEN.map((mg) => {
+                const active = selectedMuskeln.has(mg);
+                return (
+                  <TouchableOpacity
+                    key={mg}
+                    style={[s.muskelChip, { borderColor: active ? C.accent : C.border, backgroundColor: active ? C.accentLight : C.surfaceAlt }]}
+                    onPress={() => toggleMuskel(mg)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[s.muskelChipText, { color: active ? C.accent : C.textMuted }]}>{mg}</Text>
                   </TouchableOpacity>
-                )}
-              </View>
+                );
+              })}
             </View>
           </View>
         )}
@@ -392,13 +283,13 @@ const s = StyleSheet.create({
 
   content: { paddingHorizontal: SP.xl, paddingTop: SP.lg, gap: SP.md },
 
-  bodyMapCard: { borderRadius: R.xl, borderWidth: 1, padding: SP.md },
-  bodyMapRow:  { flexDirection: 'row', gap: SP.md, alignItems: 'flex-start' },
-  muskelChips: { flex: 1, gap: 6 },
-  filterLabel: { fontSize: FONT.xs, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
-  muskelChip:  { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', borderWidth: 1, borderRadius: R.full, paddingHorizontal: 8, paddingVertical: 3 },
-  muskelChipText: { fontSize: 11, fontWeight: '600' },
-  clearFilter: { fontSize: FONT.xs, fontWeight: '700', marginTop: 2 },
+  filterCard:   { borderRadius: R.xl, borderWidth: 1, padding: SP.md, gap: SP.sm },
+  filterHeader: { flexDirection: 'row', alignItems: 'center', gap: SP.sm },
+  filterLabel:  { flex: 1, fontSize: FONT.xs, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
+  clearFilter:  { fontSize: FONT.xs, fontWeight: '700' },
+  chipRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm },
+  muskelChip:   { borderWidth: 1, borderRadius: R.full, paddingHorizontal: 10, paddingVertical: 4 },
+  muskelChipText: { fontSize: 12, fontWeight: '600' },
 
   card:       { flexDirection: 'row', borderRadius: R.xl, borderWidth: 1, overflow: 'hidden' },
   cardStripe: { width: 3, backgroundColor: C.accent },
