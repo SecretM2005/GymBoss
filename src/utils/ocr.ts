@@ -5,36 +5,36 @@ export type OcrResult =
   | { ok: true;  text: string; parsed?: ParsedPlan }
   | { ok: false; reason: 'unsupported' | 'not_linked' | 'error' | 'no_key'; message: string };
 
-const GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
+const CLAUDE_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
 /**
  * Runs OCR / AI extraction on a local image URI.
  *
- * Web + Gemini key → Gemini 1.5 Flash (returns structured JSON directly)
- * Web without key  → Tesseract.js with canvas preprocessing
- * Native           → Google ML Kit (on-device, free, requires Expo Dev Build)
+ * Web + Anthropic key → Claude Haiku (returns structured JSON directly)
+ * Web without key     → Tesseract.js with canvas preprocessing
+ * Native              → Google ML Kit (on-device, free, requires Expo Dev Build)
  */
 export async function recognizeText(
   uri: string,
   onProgress?: (percent: number) => void,
 ): Promise<OcrResult> {
   if (Platform.OS === 'web') {
-    if (GEMINI_KEY) return runGemini(uri);
+    if (CLAUDE_KEY) return runClaude(uri);
     return runTesseract(uri, onProgress ?? (() => {}));
   }
   return runMlKit(uri);
 }
 
-export function hasGeminiKey(): boolean {
-  return Boolean(GEMINI_KEY);
+export function hasClaudeKey(): boolean {
+  return Boolean(CLAUDE_KEY);
 }
 
-// ─── Gemini 1.5 Flash ──────────────────────────────────────────────────────────
+// ─── Claude Vision ─────────────────────────────────────────────────────────────
 
-const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const CLAUDE_URL    = 'https://api.anthropic.com/v1/messages';
+const CLAUDE_MODEL  = 'claude-haiku-4-5-20251001';
 
-const GEMINI_PROMPT = `You are a fitness training plan extractor.
+const PLAN_PROMPT = `You are a fitness training plan extractor.
 Analyze this training plan image and extract the COMPLETE structure.
 Return ONLY valid JSON — no markdown fences, no explanation.
 
@@ -70,34 +70,41 @@ Rules:
 - If a cell has multiple exercises, create multiple uebungen entries.
 - Preserve the original language for names (German or English).`;
 
-async function runGemini(uri: string): Promise<OcrResult> {
+async function runClaude(uri: string): Promise<OcrResult> {
   try {
     const { data, mimeType } = await uriToBase64Web(uri);
 
     const body = {
-      contents: [{
-        parts: [
-          { inline_data: { mime_type: mimeType, data } },
-          { text: GEMINI_PROMPT },
+      model:      CLAUDE_MODEL,
+      max_tokens: 2048,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mimeType, data } },
+          { type: 'text',  text: PLAN_PROMPT },
         ],
       }],
-      generationConfig: { response_mime_type: 'application/json', temperature: 0 },
     };
 
-    const res = await fetch(`${GEMINI_URL}?key=${GEMINI_KEY}`, {
+    const res = await fetch(CLAUDE_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(body),
+      headers: {
+        'Content-Type':                          'application/json',
+        'x-api-key':                             CLAUDE_KEY,
+        'anthropic-version':                     '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
       const err = await res.text();
-      return { ok: false, reason: 'error', message: `Gemini API Fehler ${res.status}: ${err.slice(0, 200)}` };
+      return { ok: false, reason: 'error', message: `Claude API Fehler ${res.status}: ${err.slice(0, 200)}` };
     }
 
     const json = await res.json();
-    const raw  = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    const plan = parseGeminiJson(raw);
+    const raw  = json?.content?.[0]?.text ?? '';
+    const plan = parsePlanJson(raw);
 
     return { ok: true, text: raw, parsed: plan };
   } catch (e: any) {
@@ -105,10 +112,9 @@ async function runGemini(uri: string): Promise<OcrResult> {
   }
 }
 
-/** Convert Gemini's raw JSON string to a ParsedPlan with typed UebungParam[]. */
-function parseGeminiJson(raw: string): ParsedPlan {
+/** Parses the AI-returned JSON string into a typed ParsedPlan. */
+function parsePlanJson(raw: string): ParsedPlan {
   try {
-    // Strip possible markdown fences just in case
     const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
     const g     = JSON.parse(clean);
 
@@ -125,9 +131,9 @@ function parseGeminiJson(raw: string): ParsedPlan {
     });
 
     return {
-      name:         g.name        ? String(g.name).trim()        : undefined,
-      sportart:     g.sportart    ? String(g.sportart).trim()     : undefined,
-      anzahlWochen: g.anzahlWochen ? Number(g.anzahlWochen)       : wochen.length || undefined,
+      name:         g.name         ? String(g.name).trim()        : undefined,
+      sportart:     g.sportart     ? String(g.sportart).trim()     : undefined,
+      anzahlWochen: g.anzahlWochen ? Number(g.anzahlWochen)        : wochen.length || undefined,
       wochen,
       rawText: raw,
     };
