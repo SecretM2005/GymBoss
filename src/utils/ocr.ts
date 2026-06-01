@@ -32,7 +32,7 @@ export function hasGeminiKey(): boolean {
 // ─── Gemini 1.5 Flash ──────────────────────────────────────────────────────────
 
 const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 const GEMINI_PROMPT = `You are a fitness training plan extractor.
 Analyze this training plan image and extract the COMPLETE structure.
@@ -161,14 +161,23 @@ async function runTesseract(
   try {
     const enhanced = await preprocessImageWeb(uri);
 
-    const mod      = await import('tesseract.js');
-    const Tesseract = (mod.default ?? mod) as any;
+    const mod          = await import('tesseract.js');
+    const createWorker = (mod.createWorker ?? (mod.default as any)?.createWorker) as Function;
 
-    const result = await Tesseract.recognize(enhanced, 'deu+eng', {
+    const worker = await createWorker('deu+eng', 1, {
       logger: (m: any) => {
         if (m.status === 'recognizing text') onProgress(Math.round(m.progress * 100));
       },
     });
+
+    // PSM 11 = sparse text: finds all text regardless of layout — best for tables & mixed plans
+    await (worker as any).setParameters({
+      tessedit_pageseg_mode: '11',
+      preserve_interword_spaces: '1',
+    });
+
+    const result = await (worker as any).recognize(enhanced);
+    await (worker as any).terminate();
 
     return { ok: true, text: result.data.text as string };
   } catch (e: any) {
@@ -183,23 +192,33 @@ async function preprocessImageWeb(uri: string): Promise<string> {
     img.onerror = () => resolve(uri);
     img.onload  = () => {
       try {
-        const SCALE = 2;
+        // Scale up small images more aggressively; cap so the longer side stays ≤ 3000px
+        const maxSide = Math.max(img.naturalWidth, img.naturalHeight);
+        const SCALE   = maxSide <= 800 ? 3 : maxSide <= 1600 ? 2 : 1;
         const w = img.naturalWidth  * SCALE;
         const h = img.naturalHeight * SCALE;
 
+        // Pass 1: slight blur to kill camera noise, then grayscale + high contrast
         const c1   = document.createElement('canvas');
         c1.width   = w; c1.height = h;
         const ctx1 = c1.getContext('2d')!;
-        ctx1.filter = 'grayscale(100%) contrast(1.9) brightness(1.05)';
+        ctx1.filter = 'blur(0.5px) grayscale(100%) contrast(2.2)';
         ctx1.drawImage(img, 0, 0, w, h);
         ctx1.filter = 'none';
 
+        // Pass 2: unsharp mask to sharpen character edges
         const c2   = document.createElement('canvas');
         c2.width   = w; c2.height = h;
         const ctx2 = c2.getContext('2d')!;
         ctx2.putImageData(unsharpMask(ctx1.getImageData(0, 0, w, h), w, h), 0, 0);
 
-        resolve(c2.toDataURL('image/png', 1.0));
+        // Pass 3: Otsu binarization → clean black-on-white, maximises Tesseract accuracy
+        const c3   = document.createElement('canvas');
+        c3.width   = w; c3.height = h;
+        const ctx3 = c3.getContext('2d')!;
+        ctx3.putImageData(binarize(ctx2.getImageData(0, 0, w, h), w, h), 0, 0);
+
+        resolve(c3.toDataURL('image/png', 1.0));
       } catch { resolve(uri); }
     };
     img.src = uri;
@@ -221,6 +240,42 @@ function unsharpMask(data: ImageData, w: number, h: number): ImageData {
       dst[i] = dst[i + 1] = dst[i + 2] = v;
       dst[i + 3] = 255;
     }
+  }
+  return out;
+}
+
+/** Otsu's method: finds the optimal global threshold that maximises between-class variance. */
+function otsuThreshold(pixels: Uint8ClampedArray, n: number): number {
+  const hist = new Int32Array(256);
+  for (let i = 0; i < n; i++) hist[pixels[i * 4]]++;
+
+  let sum = 0;
+  for (let t = 0; t < 256; t++) sum += t * hist[t];
+
+  let sumB = 0, wB = 0, maxVar = 0, threshold = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (!wB) continue;
+    const wF = n - wB;
+    if (!wF) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const variance = wB * wF * (mB - mF) ** 2;
+    if (variance > maxVar) { maxVar = variance; threshold = t; }
+  }
+  return threshold;
+}
+
+function binarize(data: ImageData, w: number, h: number): ImageData {
+  const t   = otsuThreshold(data.data, w * h);
+  const out = new ImageData(w, h);
+  const src = data.data;
+  const dst = out.data;
+  for (let i = 0; i < w * h; i++) {
+    const v = src[i * 4] >= t ? 255 : 0;
+    dst[i * 4] = dst[i * 4 + 1] = dst[i * 4 + 2] = v;
+    dst[i * 4 + 3] = 255;
   }
   return out;
 }
