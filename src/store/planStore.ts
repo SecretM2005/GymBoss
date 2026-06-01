@@ -49,6 +49,7 @@ type PlanState = {
   addPlan: (data: Omit<TrainingsPlan, 'id' | 'wochen'>) => string;
   updatePlan: (id: string, data: Partial<Omit<TrainingsPlan, 'id' | 'wochen'>>) => void;
   deletePlan: (id: string) => void;
+  duplicatePlan: (id: string) => string;
   getPlanById: (id: string) => TrainingsPlan | undefined;
   getPlaeneForSportler: (sportlerId: string) => TrainingsPlan[];
   addWoche: (planId: string, notizen?: string) => string;
@@ -82,6 +83,24 @@ export const usePlanStore = create<PlanState>((set, get) => ({
 
   deletePlan: (id) =>
     set((s) => ({ plaene: s.plaene.filter((p) => p.id !== id) })),
+
+  duplicatePlan: (id) => {
+    const original = get().plaene.find((p) => p.id === id);
+    if (!original) return '';
+    const newId = uid('p');
+    const copy: TrainingsPlan = {
+      ...original,
+      id: newId,
+      name: `${original.name} (Kopie)`,
+      wochen: original.wochen.map((w) => ({
+        ...w,
+        id: uid('w'),
+        einheiten: w.einheiten.map((e) => ({ ...e, id: uid('e') })),
+      })),
+    };
+    set((s) => ({ plaene: [...s.plaene, copy] }));
+    return newId;
+  },
 
   getPlanById: (id) => get().plaene.find((p) => p.id === id),
 

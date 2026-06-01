@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TextInput, TouchableOpacity,
+  TextInput, TouchableOpacity, Alert,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,10 +37,20 @@ function SportartChip({ sportart }: { sportart?: string }) {
 
 export default function PlanListScreen({ navigation }: Props) {
   const C = useColors();
-  const { plaene } = usePlanStore();
+  const { plaene, duplicatePlan } = usePlanStore();
   const { sportler } = useAthletenStore();
   const [q, setQ] = useState('');
   const insets = useSafeAreaInsets();
+
+  const handleDuplicate = (planId: string, planName: string) => {
+    Alert.alert('Plan duplizieren', `„${planName}" als Kopie speichern?`, [
+      { text: 'Abbrechen', style: 'cancel' },
+      { text: 'Duplizieren', onPress: () => {
+        const newId = duplicatePlan(planId);
+        if (newId) navigation.navigate('PlanDetail', { planId: newId });
+      }},
+    ]);
+  };
 
   const filtered = plaene.filter((p) =>
     p.name.toLowerCase().includes(q.toLowerCase()) ||
@@ -138,11 +148,21 @@ export default function PlanListScreen({ navigation }: Props) {
                       <Text style={[styles.noSportler, { color: C.textDim }]}>Kein Sportler zugewiesen</Text>
                     )}
                   </View>
-                  <View style={styles.wochenBadge}>
-                    <GBIcon name="layers" size={12} color={C.textMuted} />
-                    <Text style={[styles.wochenText, { color: C.textMuted }]}>
-                      {plan.wochen.length} {plan.wochen.length === 1 ? 'Woche' : 'Wochen'}
-                    </Text>
+                  <View style={styles.cardActions}>
+                    <View style={styles.wochenBadge}>
+                      <GBIcon name="layers" size={12} color={C.textMuted} />
+                      <Text style={[styles.wochenText, { color: C.textMuted }]}>
+                        {plan.wochen.length} {plan.wochen.length === 1 ? 'Woche' : 'Wochen'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.copyBtn, { backgroundColor: C.surfaceAlt }]}
+                      onPress={() => handleDuplicate(plan.id, plan.name)}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <GBIcon name="copy" size={13} color={C.textMuted} />
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -215,8 +235,10 @@ const styles = StyleSheet.create({
   avatarWrap:  { borderRadius: 13, borderWidth: 1.5, borderColor: C.bg },
   noSportler:  { fontSize: FONT.xs, color: C.textDim, fontStyle: 'italic' },
 
+  cardActions: { flexDirection: 'row', alignItems: 'center', gap: SP.sm },
   wochenBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   wochenText:  { fontFamily: FONT_MONO, fontSize: FONT.xs, color: C.textMuted, fontWeight: '600' },
+  copyBtn:     { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
 
   chip:     { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: SP.sm, paddingVertical: 3, borderRadius: R.full },
   chipDot:  { width: 5, height: 5, borderRadius: 3 },

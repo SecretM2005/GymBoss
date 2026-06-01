@@ -6,6 +6,7 @@ import {
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MeinTrainingStackParamList, TrainingsPlan, Einheit } from '../../types';
+import { exportPlanAsPdf } from '../../utils/planPdfExport';
 import { usePlanStore } from '../../store/planStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAthletenStore } from '../../store/athletenStore';
@@ -274,6 +275,13 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
                     <Text style={[styles.planProgress, { color: allE.length > 0 && done === allE.length ? C.accent : C.textDim }]}>
                       {done}/{allE.length} ✓
                     </Text>
+                    <TouchableOpacity
+                      style={[styles.sharePlanBtn, { backgroundColor: C.surfaceAlt }]}
+                      onPress={() => exportPlanAsPdf(plan)}
+                      activeOpacity={0.7}
+                    >
+                      <GBIcon name="share" size={14} color={C.textMuted} />
+                    </TouchableOpacity>
                   </View>
                   <TouchableOpacity
                     style={[styles.planDetailRow, { borderTopColor: C.border }]}
@@ -312,6 +320,13 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
                     </View>
                   )}
                 </View>
+                <TouchableOpacity
+                  style={[styles.sharePlanBtn, { backgroundColor: C.surfaceAlt }]}
+                  onPress={() => exportPlanAsPdf(plan)}
+                  activeOpacity={0.7}
+                >
+                  <GBIcon name="share" size={14} color={C.textMuted} />
+                </TouchableOpacity>
               </View>
 
               {plan.wochen.length === 0 ? (
@@ -448,6 +463,7 @@ const styles = StyleSheet.create({
   planChipDot:    { width: 4, height: 4, borderRadius: 2 },
   planChipText:   { fontSize: 9, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
   planProgress:   { fontFamily: FONT_MONO, fontSize: FONT.xs, fontWeight: '700', marginTop: 2 },
+  sharePlanBtn:   { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   planDetailRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SP.md, borderTopWidth: 1 },
   planDetailText: { fontSize: FONT.sm, fontWeight: '600', color: C.accent },
 
