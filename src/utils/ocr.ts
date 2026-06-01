@@ -324,6 +324,33 @@ function reconstructFromCharPositions(rawText: string): string {
 
   if (headerIdx === -1) return rawText; // no table structure — return as-is
 
+  // Some OCR outputs split the 7-day header across two lines.
+  // Check the next 2 lines for more day names and estimate their column positions
+  // using the average spacing from the detected header row.
+  {
+    const avgWidth = cols.length > 1
+      ? (cols[cols.length - 1].pos - cols[0].pos) / (cols.length - 1)
+      : 12;
+    let nextPos = cols[cols.length - 1].pos + avgWidth;
+
+    for (let i = headerIdx + 1; i <= Math.min(headerIdx + 2, lines.length - 1); i++) {
+      const lower = lines[i].toLowerCase();
+      const extra: { name: string; pos: number }[] = [];
+      for (const d of ALL_DAYS) {
+        if (cols.some(c => c.name.toLowerCase() === d)) continue;
+        if (lower.includes(d)) {
+          extra.push({ name: lines[i].slice(lower.indexOf(d), lower.indexOf(d) + d.length), pos: Math.round(nextPos) });
+          nextPos += avgWidth;
+        }
+      }
+      // Only treat as a header continuation if it contains day names and little else
+      if (extra.length > 0 && extra.length >= lines[i].trim().split(/\s+/).length - 1) {
+        cols = [...cols, ...extra];
+        headerIdx = i;
+      }
+    }
+  }
+
   // Column boundary: each col owns chars from its pos up to the next col's pos
   const colOf = (charPos: number): number => {
     for (let i = cols.length - 1; i >= 0; i--) {
@@ -337,8 +364,9 @@ function reconstructFromCharPositions(rawText: string): string {
     if (lines[i].trim()) output.push(lines[i].trim());
   }
 
-  // Week separator: short line (≤5 tokens) with date range "1-7." / "1.-7." or "Woche N"
-  const WEEK_RE = /\d{1,2}\.?\s*[-–]\s*\d{1,2}\.|\bwoche\s+\d|\bweek\s+\d/i;
+  // Week separator: short line (≤5 tokens) with date range "1-7" / "1.-7." or "Woche N"
+  // Trailing period is optional; exclude reps-like contexts (followed by reps/wdh/kg)
+  const WEEK_RE = /\d{1,2}\.?\s*[-–]\s*\d{1,2}\.?(?!\s*(?:reps?|wdh|wiederh|mal|kg|x\d))|\bwoche\s+\d|\bweek\s+\d/i;
 
   const colBuf = new Map<number, string[]>();
   let weekLine = '';
