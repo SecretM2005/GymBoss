@@ -101,7 +101,7 @@ export function parseTrainingText(rawText: string): ParsedPlan {
   const wochenPhrase   = lower.match(/(\d+)\s*(?:wochen|weeks?)/);
   const wocheHeads     = [...lower.matchAll(/(?:woche|week)\s*\.?\s*(\d+)/g)];
   const maxWocheNum    = wocheHeads.length ? Math.max(...wocheHeads.map((m) => parseInt(m[1]))) : 0;
-  const dateRangeCount = (lower.match(/\d+\.\s*[-–]\s*\d+\./g) ?? []).length; // "1.-7."
+  const dateRangeCount = (lower.match(/\d+\.?\s*[-–]\s*\d+\./g) ?? []).length; // "1.-7." or "1-7."
   const wochentageDE   = (lower.match(/\b(montag|dienstag|mittwoch|donnerstag|freitag)\b/g) ?? []).length;
   const wochentageEN   = (lower.match(/\b(monday|tuesday|wednesday|thursday|friday)\b/g) ?? []).length;
 
@@ -139,7 +139,7 @@ function buildWochenStructure(text: string, fallbackWochen: number): ParsedWoche
   }
 
   // 2. Date-range week headers ("1.-7. September", "8.-14. Oktober", …)
-  const dateRanges = [...text.matchAll(/\d{1,2}\.\s*[-–]\s*\d{1,2}\./g)];
+  const dateRanges = [...text.matchAll(/\d{1,2}\.?\s*[-–]\s*\d{1,2}\./g)];
   if (dateRanges.length >= 2) {
     for (let i = 0; i < dateRanges.length; i++) {
       const start = (dateRanges[i].index ?? 0) + dateRanges[i][0].length;
