@@ -1,26 +1,158 @@
 import { Platform } from 'react-native';
+import { ParsedPlan, ParsedWoche, ParsedEinheit, ParsedUebung, paramStringToUebungParams } from './trainingsplanParser';
 
 export type OcrResult =
-  | { ok: true;  text: string }
-  | { ok: false; reason: 'unsupported' | 'not_linked' | 'error'; message: string };
+  | { ok: true;  text: string; parsed?: ParsedPlan }
+  | { ok: false; reason: 'unsupported' | 'not_linked' | 'error' | 'no_key'; message: string };
+
+const GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
 
 /**
- * Runs OCR on a local image URI.
+ * Runs OCR / AI extraction on a local image URI.
  *
- * Web    → Tesseract.js with canvas preprocessing (grayscale, contrast, 2× upscale)
- * Native → Google ML Kit (on-device, free, requires Expo Dev Build)
+ * Web + Gemini key → Gemini 1.5 Flash (returns structured JSON directly)
+ * Web without key  → Tesseract.js with canvas preprocessing
+ * Native           → Google ML Kit (on-device, free, requires Expo Dev Build)
  */
 export async function recognizeText(
   uri: string,
   onProgress?: (percent: number) => void,
 ): Promise<OcrResult> {
   if (Platform.OS === 'web') {
+    if (GEMINI_KEY) return runGemini(uri);
     return runTesseract(uri, onProgress ?? (() => {}));
   }
   return runMlKit(uri);
 }
 
-// ─── Web: Tesseract.js with image preprocessing ────────────────────────────────
+export function hasGeminiKey(): boolean {
+  return Boolean(GEMINI_KEY);
+}
+
+// ─── Gemini 1.5 Flash ──────────────────────────────────────────────────────────
+
+const GEMINI_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+const GEMINI_PROMPT = `You are a fitness training plan extractor.
+Analyze this training plan image and extract the COMPLETE structure.
+Return ONLY valid JSON — no markdown fences, no explanation.
+
+JSON schema:
+{
+  "name": "plan title (string)",
+  "sportart": "one of: Kraftsport | Leichtathletik | Kampfsport | Konditionierung | Mobility | Crossfit | Andere",
+  "anzahlWochen": <number>,
+  "wochen": [
+    {
+      "wochennummer": <number>,
+      "einheiten": [
+        {
+          "name": "e.g. Montag / Tuesday / Training A",
+          "uebungen": [
+            {
+              "name": "exercise name",
+              "parameter": "e.g. 3x8 80kg  or  35min  or  40 Minuten"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Extract ALL weeks and ALL training days that have exercises.
+- Skip rest days (Rest / Ruhe / Off) — leave them out entirely.
+- For "parameter": use sets×reps + optional weight (e.g. "4x10 60kg"),
+  or duration (e.g. "35min" / "40 Minuten" / "150-180 Minuten"),
+  or distance (e.g. "5km").
+- If a cell has multiple exercises, create multiple uebungen entries.
+- Preserve the original language for names (German or English).`;
+
+async function runGemini(uri: string): Promise<OcrResult> {
+  try {
+    const { data, mimeType } = await uriToBase64Web(uri);
+
+    const body = {
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mimeType, data } },
+          { text: GEMINI_PROMPT },
+        ],
+      }],
+      generationConfig: { response_mime_type: 'application/json', temperature: 0 },
+    };
+
+    const res = await fetch(`${GEMINI_URL}?key=${GEMINI_KEY}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      return { ok: false, reason: 'error', message: `Gemini API Fehler ${res.status}: ${err.slice(0, 200)}` };
+    }
+
+    const json = await res.json();
+    const raw  = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const plan = parseGeminiJson(raw);
+
+    return { ok: true, text: raw, parsed: plan };
+  } catch (e: any) {
+    return { ok: false, reason: 'error', message: String(e?.message ?? e) };
+  }
+}
+
+/** Convert Gemini's raw JSON string to a ParsedPlan with typed UebungParam[]. */
+function parseGeminiJson(raw: string): ParsedPlan {
+  try {
+    // Strip possible markdown fences just in case
+    const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const g     = JSON.parse(clean);
+
+    const wochen: ParsedWoche[] = (g.wochen ?? []).map((w: any) => {
+      const einheiten: ParsedEinheit[] = (w.einheiten ?? []).map((e: any) => {
+        const uebungen: ParsedUebung[] = (e.uebungen ?? []).map((u: any) => ({
+          name:      String(u.name ?? '').trim(),
+          parameter: String(u.parameter ?? '').trim(),
+          params:    paramStringToUebungParams(String(u.parameter ?? '')),
+        }));
+        return { name: String(e.name ?? 'Einheit'), uebungen };
+      });
+      return { wochennummer: Number(w.wochennummer ?? 1), einheiten };
+    });
+
+    return {
+      name:         g.name        ? String(g.name).trim()        : undefined,
+      sportart:     g.sportart    ? String(g.sportart).trim()     : undefined,
+      anzahlWochen: g.anzahlWochen ? Number(g.anzahlWochen)       : wochen.length || undefined,
+      wochen,
+      rawText: raw,
+    };
+  } catch {
+    return { name: undefined, sportart: undefined, anzahlWochen: undefined, wochen: [], rawText: raw };
+  }
+}
+
+async function uriToBase64Web(uri: string): Promise<{ data: string; mimeType: string }> {
+  const response = await fetch(uri);
+  const blob     = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror  = reject;
+    reader.onloadend = () => {
+      const result   = reader.result as string;
+      const [header] = result.split(',');
+      const mimeType = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg';
+      resolve({ data: result.split(',')[1], mimeType });
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+// ─── Web fallback: Tesseract.js with canvas preprocessing ─────────────────────
 
 async function runTesseract(
   uri: string,
@@ -29,20 +161,14 @@ async function runTesseract(
   try {
     const enhanced = await preprocessImageWeb(uri);
 
-    const mod = await import('tesseract.js');
+    const mod      = await import('tesseract.js');
     const Tesseract = (mod.default ?? mod) as any;
 
-    const result = await Tesseract.recognize(
-      enhanced,
-      'deu+eng',
-      {
-        logger: (m: any) => {
-          if (m.status === 'recognizing text') {
-            onProgress(Math.round(m.progress * 100));
-          }
-        },
+    const result = await Tesseract.recognize(enhanced, 'deu+eng', {
+      logger: (m: any) => {
+        if (m.status === 'recognizing text') onProgress(Math.round(m.progress * 100));
       },
-    );
+    });
 
     return { ok: true, text: result.data.text as string };
   } catch (e: any) {
@@ -50,93 +176,59 @@ async function runTesseract(
   }
 }
 
-/**
- * Preprocesses the image in a Canvas for better OCR results:
- * - 2× upscale  (more pixels → better letter recognition)
- * - Grayscale   (removes color noise)
- * - Contrast +  (makes text sharper against background)
- * - Sharpen via unsharp mask (convolution kernel)
- */
 async function preprocessImageWeb(uri: string): Promise<string> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const img = new (window as any).Image() as HTMLImageElement;
     img.crossOrigin = 'anonymous';
-
-    img.onerror = () => resolve(uri); // fallback to original if loading fails
-
-    img.onload = () => {
+    img.onerror = () => resolve(uri);
+    img.onload  = () => {
       try {
         const SCALE = 2;
         const w = img.naturalWidth  * SCALE;
         const h = img.naturalHeight * SCALE;
 
-        // ── Step 1: upscale + grayscale + contrast ──────────────────────────
-        const c1 = document.createElement('canvas');
-        c1.width  = w;
-        c1.height = h;
+        const c1   = document.createElement('canvas');
+        c1.width   = w; c1.height = h;
         const ctx1 = c1.getContext('2d')!;
-        // CSS filter: grayscale, then boost contrast and brightness slightly
         ctx1.filter = 'grayscale(100%) contrast(1.9) brightness(1.05)';
         ctx1.drawImage(img, 0, 0, w, h);
         ctx1.filter = 'none';
 
-        // ── Step 2: unsharp mask to sharpen text edges ──────────────────────
-        const c2 = document.createElement('canvas');
-        c2.width  = w;
-        c2.height = h;
+        const c2   = document.createElement('canvas');
+        c2.width   = w; c2.height = h;
         const ctx2 = c2.getContext('2d')!;
-
-        const imageData = ctx1.getImageData(0, 0, w, h);
-        const sharpened = unsharpMask(imageData, w, h);
-        ctx2.putImageData(sharpened, 0, 0);
+        ctx2.putImageData(unsharpMask(ctx1.getImageData(0, 0, w, h), w, h), 0, 0);
 
         resolve(c2.toDataURL('image/png', 1.0));
-      } catch {
-        resolve(uri); // fallback
-      }
+      } catch { resolve(uri); }
     };
-
     img.src = uri;
   });
 }
 
-/**
- * Simple unsharp mask: blurs a copy of the image, then subtracts
- * the blur from the original to amplify edges (makes text crisper).
- */
 function unsharpMask(data: ImageData, w: number, h: number): ImageData {
-  const src    = data.data;
-  const output = new ImageData(w, h);
-  const dst    = output.data;
-
-  // 3×3 box blur kernel on grayscale (R=G=B for grayscale image)
+  const src = data.data;
+  const out = new ImageData(w, h);
+  const dst = out.data;
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
       let sum = 0;
-      for (let ky = -1; ky <= 1; ky++) {
-        for (let kx = -1; kx <= 1; kx++) {
-          const idx = ((y + ky) * w + (x + kx)) * 4;
-          sum += src[idx]; // R channel (same as G and B for grayscale)
-        }
-      }
-      const blurred = sum / 9;
-      const i       = (y * w + x) * 4;
-      const sharp   = src[i] + 1.5 * (src[i] - blurred); // unsharp mask formula
-      const clamped = Math.max(0, Math.min(255, sharp));
-
-      dst[i] = dst[i + 1] = dst[i + 2] = clamped;
+      for (let ky = -1; ky <= 1; ky++)
+        for (let kx = -1; kx <= 1; kx++)
+          sum += src[((y + ky) * w + (x + kx)) * 4];
+      const i = (y * w + x) * 4;
+      const v = Math.max(0, Math.min(255, src[i] + 1.5 * (src[i] - sum / 9)));
+      dst[i] = dst[i + 1] = dst[i + 2] = v;
       dst[i + 3] = 255;
     }
   }
-
-  return output;
+  return out;
 }
 
 // ─── Native: Google ML Kit ─────────────────────────────────────────────────────
 
 async function runMlKit(uri: string): Promise<OcrResult> {
   try {
-    // Dynamic require keeps Metro from bundling native code into web builds
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const TextRecognition = require('@react-native-ml-kit/text-recognition').default;
     const result = await TextRecognition.recognize(uri);
@@ -157,39 +249,25 @@ async function runMlKit(uri: string): Promise<OcrResult> {
   }
 }
 
-/**
- * Reconstructs correct reading order from ML Kit block positions.
- * Sorts blocks into horizontal bands (rows) by Y centre, then left-to-right.
- * Outputs tab-separated columns per row so the parser can split them correctly.
- */
 function extractOrderedText(result: any): string {
   const blocks: any[] = result?.blocks ?? [];
   if (blocks.length === 0) return result?.text ?? '';
 
-  const withCenter = blocks.map((b: any) => ({
+  const items = blocks.map((b: any) => ({
     b,
-    cy:   (b.frame?.top  ?? 0) + (b.frame?.height ?? 0) / 2,
+    cy:   (b.frame?.top ?? 0) + (b.frame?.height ?? 0) / 2,
     left:  b.frame?.left ?? 0,
   }));
-
-  withCenter.sort((a, b) => a.cy - b.cy);
+  items.sort((a, b) => a.cy - b.cy);
 
   const ROW_TOLERANCE = 24;
-  const rows: (typeof withCenter)[] = [];
-
-  for (const item of withCenter) {
-    const lastRow = rows[rows.length - 1];
-    const lastCy  = lastRow
-      ? lastRow.reduce((s, x) => s + x.cy, 0) / lastRow.length
-      : -Infinity;
-
-    if (Math.abs(item.cy - lastCy) <= ROW_TOLERANCE) {
-      lastRow.push(item);
-    } else {
-      rows.push([item]);
-    }
+  const rows: (typeof items)[] = [];
+  for (const item of items) {
+    const last   = rows[rows.length - 1];
+    const lastCy = last ? last.reduce((s, x) => s + x.cy, 0) / last.length : -Infinity;
+    if (Math.abs(item.cy - lastCy) <= ROW_TOLERANCE) last.push(item);
+    else rows.push([item]);
   }
-
   for (const row of rows) row.sort((a, b) => a.left - b.left);
 
   return rows
