@@ -180,12 +180,13 @@ async function runTesseract(
     await (worker as any).terminate();
 
     const words: any[] = result?.data?.words ?? result?.words ?? [];
+    const rawText = (result?.data?.text ?? result?.text ?? '') as string;
     const text = words.length > 0
       ? reconstructTableFromBboxes(words)
-      : (result?.data?.text ?? result?.text ?? '') as string;
+      : reconstructFromCharPositions(rawText);
 
     if (__DEV__) {
-      console.log('[OCR] words:', words.length, '| first 500 chars of reconstructed text:\n', text.slice(0, 500));
+      console.log('[OCR] words:', words.length, '| reconstructed:\n', text.slice(0, 600));
     }
 
     return { ok: true, text };
@@ -283,6 +284,133 @@ function binarize(data: ImageData, w: number, h: number): ImageData {
     dst[i * 4 + 3] = 255;
   }
   return out;
+}
+
+// ─── Tesseract character-position table reconstruction (no bbox needed) ───────
+/**
+ * When Tesseract doesn't return word bboxes, we can still reconstruct table
+ * columns from the flat OCR text: with preserve_interword_spaces enabled,
+ * words stay roughly at the same character offset as their visual column.
+ *
+ * Detects the weekday header row, maps every subsequent word to the nearest
+ * day column by character index, then emits structured text the parser
+ * can split by day name.
+ */
+function reconstructFromCharPositions(rawText: string): string {
+  const lines = rawText.split('\n');
+
+  const ALL_DAYS = [
+    'montag','dienstag','mittwoch','donnerstag','freitag','samstag','sonntag',
+    'monday','tuesday','wednesday','thursday','friday','saturday','sunday',
+  ];
+
+  // Find header row: a line that contains ≥ 3 different day names
+  let headerIdx = -1;
+  let cols: { name: string; pos: number }[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const lower = lines[i].toLowerCase();
+    const found: { name: string; pos: number }[] = [];
+    for (const d of ALL_DAYS) {
+      const p = lower.indexOf(d);
+      if (p !== -1) found.push({ name: lines[i].slice(p, p + d.length), pos: p });
+    }
+    if (found.length >= 3) {
+      headerIdx = i;
+      cols = found.sort((a, b) => a.pos - b.pos);
+      break;
+    }
+  }
+
+  if (headerIdx === -1) return rawText; // no table structure — return as-is
+
+  // Some OCR outputs split the 7-day header across two lines.
+  // Check the next 2 lines for more day names and estimate their column positions
+  // using the average spacing from the detected header row.
+  {
+    const avgWidth = cols.length > 1
+      ? (cols[cols.length - 1].pos - cols[0].pos) / (cols.length - 1)
+      : 12;
+    let nextPos = cols[cols.length - 1].pos + avgWidth;
+
+    for (let i = headerIdx + 1; i <= Math.min(headerIdx + 2, lines.length - 1); i++) {
+      const lower = lines[i].toLowerCase();
+      const extra: { name: string; pos: number }[] = [];
+      for (const d of ALL_DAYS) {
+        if (cols.some(c => c.name.toLowerCase() === d)) continue;
+        if (lower.includes(d)) {
+          extra.push({ name: lines[i].slice(lower.indexOf(d), lower.indexOf(d) + d.length), pos: Math.round(nextPos) });
+          nextPos += avgWidth;
+        }
+      }
+      // Only treat as a header continuation if it contains day names and little else
+      if (extra.length > 0 && extra.length >= lines[i].trim().split(/\s+/).length - 1) {
+        cols = [...cols, ...extra];
+        headerIdx = i;
+      }
+    }
+  }
+
+  // Column boundary: each col owns chars from its pos up to the next col's pos
+  const colOf = (charPos: number): number => {
+    for (let i = cols.length - 1; i >= 0; i--) {
+      if (charPos >= cols[i].pos) return i;
+    }
+    return 0;
+  };
+
+  const output: string[] = [];
+  for (let i = 0; i < headerIdx; i++) {
+    if (lines[i].trim()) output.push(lines[i].trim());
+  }
+
+  // Week separator: short line (≤5 tokens) with date range "1-7" / "1.-7." or "Woche N"
+  // Trailing period is optional; exclude reps-like contexts (followed by reps/wdh/kg)
+  const WEEK_RE = /\d{1,2}\.?\s*[-–]\s*\d{1,2}\.?(?!\s*(?:reps?|wdh|wiederh|mal|kg|x\d))|\bwoche\s+\d|\bweek\s+\d/i;
+
+  const colBuf = new Map<number, string[]>();
+  let weekLine = '';
+  const hasBuf = () => { for (const v of colBuf.values()) if (v.length) return true; return false; };
+
+  const flush = () => {
+    if (!hasBuf()) return;
+    if (weekLine) { output.push(weekLine); weekLine = ''; }
+    for (let c = 0; c < cols.length; c++) {
+      const ws = colBuf.get(c);
+      if (ws?.length) { output.push(cols[c].name); output.push(ws.join(' ')); }
+    }
+    colBuf.clear();
+  };
+
+  for (let li = headerIdx + 1; li < lines.length; li++) {
+    const raw  = lines[li];
+    const trim = raw.trim();
+    if (!trim) continue;
+
+    // Skip another header-like row (≥3 day names on one line)
+    if (ALL_DAYS.filter(d => raw.toLowerCase().includes(d)).length >= 3) continue;
+
+    // Week separator
+    if (WEEK_RE.test(trim) && trim.split(/\s+/).length <= 5) {
+      flush();
+      weekLine = trim;
+      continue;
+    }
+
+    // Assign each token to a column by its character offset in the line
+    const tok = /\S+/g;
+    let m: RegExpExecArray | null;
+    while ((m = tok.exec(raw)) !== null) {
+      const c  = colOf(m.index);
+      const arr = colBuf.get(c) ?? [];
+      arr.push(m[0]);
+      colBuf.set(c, arr);
+    }
+  }
+
+  flush();
+  if (weekLine) output.push(weekLine);
+  return output.join('\n');
 }
 
 // ─── Tesseract bbox-based table reconstruction ────────────────────────────────
