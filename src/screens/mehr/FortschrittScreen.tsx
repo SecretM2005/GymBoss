@@ -147,7 +147,7 @@ export default function FortschrittScreen({ navigation }: Props) {
         <View style={[s.tileIcon, { backgroundColor: 'rgba(203,255,62,0.10)' }]}>
           <GBIcon name="barChart" size={18} color={C.accent} />
         </View>
-        <Text style={[s.headerTitle, { color: C.text }]}>Fortschritt & Statistiken</Text>
+        <Text style={[s.headerTitle, { color: C.text }]}>Team-Statistiken</Text>
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>

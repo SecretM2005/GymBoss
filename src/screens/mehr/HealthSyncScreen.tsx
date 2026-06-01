@@ -4,14 +4,13 @@ import {
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MehrStackParamList } from '../../types';
 import { useSessionLogStore } from '../../store/sessionLogStore';
 import { usePlanStore } from '../../store/planStore';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 import { GBIcon } from '../../components/GBIcon';
 
 type Props = {
-  navigation: StackNavigationProp<MehrStackParamList, 'HealthSync'>;
+  navigation: StackNavigationProp<any>;
 };
 
 const PLATFORM_NAME = Platform.OS === 'ios' ? 'Apple Health' : Platform.OS === 'android' ? 'Google Fit' : 'Health App';

@@ -158,15 +158,15 @@ export type MehrStackParamList = {
   UebungTemplateForm: { uebungTemplateId?: string };
   Nachrichten: { chatPartnerId?: string; chatPartnerName?: string; planId?: string } | undefined;
   Fortschritt: undefined;
-  Benachrichtigungen: undefined;
-  HealthSync: undefined;
 };
 
 // ─── Sportler App (Athlete View) ─────────────────────────────────────────────
 
 export type SportlerAppTabParamList = {
-  MeinTraining: undefined;
-  MeinProfil:   undefined;
+  MeinTraining:     undefined;
+  MeinFortschritt:  undefined;
+  MeinNachrichten:  undefined;
+  MeinProfil:       undefined;
 };
 
 export type MeinTrainingStackParamList = {
@@ -182,5 +182,11 @@ export type MeinTrainingStackParamList = {
 export type MeinProfilStackParamList = {
   MeinProfilMain:  undefined;
   Einstellungen:   undefined;
-  NachrichtenSportler: { chatPartnerId?: string; chatPartnerName?: string } | undefined;
+  HealthSync:      undefined;
+  Benachrichtigungen: undefined;
+};
+
+export type MeinNachrichtenStackParamList = {
+  NachrichtenList: undefined;
+  NachrichtenChat: { chatPartnerId: string; chatPartnerName: string };
 };
