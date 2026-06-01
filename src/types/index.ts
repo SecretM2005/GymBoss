@@ -38,16 +38,10 @@ export type UebungParam = {
   bezeichnung?: string; // custom label for pause, e.g. "Trabpause"
 };
 
-export type Muskelgruppe =
-  | 'Brust' | 'Rücken' | 'Schultern' | 'Bizeps' | 'Trizeps' | 'Unterarme'
-  | 'Bauch' | 'Gesäß' | 'Oberschenkel' | 'Hamstrings' | 'Wade'
-  | 'Hüfte' | 'Ganzkörper';
-
 export type UebungTemplate = {
   id: string;
   name: string;
   beschreibung?: string;
-  muskelgruppe?: Muskelgruppe;
   parameter: UebungParam[];
 };
 

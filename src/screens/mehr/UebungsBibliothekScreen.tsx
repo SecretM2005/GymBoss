@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MehrStackParamList, Muskelgruppe } from '../../types';
+import { MehrStackParamList } from '../../types';
 import { useEinheitStore } from '../../store/einheitStore';
 import { useUebungStore } from '../../store/uebungStore';
 import { buildSuffix } from '../plaene/EinheitDetailScreen';
@@ -19,31 +19,12 @@ const PHASE_COLORS = {
   cooldown:     '#7ABFFF',
 };
 
-const ALL_MUSKELGRUPPEN: Muskelgruppe[] = [
-  'Brust', 'Rücken', 'Schultern', 'Bizeps', 'Trizeps',
-  'Bauch', 'Gesäß', 'Oberschenkel', 'Hamstrings', 'Wade', 'Ganzkörper',
-];
-
 export default function UebungsBibliothekScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const C = useColors();
   const { einheiten, deleteEinheit } = useEinheitStore();
   const { uebungen, deleteUebung } = useUebungStore();
-  const [tab, setTab]                       = useState<'einheiten' | 'uebungen'>('einheiten');
-  const [selectedMuskeln, setSelectedMuskeln] = useState<Set<Muskelgruppe>>(new Set());
-
-  const filteredUebungen = useMemo(() => {
-    if (selectedMuskeln.size === 0) return uebungen;
-    return uebungen.filter((u) => u.muskelgruppe && (selectedMuskeln.has(u.muskelgruppe) || selectedMuskeln.has('Ganzkörper') || u.muskelgruppe === 'Ganzkörper'));
-  }, [uebungen, selectedMuskeln]);
-
-  const toggleMuskel = (mg: Muskelgruppe) => {
-    setSelectedMuskeln((prev) => {
-      const next = new Set(prev);
-      if (next.has(mg)) next.delete(mg); else next.add(mg);
-      return next;
-    });
-  };
+  const [tab, setTab] = useState<'einheiten' | 'uebungen'>('einheiten');
 
   const handleDeleteEinheit = (id: string, name: string) => {
     Alert.alert('Einheit löschen', `„${name}" wirklich entfernen?`, [
@@ -103,38 +84,6 @@ export default function UebungsBibliothekScreen({ navigation }: Props) {
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
-        {/* Muskelgruppen-Filter (uebungen tab) */}
-        {tab === 'uebungen' && (
-          <View style={[s.filterCard, { backgroundColor: C.surface, borderColor: C.border }]}>
-            <View style={s.filterHeader}>
-              <GBIcon name="filter" size={14} color={C.textDim} />
-              <Text style={[s.filterLabel, { color: C.textDim }]}>
-                {selectedMuskeln.size > 0 ? `${filteredUebungen.length} Übungen` : 'Nach Muskelgruppe filtern'}
-              </Text>
-              {selectedMuskeln.size > 0 && (
-                <TouchableOpacity onPress={() => setSelectedMuskeln(new Set())} activeOpacity={0.8}>
-                  <Text style={[s.clearFilter, { color: C.warn }]}>Zurücksetzen ×</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            <View style={s.chipRow}>
-              {ALL_MUSKELGRUPPEN.map((mg) => {
-                const active = selectedMuskeln.has(mg);
-                return (
-                  <TouchableOpacity
-                    key={mg}
-                    style={[s.muskelChip, { borderColor: active ? C.accent : C.border, backgroundColor: active ? C.accentLight : C.surfaceAlt }]}
-                    onPress={() => toggleMuskel(mg)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[s.muskelChipText, { color: active ? C.accent : C.textMuted }]}>{mg}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
         {tab === 'einheiten' && (
           einheiten.length === 0 ? (
             <View style={s.empty}>
@@ -180,18 +129,14 @@ export default function UebungsBibliothekScreen({ navigation }: Props) {
         )}
 
         {tab === 'uebungen' && (
-          filteredUebungen.length === 0 ? (
+          uebungen.length === 0 ? (
             <View style={s.empty}>
               <GBIcon name="layers" size={44} color={C.textDim} />
-              <Text style={[s.emptyTitle, { color: C.textSub }]}>Keine Übungen gefunden</Text>
-              <Text style={[s.emptySub, { color: C.textDim }]}>
-                {selectedMuskeln.size > 0
-                  ? 'Kein Treffer für diese Muskelgruppe. Filter löschen?'
-                  : 'Tippe auf + um eine neue Übung anzulegen.'}
-              </Text>
+              <Text style={[s.emptyTitle, { color: C.textSub }]}>Keine Übungen</Text>
+              <Text style={[s.emptySub, { color: C.textDim }]}>Tippe auf + um eine neue Übung anzulegen.</Text>
             </View>
           ) : (
-            filteredUebungen.map((ut) => (
+            uebungen.map((ut) => (
               <TouchableOpacity
                 key={ut.id}
                 style={[s.card, { backgroundColor: C.surface, borderColor: C.border }]}
@@ -201,15 +146,7 @@ export default function UebungsBibliothekScreen({ navigation }: Props) {
                 <View style={[s.cardStripe, { backgroundColor: '#7ABFFF' }]} />
                 <View style={s.cardBody}>
                   <View style={s.cardTop}>
-                    <View style={{ flex: 1, gap: 4 }}>
-                      <Text style={[s.cardName, { color: C.text }]} numberOfLines={1}>{ut.name}</Text>
-                      {ut.muskelgruppe && (
-                        <View style={[s.muscleTag, { backgroundColor: 'rgba(122,191,255,0.12)' }]}>
-                          <GBIcon name="body" size={10} color="#7ABFFF" />
-                          <Text style={[s.muscleTagText, { color: '#7ABFFF' }]}>{ut.muskelgruppe}</Text>
-                        </View>
-                      )}
-                    </View>
+                    <Text style={[s.cardName, { color: C.text }]} numberOfLines={1}>{ut.name}</Text>
                     <TouchableOpacity
                       onPress={() => handleDeleteUebung(ut.id, ut.name)}
                       style={s.deleteBtn}
@@ -283,14 +220,6 @@ const s = StyleSheet.create({
 
   content: { paddingHorizontal: SP.xl, paddingTop: SP.lg, gap: SP.md },
 
-  filterCard:   { borderRadius: R.xl, borderWidth: 1, padding: SP.md, gap: SP.sm },
-  filterHeader: { flexDirection: 'row', alignItems: 'center', gap: SP.sm },
-  filterLabel:  { flex: 1, fontSize: FONT.xs, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
-  clearFilter:  { fontSize: FONT.xs, fontWeight: '700' },
-  chipRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm },
-  muskelChip:   { borderWidth: 1, borderRadius: R.full, paddingHorizontal: 10, paddingVertical: 4 },
-  muskelChipText: { fontSize: 12, fontWeight: '600' },
-
   card:       { flexDirection: 'row', borderRadius: R.xl, borderWidth: 1, overflow: 'hidden' },
   cardStripe: { width: 3, backgroundColor: C.accent },
   cardBody:   { flex: 1, padding: SP.lg, gap: SP.sm },
@@ -301,9 +230,6 @@ const s = StyleSheet.create({
   cardTotal:  { fontFamily: FONT_MONO, fontSize: FONT.xs, color: C.textDim, fontWeight: '600' },
   cardParams: { fontFamily: FONT_MONO, fontSize: FONT.xs, color: C.textMuted, fontWeight: '600' },
   cardDesc:   { fontSize: FONT.xs, color: C.textDim, lineHeight: 17 },
-  muscleTag:  { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start', borderRadius: R.full, paddingHorizontal: 6, paddingVertical: 2 },
-  muscleTagText: { fontSize: 10, fontWeight: '700' },
-
   empty:      { alignItems: 'center', paddingVertical: 60, gap: SP.sm },
   emptyTitle: { fontSize: FONT.md, fontWeight: '700', color: C.textSub, marginTop: SP.sm },
   emptySub:   { fontSize: FONT.sm, color: C.textDim, textAlign: 'center', lineHeight: 20, paddingHorizontal: SP.xl },

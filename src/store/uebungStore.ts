@@ -2,92 +2,92 @@ import { create } from 'zustand';
 import { UebungTemplate } from '../types';
 
 const INITIAL_UEBUNGEN: UebungTemplate[] = [
-  { id: 'ut1', name: 'Bankdrücken', muskelgruppe: 'Brust', parameter: [
+  { id: 'ut1', name: 'Bankdrücken', parameter: [
     { typ: 'serien', wert: '4' },
     { typ: 'wiederholungen', wert: '8' },
     { typ: 'gewicht', wert: '80', einheit: 'kg' },
     { typ: 'serienpause', wert: '120', einheit: 's' },
   ]},
-  { id: 'ut2', name: 'Kniebeuge', muskelgruppe: 'Oberschenkel', parameter: [
+  { id: 'ut2', name: 'Kniebeuge', parameter: [
     { typ: 'serien', wert: '4' },
     { typ: 'wiederholungen', wert: '5' },
     { typ: 'gewicht', wert: '100', einheit: 'kg' },
     { typ: 'serienpause', wert: '180', einheit: 's' },
   ]},
-  { id: 'ut3', name: 'Kreuzheben', muskelgruppe: 'Rücken', parameter: [
+  { id: 'ut3', name: 'Kreuzheben', parameter: [
     { typ: 'serien', wert: '3' },
     { typ: 'wiederholungen', wert: '5' },
     { typ: 'gewicht', wert: '120', einheit: 'kg' },
     { typ: 'serienpause', wert: '180', einheit: 's' },
   ]},
-  { id: 'ut4', name: 'Schulterdrücken', muskelgruppe: 'Schultern', parameter: [
+  { id: 'ut4', name: 'Schulterdrücken', parameter: [
     { typ: 'serien', wert: '3' },
     { typ: 'wiederholungen', wert: '10' },
     { typ: 'gewicht', wert: '50', einheit: 'kg' },
     { typ: 'serienpause', wert: '90', einheit: 's' },
   ]},
-  { id: 'ut5', name: 'Klimmzüge', muskelgruppe: 'Rücken', parameter: [
+  { id: 'ut5', name: 'Klimmzüge', parameter: [
     { typ: 'serien', wert: '3' },
     { typ: 'wiederholungen', wert: '8' },
     { typ: 'serienpause', wert: '120', einheit: 's' },
   ]},
-  { id: 'ut6', name: 'Liegestütze', muskelgruppe: 'Brust', parameter: [
+  { id: 'ut6', name: 'Liegestütze', parameter: [
     { typ: 'serien', wert: '3' },
     { typ: 'wiederholungen', wert: '15' },
     { typ: 'serienpause', wert: '60', einheit: 's' },
   ]},
-  { id: 'ut7', name: 'Laufen (Aufwärmen)', muskelgruppe: 'Ganzkörper', parameter: [
+  { id: 'ut7', name: 'Laufen (Aufwärmen)', parameter: [
     { typ: 'dauer', wert: '10', einheit: 'min' },
   ]},
-  { id: 'ut8', name: 'Stretching', muskelgruppe: 'Ganzkörper', parameter: [
+  { id: 'ut8', name: 'Stretching', parameter: [
     { typ: 'dauer', wert: '5', einheit: 'min' },
   ]},
-  { id: 'ut9', name: '400m Intervall', muskelgruppe: 'Oberschenkel', parameter: [
+  { id: 'ut9', name: '400m Intervall', parameter: [
     { typ: 'serien', wert: '6' },
     { typ: 'distanz', wert: '400', einheit: 'm' },
     { typ: 'dauer', wert: '63', einheit: 's' },
     { typ: 'pause', wert: '30', einheit: 's', bezeichnung: 'Trabpause' },
   ]},
-  { id: 'ut10', name: 'VO2 Max Intervall', muskelgruppe: 'Ganzkörper', parameter: [
+  { id: 'ut10', name: 'VO2 Max Intervall', parameter: [
     { typ: 'serien', wert: '5' },
     { typ: 'distanz', wert: '1', einheit: 'km' },
     { typ: 'pause', wert: '3', einheit: 'min', bezeichnung: 'Gehpause' },
   ]},
-  { id: 'ut11', name: 'Schattenboxen', muskelgruppe: 'Ganzkörper', parameter: [
+  { id: 'ut11', name: 'Schattenboxen', parameter: [
     { typ: 'serien', wert: '5' },
     { typ: 'dauer', wert: '3', einheit: 'min' },
     { typ: 'serienpause', wert: '60', einheit: 's' },
   ]},
-  { id: 'ut12', name: 'Springseil', muskelgruppe: 'Wade', parameter: [
+  { id: 'ut12', name: 'Springseil', parameter: [
     { typ: 'serien', wert: '3' },
     { typ: 'dauer', wert: '2', einheit: 'min' },
     { typ: 'serienpause', wert: '60', einheit: 's' },
   ]},
-  { id: 'ut13', name: 'Radfahren', muskelgruppe: 'Oberschenkel', parameter: [
+  { id: 'ut13', name: 'Radfahren', parameter: [
     { typ: 'dauer', wert: '45', einheit: 'min' },
   ]},
-  { id: 'ut14', name: 'Aufschlag (Tennis)', muskelgruppe: 'Schultern', parameter: [
+  { id: 'ut14', name: 'Aufschlag (Tennis)', parameter: [
     { typ: 'serien', wert: '4' },
     { typ: 'wiederholungen', wert: '10' },
     { typ: 'pause', wert: '90', einheit: 's' },
   ]},
-  { id: 'ut15', name: 'Kurzhantel-Curl', muskelgruppe: 'Bizeps', parameter: [
+  { id: 'ut15', name: 'Kurzhantel-Curl', parameter: [
     { typ: 'serien', wert: '3' },
     { typ: 'wiederholungen', wert: '12' },
     { typ: 'gewicht', wert: '15', einheit: 'kg' },
     { typ: 'serienpause', wert: '60', einheit: 's' },
   ]},
-  { id: 'ut16', name: 'Trizeps-Dips', muskelgruppe: 'Trizeps', parameter: [
+  { id: 'ut16', name: 'Trizeps-Dips', parameter: [
     { typ: 'serien', wert: '3' },
     { typ: 'wiederholungen', wert: '10' },
     { typ: 'serienpause', wert: '90', einheit: 's' },
   ]},
-  { id: 'ut17', name: 'Plank', muskelgruppe: 'Bauch', parameter: [
+  { id: 'ut17', name: 'Plank', parameter: [
     { typ: 'serien', wert: '3' },
     { typ: 'dauer', wert: '60', einheit: 's' },
     { typ: 'serienpause', wert: '30', einheit: 's' },
   ]},
-  { id: 'ut18', name: 'Hip Thrust', muskelgruppe: 'Gesäß', parameter: [
+  { id: 'ut18', name: 'Hip Thrust', parameter: [
     { typ: 'serien', wert: '4' },
     { typ: 'wiederholungen', wert: '12' },
     { typ: 'gewicht', wert: '60', einheit: 'kg' },
