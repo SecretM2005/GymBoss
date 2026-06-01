@@ -38,10 +38,16 @@ export type UebungParam = {
   bezeichnung?: string; // custom label for pause, e.g. "Trabpause"
 };
 
+export type Muskelgruppe =
+  | 'Brust' | 'Rücken' | 'Schultern' | 'Bizeps' | 'Trizeps' | 'Unterarme'
+  | 'Bauch' | 'Gesäß' | 'Oberschenkel' | 'Hamstrings' | 'Wade'
+  | 'Hüfte' | 'Ganzkörper';
+
 export type UebungTemplate = {
   id: string;
   name: string;
   beschreibung?: string;
+  muskelgruppe?: Muskelgruppe;
   parameter: UebungParam[];
 };
 
@@ -150,6 +156,10 @@ export type MehrStackParamList = {
   Uebungsbibliothek: undefined;
   EinheitTemplateDetail: { einheitTemplateId?: string };
   UebungTemplateForm: { uebungTemplateId?: string };
+  Nachrichten: { chatPartnerId?: string; chatPartnerName?: string; planId?: string } | undefined;
+  Fortschritt: undefined;
+  Benachrichtigungen: undefined;
+  HealthSync: undefined;
 };
 
 // ─── Sportler App (Athlete View) ─────────────────────────────────────────────
@@ -172,4 +182,5 @@ export type MeinTrainingStackParamList = {
 export type MeinProfilStackParamList = {
   MeinProfilMain:  undefined;
   Einstellungen:   undefined;
+  NachrichtenSportler: { chatPartnerId?: string; chatPartnerName?: string } | undefined;
 };

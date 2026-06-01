@@ -45,6 +45,13 @@ const MAP: Record<string, IoniconsName> = {
   image:        'image-outline',
   document:     'document-outline',
   upload:       'cloud-upload-outline',
+  barChart:     'bar-chart-outline',
+  message:      'chatbubble-ellipses-outline',
+  bell:         'notifications-outline',
+  heart:        'heart-outline',
+  info:         'information-circle-outline',
+  filter:       'funnel-outline',
+  body:         'body-outline',
 };
 
 type Props = {

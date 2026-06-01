@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MehrStackParamList } from '../../types';
@@ -8,12 +8,15 @@ import { GBIcon } from '../../components/GBIcon';
 import { useUebungStore } from '../../store/uebungStore';
 import { useEinheitStore } from '../../store/einheitStore';
 import { useAthletenStore } from '../../store/athletenStore';
+import { useNachrichtenStore } from '../../store/nachrichtenStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import GBAvatar from '../../components/GBAvatar';
 
 type Props = {
   navigation: StackNavigationProp<MehrStackParamList, 'MehrHub'>;
 };
+
+const TRAINER_ID = 't1';
 
 export default function MehrHubScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -22,7 +25,10 @@ export default function MehrHubScreen({ navigation }: Props) {
   const { einheiten } = useEinheitStore();
   const { sportler } = useAthletenStore();
   const { setActiveRole, setActiveSportlerId } = useSettingsStore();
+  const { getUnreadCount } = useNachrichtenStore();
   const [pickerVisible, setPickerVisible] = useState(false);
+
+  const unreadNachrichten = getUnreadCount(TRAINER_ID);
 
   const handleSelect = (sportlerId: string) => {
     setPickerVisible(false);
@@ -36,22 +42,10 @@ export default function MehrHubScreen({ navigation }: Props) {
         <Text style={[s.headerTitle, { color: C.text }]}>Mehr</Text>
       </View>
 
-      <View style={s.content}>
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
-        <TouchableOpacity
-          style={[s.tile, { backgroundColor: C.surface, borderColor: C.border }]}
-          onPress={() => navigation.navigate('Einstellungen')}
-          activeOpacity={0.75}
-        >
-          <View style={[s.tileIcon, { backgroundColor: 'rgba(122,191,255,0.12)' }]}>
-            <GBIcon name="settings" size={24} color="#7ABFFF" />
-          </View>
-          <View style={s.tileInfo}>
-            <Text style={[s.tileTitle, { color: C.text }]}>Einstellungen</Text>
-            <Text style={[s.tileSub, { color: C.textMuted }]}>Sprache · Erscheinungsbild · Coaching-Ansicht</Text>
-          </View>
-          <GBIcon name="chevronRight" size={16} color={C.textDim} />
-        </TouchableOpacity>
+        {/* ── Training ── */}
+        <Text style={[s.sectionLabel, { color: C.textDim }]}>TRAINING</Text>
 
         <TouchableOpacity
           style={[s.tile, { backgroundColor: C.surface, borderColor: C.border }]}
@@ -64,8 +58,97 @@ export default function MehrHubScreen({ navigation }: Props) {
           <View style={s.tileInfo}>
             <Text style={[s.tileTitle, { color: C.text }]}>Übungsbibliothek</Text>
             <Text style={[s.tileSub, { color: C.textMuted }]}>
-              {einheiten.length} {einheiten.length === 1 ? 'Einheit' : 'Einheiten'} · {uebungen.length} {uebungen.length === 1 ? 'Übung' : 'Übungen'}
+              {einheiten.length} {einheiten.length === 1 ? 'Einheit' : 'Einheiten'} · {uebungen.length} Übungen
             </Text>
+          </View>
+          <GBIcon name="chevronRight" size={16} color={C.textDim} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[s.tile, { backgroundColor: C.surface, borderColor: C.border }]}
+          onPress={() => navigation.navigate('Fortschritt')}
+          activeOpacity={0.75}
+        >
+          <View style={[s.tileIcon, { backgroundColor: 'rgba(203,255,62,0.10)' }]}>
+            <GBIcon name="barChart" size={24} color={C.accent} />
+          </View>
+          <View style={s.tileInfo}>
+            <Text style={[s.tileTitle, { color: C.text }]}>Fortschritt & Statistiken</Text>
+            <Text style={[s.tileSub, { color: C.textMuted }]}>Volumen · RPE · Plan-Fortschritt</Text>
+          </View>
+          <GBIcon name="chevronRight" size={16} color={C.textDim} />
+        </TouchableOpacity>
+
+        {/* ── Kommunikation ── */}
+        <Text style={[s.sectionLabel, { color: C.textDim }]}>KOMMUNIKATION</Text>
+
+        <TouchableOpacity
+          style={[s.tile, { backgroundColor: C.surface, borderColor: C.border }]}
+          onPress={() => navigation.navigate('Nachrichten', undefined)}
+          activeOpacity={0.75}
+        >
+          <View style={[s.tileIcon, { backgroundColor: 'rgba(122,191,255,0.12)' }]}>
+            <GBIcon name="message" size={24} color="#7ABFFF" />
+          </View>
+          <View style={s.tileInfo}>
+            <Text style={[s.tileTitle, { color: C.text }]}>Nachrichten</Text>
+            <Text style={[s.tileSub, { color: C.textMuted }]}>Trainer–Sportler Kommunikation</Text>
+          </View>
+          {unreadNachrichten > 0 && (
+            <View style={[s.badge, { backgroundColor: C.accent }]}>
+              <Text style={[s.badgeText, { color: C.accentContrast }]}>{unreadNachrichten}</Text>
+            </View>
+          )}
+          <GBIcon name="chevronRight" size={16} color={C.textDim} />
+        </TouchableOpacity>
+
+        {/* ── Gesundheit & Integration ── */}
+        <Text style={[s.sectionLabel, { color: C.textDim }]}>GESUNDHEIT & INTEGRATION</Text>
+
+        <TouchableOpacity
+          style={[s.tile, { backgroundColor: 'rgba(122,229,130,0.06)', borderColor: 'rgba(122,229,130,0.18)' }]}
+          onPress={() => navigation.navigate('HealthSync')}
+          activeOpacity={0.75}
+        >
+          <View style={[s.tileIcon, { backgroundColor: 'rgba(122,229,130,0.15)' }]}>
+            <GBIcon name="heart" size={24} color={C.success} />
+          </View>
+          <View style={s.tileInfo}>
+            <Text style={[s.tileTitle, { color: C.text }]}>Health Sync</Text>
+            <Text style={[s.tileSub, { color: C.textMuted }]}>Apple Health · Google Fit Integration</Text>
+          </View>
+          <GBIcon name="chevronRight" size={16} color={C.textDim} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[s.tile, { backgroundColor: C.surface, borderColor: C.border }]}
+          onPress={() => navigation.navigate('Benachrichtigungen')}
+          activeOpacity={0.75}
+        >
+          <View style={[s.tileIcon, { backgroundColor: 'rgba(255,209,102,0.12)' }]}>
+            <GBIcon name="bell" size={24} color="#FFD166" />
+          </View>
+          <View style={s.tileInfo}>
+            <Text style={[s.tileTitle, { color: C.text }]}>Benachrichtigungen</Text>
+            <Text style={[s.tileSub, { color: C.textMuted }]}>Training-Erinnerungen · Push-Alerts</Text>
+          </View>
+          <GBIcon name="chevronRight" size={16} color={C.textDim} />
+        </TouchableOpacity>
+
+        {/* ── App ── */}
+        <Text style={[s.sectionLabel, { color: C.textDim }]}>APP</Text>
+
+        <TouchableOpacity
+          style={[s.tile, { backgroundColor: C.surface, borderColor: C.border }]}
+          onPress={() => navigation.navigate('Einstellungen')}
+          activeOpacity={0.75}
+        >
+          <View style={[s.tileIcon, { backgroundColor: 'rgba(122,191,255,0.12)' }]}>
+            <GBIcon name="settings" size={24} color="#7ABFFF" />
+          </View>
+          <View style={s.tileInfo}>
+            <Text style={[s.tileTitle, { color: C.text }]}>Einstellungen</Text>
+            <Text style={[s.tileSub, { color: C.textMuted }]}>Sprache · Erscheinungsbild · Coaching-Ansicht</Text>
           </View>
           <GBIcon name="chevronRight" size={16} color={C.textDim} />
         </TouchableOpacity>
@@ -87,7 +170,8 @@ export default function MehrHubScreen({ navigation }: Props) {
           <GBIcon name="chevronRight" size={16} color={C.textDim} />
         </TouchableOpacity>
 
-      </View>
+        <View style={{ height: 40 }} />
+      </ScrollView>
 
       {/* Sportler picker modal */}
       <Modal
@@ -152,13 +236,18 @@ const s = StyleSheet.create({
   header:  { paddingHorizontal: SP.xl, paddingVertical: SP.lg, borderBottomWidth: 1 },
   headerTitle: { fontSize: FONT.xl, fontWeight: '700', letterSpacing: -0.5, color: C.text },
 
-  content: { padding: SP.xl, gap: SP.md },
+  content: { padding: SP.xl, gap: SP.sm },
+
+  sectionLabel: { fontSize: FONT.xs, fontWeight: '700', letterSpacing: 1.6, color: C.textDim, marginTop: SP.md, marginBottom: 2, paddingHorizontal: 2 },
 
   tile:     { flexDirection: 'row', alignItems: 'center', gap: SP.md, borderRadius: R.xl, borderWidth: 1, padding: SP.lg },
   tileIcon: { width: 52, height: 52, borderRadius: R.lg, alignItems: 'center', justifyContent: 'center' },
   tileInfo: { flex: 1, gap: 3 },
   tileTitle: { fontSize: FONT.md, fontWeight: '700', color: C.text },
   tileSub:   { fontSize: FONT.sm, color: C.textMuted, lineHeight: 18 },
+
+  badge:     { minWidth: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
+  badgeText: { fontSize: 11, fontWeight: '800' },
 
   // Picker modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
