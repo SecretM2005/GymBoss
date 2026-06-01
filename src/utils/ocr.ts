@@ -179,7 +179,12 @@ async function runTesseract(
     const result = await (worker as any).recognize(enhanced);
     await (worker as any).terminate();
 
-    return { ok: true, text: result.data.text as string };
+    const words: any[] = result?.data?.words ?? [];
+    const text = words.length > 0
+      ? reconstructTableFromBboxes(words)
+      : (result?.data?.text as string ?? '');
+
+    return { ok: true, text };
   } catch (e: any) {
     return { ok: false, reason: 'error', message: String(e?.message ?? e) };
   }
@@ -278,6 +283,114 @@ function binarize(data: ImageData, w: number, h: number): ImageData {
     dst[i * 4 + 3] = 255;
   }
   return out;
+}
+
+// ─── Tesseract bbox-based table reconstruction ────────────────────────────────
+/**
+ * Converts Tesseract word-level bounding-box data into structured text.
+ *
+ * For table-formatted plans (e.g. Week × Day grid):
+ *   - detects the weekday column-header row
+ *   - assigns every content word to its day column via x-proximity
+ *   - emits: <week-heading>\n<DAY>\n<exercise text>\n...
+ *
+ * Falls back to plain line-by-line output when no weekday header row is found.
+ */
+function reconstructTableFromBboxes(words: any[]): string {
+  const items = words
+    .filter((w: any) => w.text?.trim() && (w.confidence ?? 0) > 20)
+    .map((w: any) => ({
+      text: w.text.trim() as string,
+      x0:  w.bbox.x0 as number,
+      x1:  w.bbox.x1 as number,
+      cy:  ((w.bbox.y0 + w.bbox.y1) / 2) as number,
+      cx:  ((w.bbox.x0 + w.bbox.x1) / 2) as number,
+    }));
+
+  if (!items.length) return '';
+
+  // Group words into visual rows by y-center clustering
+  items.sort((a, b) => a.cy - b.cy);
+  const ROW_GAP = 20;
+  const rows: (typeof items)[] = [];
+  for (const item of items) {
+    const last = rows[rows.length - 1];
+    const lastCy = last ? last.reduce((s, x) => s + x.cy, 0) / last.length : -Infinity;
+    if (Math.abs(item.cy - lastCy) <= ROW_GAP) last.push(item);
+    else rows.push([item]);
+  }
+  for (const row of rows) row.sort((a, b) => a.x0 - b.x0);
+
+  // Find the row containing ≥ 3 weekday names → these are column headers
+  const DAY_RE = /^(montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i;
+  let headerRowIdx = -1;
+  let dayHeaders: { name: string; cx: number }[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const dayWords = rows[i].filter(w => DAY_RE.test(w.text));
+    if (dayWords.length >= 3) {
+      headerRowIdx = i;
+      dayHeaders = dayWords.sort((a, b) => a.cx - b.cx).map(w => ({ name: w.text, cx: w.cx }));
+      break;
+    }
+  }
+
+  // No table → plain row output
+  if (headerRowIdx === -1) {
+    return rows.map(row => row.map(w => w.text).join(' ')).join('\n');
+  }
+
+  // Assign a word to the nearest day column by left-edge proximity
+  const getCol = (x0: number) => {
+    let best = 0, bestDist = Infinity;
+    for (let i = 0; i < dayHeaders.length; i++) {
+      const d = Math.abs(x0 - dayHeaders[i].cx);
+      if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return best;
+  };
+
+  const output: string[] = [];
+
+  // Emit pre-header lines (title etc.)
+  for (let i = 0; i < headerRowIdx; i++) {
+    output.push(rows[i].map(w => w.text).join(' '));
+  }
+
+  // Week-separator rows: few words containing a date range or "Woche N"
+  const WEEK_HDR = /\d{1,2}\.\s*[-–]\s*\d{1,2}\.|\bwoche\s+\d|\bweek\s+\d/i;
+
+  let pendingWeekLine = '';
+  let colWords: { [col: number]: string[] } = {};
+  const hasContent = () => Object.values(colWords).some(ws => ws.length > 0);
+
+  const flushWeek = () => {
+    if (!hasContent()) return;
+    if (pendingWeekLine) { output.push(pendingWeekLine); pendingWeekLine = ''; }
+    for (let col = 0; col < dayHeaders.length; col++) {
+      const ws = colWords[col];
+      if (ws?.length) { output.push(dayHeaders[col].name); output.push(ws.join(' ')); }
+    }
+    colWords = {};
+  };
+
+  for (let ri = headerRowIdx + 1; ri < rows.length; ri++) {
+    const row  = rows[ri];
+    const text = row.map(w => w.text).join(' ');
+    if (row.length <= 4 && WEEK_HDR.test(text)) {
+      flushWeek();
+      pendingWeekLine = text;
+      continue;
+    }
+    for (const word of row) {
+      const col = getCol(word.x0);
+      (colWords[col] ??= []).push(word.text);
+    }
+  }
+  flushWeek();
+  if (pendingWeekLine) output.push(pendingWeekLine);
+
+  return output.join('\n');
 }
 
 // ─── Native: Google ML Kit ─────────────────────────────────────────────────────
