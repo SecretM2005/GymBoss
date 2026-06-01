@@ -170,9 +170,9 @@ async function runTesseract(
       },
     });
 
-    // PSM 11 = sparse text: finds all text regardless of layout — best for tables & mixed plans
+    // PSM 3 = auto: full page analysis, returns word-level bbox data for table reconstruction
     await (worker as any).setParameters({
-      tessedit_pageseg_mode: '11',
+      tessedit_pageseg_mode: '3',
       preserve_interword_spaces: '1',
     });
 
@@ -207,11 +207,13 @@ async function preprocessImageWeb(uri: string): Promise<string> {
         const w = img.naturalWidth  * SCALE;
         const h = img.naturalHeight * SCALE;
 
-        // Pass 1: slight blur to kill camera noise, then grayscale + high contrast
+        // Pass 1: grayscale + moderate contrast — let Tesseract do its own binarization.
+        // Otsu pre-binarization hurts colored text (e.g. blue headers on white BG)
+        // because a global threshold inverts those regions.
         const c1   = document.createElement('canvas');
         c1.width   = w; c1.height = h;
         const ctx1 = c1.getContext('2d')!;
-        ctx1.filter = 'blur(0.5px) grayscale(100%) contrast(2.2)';
+        ctx1.filter = 'grayscale(100%) contrast(1.8) brightness(1.05)';
         ctx1.drawImage(img, 0, 0, w, h);
         ctx1.filter = 'none';
 
@@ -221,13 +223,7 @@ async function preprocessImageWeb(uri: string): Promise<string> {
         const ctx2 = c2.getContext('2d')!;
         ctx2.putImageData(unsharpMask(ctx1.getImageData(0, 0, w, h), w, h), 0, 0);
 
-        // Pass 3: Otsu binarization → clean black-on-white, maximises Tesseract accuracy
-        const c3   = document.createElement('canvas');
-        c3.width   = w; c3.height = h;
-        const ctx3 = c3.getContext('2d')!;
-        ctx3.putImageData(binarize(ctx2.getImageData(0, 0, w, h), w, h), 0, 0);
-
-        resolve(c3.toDataURL('image/png', 1.0));
+        resolve(c2.toDataURL('image/png', 1.0));
       } catch { resolve(uri); }
     };
     img.src = uri;
