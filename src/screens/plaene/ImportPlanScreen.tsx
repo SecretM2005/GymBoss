@@ -329,11 +329,19 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
               )}
 
               {scanState === 'error' && (
-                <View style={[styles.statusCard, { borderColor: 'rgba(255,106,61,0.3)', backgroundColor: 'rgba(255,106,61,0.07)' }]}>
+                <View style={[styles.statusCard, styles.statusCardInfo, { borderColor: 'rgba(255,106,61,0.3)', backgroundColor: 'rgba(255,106,61,0.07)' }]}>
                   <GBIcon name="close" size={16} color={C.warn} />
-                  <Text style={[styles.statusCardText, { color: C.warn }]}>
-                    Texterkennung fehlgeschlagen — bitte Felder manuell ausfüllen.
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.statusCardTitle, { color: C.warn }]}>
+                      Texterkennung fehlgeschlagen
+                    </Text>
+                    {!!scanMessage && (
+                      <Text style={[styles.statusCardText, { color: C.warn }]}>{scanMessage}</Text>
+                    )}
+                    <Text style={[styles.statusCardSub, { color: C.textDim }]}>
+                      Felder bitte manuell ausfüllen.
+                    </Text>
+                  </View>
                 </View>
               )}
 
