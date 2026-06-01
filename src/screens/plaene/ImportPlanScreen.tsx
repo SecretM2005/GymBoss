@@ -12,7 +12,7 @@ import { PlaeneStackParamList } from '../../types';
 import { usePlanStore } from '../../store/planStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import { GBIcon } from '../../components/GBIcon';
-import { recognizeText } from '../../utils/ocr';
+import { recognizeText, hasGeminiKey } from '../../utils/ocr';
 import { parseTrainingText, ParsedPlan } from '../../utils/trainingsplanParser';
 import { C, useColors, SP, R, FONT } from '../../theme';
 
@@ -86,7 +86,8 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
       setScanState(ocr.reason === 'not_linked' ? 'not_linked' : 'error');
       return;
     }
-    const result = parseTrainingText(ocr.text);
+    // Gemini returns a fully structured ParsedPlan; Tesseract/ML Kit return raw text only
+    const result = ocr.parsed ?? parseTrainingText(ocr.text);
     setParsed(result);
     setForm((prev) => ({
       name:         result.name        ?? prev.name,
@@ -217,9 +218,19 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
                 <Text style={[styles.pickerHeroTitle, { color: C.text }]}>Plan hochladen</Text>
                 <Text style={[styles.pickerHeroSub, { color: C.textDim }]}>
                   {Platform.OS === 'web'
-                    ? 'Foto oder Bild hochladen — Text wird automatisch erkannt und der Plan vorausgefüllt.'
+                    ? hasGeminiKey()
+                      ? 'Bild hochladen — Gemini KI erkennt den Plan und füllt alle Felder automatisch aus.'
+                      : 'Bild hochladen — Tesseract OCR erkennt Text und füllt die Felder vor.'
                     : 'Foto aufnehmen oder Datei wählen. Text wird mit Google ML Kit erkannt (Expo Dev Build erforderlich).'}
                 </Text>
+                {Platform.OS === 'web' && (
+                  <View style={[styles.engineBadge, { backgroundColor: hasGeminiKey() ? 'rgba(203,255,62,0.12)' : 'rgba(122,191,255,0.12)', borderColor: hasGeminiKey() ? 'rgba(203,255,62,0.3)' : 'rgba(122,191,255,0.3)' }]}>
+                    <View style={[styles.engineDot, { backgroundColor: hasGeminiKey() ? C.accent : '#7ABFFF' }]} />
+                    <Text style={[styles.engineBadgeText, { color: hasGeminiKey() ? C.accent : '#7ABFFF' }]}>
+                      {hasGeminiKey() ? 'Gemini 1.5 Flash aktiv' : 'Tesseract OCR (lokal)'}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <TouchableOpacity style={[styles.sourceBtn, { backgroundColor: C.surface, borderColor: C.border }]} onPress={handleCamera} activeOpacity={0.75}>
@@ -293,13 +304,20 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
                   <ActivityIndicator color={C.accent} />
                   <View style={{ flex: 1 }}>
                     {Platform.OS === 'web' ? (
-                      <>
-                        <Text style={[styles.scanTitle, { color: C.text }]}>Text wird erkannt…</Text>
-                        <View style={[styles.progressBar, { backgroundColor: C.surfaceAlt }]}>
-                          <View style={[styles.progressFill, { width: `${scanProgress}%` as any, backgroundColor: C.accent }]} />
-                        </View>
-                        <Text style={[styles.scanSub, { color: C.textMuted }]}>{scanProgress}%</Text>
-                      </>
+                      hasGeminiKey() ? (
+                        <>
+                          <Text style={[styles.scanTitle, { color: C.text }]}>Gemini analysiert Bild…</Text>
+                          <Text style={[styles.scanSub, { color: C.textMuted }]}>Strukturierte Daten werden extrahiert</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={[styles.scanTitle, { color: C.text }]}>Tesseract erkennt Text…</Text>
+                          <View style={[styles.progressBar, { backgroundColor: C.surfaceAlt }]}>
+                            <View style={[styles.progressFill, { width: `${scanProgress}%` as any, backgroundColor: C.accent }]} />
+                          </View>
+                          <Text style={[styles.scanSub, { color: C.textMuted }]}>{scanProgress}%</Text>
+                        </>
+                      )
                     ) : (
                       <>
                         <Text style={[styles.scanTitle, { color: C.text }]}>ML Kit erkennt Text…</Text>
@@ -517,6 +535,10 @@ const styles = StyleSheet.create({
   pickerHero:      { alignItems: 'center', gap: SP.md, borderRadius: R.xl, borderWidth: 1, borderStyle: 'dashed', paddingVertical: SP.xxxl, paddingHorizontal: SP.xl },
   pickerHeroTitle: { fontSize: FONT.lg, fontWeight: '800', letterSpacing: -0.4 },
   pickerHeroSub:   { fontSize: FONT.sm, textAlign: 'center', lineHeight: 20 },
+
+  engineBadge:     { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: R.full, paddingHorizontal: SP.md, paddingVertical: 5 },
+  engineDot:       { width: 7, height: 7, borderRadius: 4 },
+  engineBadgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
 
   sourceBtn:      { flexDirection: 'row', alignItems: 'center', gap: SP.md, borderRadius: R.xl, borderWidth: 1, padding: SP.lg },
   sourceBtnIcon:  { width: 48, height: 48, borderRadius: R.lg, alignItems: 'center', justifyContent: 'center' },
