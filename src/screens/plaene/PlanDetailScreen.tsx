@@ -15,6 +15,7 @@ import MonthCalendar from '../../components/MonthCalendar';
 import { buildUebSuffix, formatWocheRange } from './EinheitDetailScreen';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 import { useSettingsStore } from '../../store/settingsStore';
+import { exportPlanAsPdf } from '../../utils/planPdfExport';
 
 type Props = {
   navigation: StackNavigationProp<PlaeneStackParamList, 'PlanDetail'>;
@@ -74,7 +75,7 @@ function formatDay(iso: string): string {
 }
 
 export default function PlanDetailScreen({ navigation, route }: Props) {
-  const { getPlanById, deletePlan, deleteWoche } = usePlanStore();
+  const { getPlanById, deletePlan, deleteWoche, duplicatePlan } = usePlanStore();
   const { sportler } = useAthletenStore();
   const insets = useSafeAreaInsets();
   const C = useColors();
@@ -82,6 +83,7 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
   const [calYear, setCalYear]   = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const plan = getPlanById(route.params.planId);
 
@@ -149,6 +151,26 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
     ]);
   };
 
+  const handleDuplicate = () => {
+    Alert.alert('Plan duplizieren', `„${plan.name}" als Kopie speichern?`, [
+      { text: 'Abbrechen', style: 'cancel' },
+      { text: 'Duplizieren', onPress: () => {
+        const newId = duplicatePlan(plan.id);
+        if (newId) navigation.navigate('PlanDetail', { planId: newId });
+      }},
+    ]);
+  };
+
+  const handleExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      await exportPlanAsPdf(plan);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleDeleteWoche = (wocheId: string, nr: number) => {
     Alert.alert('Woche löschen', `Woche ${nr} wirklich entfernen?`, [
       { text: 'Abbrechen', style: 'cancel' },
@@ -164,6 +186,21 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
           <GBIcon name="chevronLeft" size={20} color={C.text} />
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
+        <TouchableOpacity
+          onPress={handleDuplicate}
+          style={styles.iconBtn}
+          activeOpacity={0.7}
+        >
+          <GBIcon name="copy" size={18} color={C.text} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleExport}
+          style={styles.iconBtn}
+          activeOpacity={0.7}
+          disabled={isExporting}
+        >
+          <GBIcon name="share" size={18} color={isExporting ? C.textDim : C.text} />
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={() => navigation.navigate('PlanForm', { planId: plan.id })}
           style={styles.iconBtn}
