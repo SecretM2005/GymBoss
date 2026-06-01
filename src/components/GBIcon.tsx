@@ -54,6 +54,7 @@ const MAP: Record<string, IoniconsName> = {
   body:         'body-outline',
   copy:         'copy-outline',
   share:        'share-outline',
+  logOut:       'log-out-outline',
 };
 
 type Props = {

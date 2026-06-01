@@ -9,6 +9,7 @@ export type Sportler = {
   geburtsdatum?: string;
   sportart?: string;
   ziel?: string;
+  profileId?: string; // profiles.id when athlete has a registered account
 };
 
 export type Trainer = {

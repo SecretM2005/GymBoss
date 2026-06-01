@@ -8,11 +8,11 @@ import { Nachricht } from '../../store/nachrichtenStore';
 import { useNachrichtenStore } from '../../store/nachrichtenStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAthletenStore } from '../../store/athletenStore';
+import { useAuthStore } from '../../store/authStore';
 import { C, useColors, SP, R, FONT } from '../../theme';
 import { GBIcon } from '../../components/GBIcon';
 import GBAvatar from '../../components/GBAvatar';
 
-const TRAINER_ID   = 't1';
 const TRAINER_NAME = 'Trainer';
 
 function formatTime(iso: string): string {
@@ -53,20 +53,23 @@ const b = StyleSheet.create({
 export default function SportlerNachrichtenScreen() {
   const insets = useSafeAreaInsets();
   const C = useColors();
-  const { activeSportlerId } = useSettingsStore();
-  const { getSportlerById }  = useAthletenStore();
+  const { activeSportlerId, trainerId } = useSettingsStore();
+  const { getSportlerById } = useAthletenStore();
+  const { user, profile: authProfile } = useAuthStore();
   const { getNachrichtenForChat, sendNachricht, markAllAsRead } = useNachrichtenStore();
 
   const [text, setText] = useState('');
   const listRef = useRef<FlatList>(null);
 
+  // Real sportler uses their own profiles.id; trainer preview uses sportler's profileId
+  const isActualSportler = authProfile?.role === 'sportler';
   const sportler = getSportlerById(activeSportlerId ?? '');
-  const myId   = activeSportlerId ?? 's1';
-  const myName = sportler?.name ?? 'Sportler';
+  const myId   = isActualSportler ? (user?.id ?? '') : (sportler?.profileId ?? '');
+  const myName = isActualSportler ? (authProfile?.name ?? 'Sportler') : (sportler?.name ?? 'Sportler');
 
-  const msgs = getNachrichtenForChat(myId, TRAINER_ID);
+  const msgs = getNachrichtenForChat(myId, trainerId);
 
-  useEffect(() => { markAllAsRead(myId); }, [myId]);
+  useEffect(() => { if (myId) markAllAsRead(myId); }, [myId]);
   useEffect(() => {
     if (msgs.length) setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 80);
   }, [msgs.length]);
@@ -74,7 +77,7 @@ export default function SportlerNachrichtenScreen() {
   const send = () => {
     const t = text.trim();
     if (!t) return;
-    sendNachricht({ senderId: myId, senderName: myName, empfaengerId: TRAINER_ID, text: t });
+    sendNachricht({ senderId: myId, senderName: myName, empfaengerId: trainerId, text: t });
     setText('');
   };
 

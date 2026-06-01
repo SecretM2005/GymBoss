@@ -10,6 +10,7 @@ import { MehrStackParamList } from '../../types';
 import { useNachrichtenStore, Nachricht } from '../../store/nachrichtenStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useAuthStore } from '../../store/authStore';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 import { GBIcon } from '../../components/GBIcon';
 import GBAvatar from '../../components/GBAvatar';
@@ -19,7 +20,6 @@ type Props = {
   route: RouteProp<MehrStackParamList, 'Nachrichten'>;
 };
 
-const TRAINER_ID = 't1';
 const TRAINER_NAME = 'Trainer';
 
 function formatTime(iso: string): string {
@@ -62,17 +62,23 @@ const b = StyleSheet.create({
 });
 
 function ConversationList({ navigation, C }: { navigation: Props['navigation']; C: ReturnType<typeof useColors> }) {
-  const { nachrichten, getUnreadCount } = useNachrichtenStore();
+  const { nachrichten } = useNachrichtenStore();
   const { sportler } = useAthletenStore();
+  const trainerId = useSettingsStore((s) => s.trainerId);
 
   const conversations = sportler.map((sp) => {
-    const msgs = nachrichten.filter(
-      (m) =>
-        (m.senderId === sp.id && m.empfaengerId === TRAINER_ID) ||
-        (m.senderId === TRAINER_ID && m.empfaengerId === sp.id),
-    ).sort((a, b) => b.datum.localeCompare(a.datum));
+    const spId = sp.profileId;
+    const msgs = spId
+      ? nachrichten.filter(
+          (m) =>
+            (m.senderId === spId && m.empfaengerId === trainerId) ||
+            (m.senderId === trainerId && m.empfaengerId === spId),
+        ).sort((a, b) => b.datum.localeCompare(a.datum))
+      : [];
     const last = msgs[0];
-    const unread = nachrichten.filter((m) => m.empfaengerId === TRAINER_ID && m.senderId === sp.id && !m.gelesen).length;
+    const unread = spId
+      ? nachrichten.filter((m) => m.empfaengerId === trainerId && m.senderId === spId && !m.gelesen).length
+      : 0;
     return { sp, last, unread };
   });
 
@@ -93,15 +99,18 @@ function ConversationList({ navigation, C }: { navigation: Props['navigation']; 
       renderItem={({ item }) => (
         <TouchableOpacity
           style={[conv.row, { backgroundColor: C.surface, borderColor: C.border }]}
-          onPress={() => navigation.navigate('Nachrichten', { chatPartnerId: item.sp.id, chatPartnerName: item.sp.name })}
+          onPress={() => item.sp.profileId && navigation.navigate('Nachrichten', { chatPartnerId: item.sp.profileId, chatPartnerName: item.sp.name })}
+          disabled={!item.sp.profileId}
           activeOpacity={0.75}
         >
           <GBAvatar name={item.sp.name} initials={item.sp.initials} size={44} />
           <View style={{ flex: 1, gap: 3 }}>
             <Text style={[conv.name, { color: C.text }]}>{item.sp.name}</Text>
-            {item.last ? (
+            {!item.sp.profileId ? (
+              <Text style={[conv.preview, { color: C.textDim, fontStyle: 'italic' }]}>Kein App-Konto</Text>
+            ) : item.last ? (
               <Text style={[conv.preview, { color: C.textDim }]} numberOfLines={1}>
-                {item.last.senderId === TRAINER_ID ? 'Du: ' : ''}{item.last.text}
+                {item.last.senderId === trainerId ? 'Du: ' : ''}{item.last.text}
               </Text>
             ) : (
               <Text style={[conv.preview, { color: C.textDim, fontStyle: 'italic' }]}>Noch keine Nachrichten</Text>
@@ -133,14 +142,15 @@ const conv = StyleSheet.create({
 function ChatView({
   chatPartnerId, chatPartnerName, navigation, C,
 }: { chatPartnerId: string; chatPartnerName: string; navigation: Props['navigation']; C: ReturnType<typeof useColors> }) {
-  const { activeRole, activeSportlerId } = useSettingsStore();
+  const { trainerId } = useSettingsStore();
+  const { user } = useAuthStore();
   const { getNachrichtenForChat, sendNachricht, markAllAsRead } = useNachrichtenStore();
   const [text, setText] = useState('');
   const listRef = useRef<FlatList>(null);
 
-  const myId   = activeRole === 'sportler' ? (activeSportlerId ?? 's1') : TRAINER_ID;
-  const myName = activeRole === 'sportler' ? chatPartnerName : TRAINER_NAME;
-  const msgs   = getNachrichtenForChat(myId, activeRole === 'trainer' ? chatPartnerId : TRAINER_ID);
+  const myId   = user?.id ?? trainerId;
+  const myName = TRAINER_NAME;
+  const msgs   = getNachrichtenForChat(myId, chatPartnerId);
 
   useEffect(() => {
     markAllAsRead(myId);
@@ -154,9 +164,9 @@ function ChatView({
     const t = text.trim();
     if (!t) return;
     sendNachricht({
-      senderId:   myId,
-      senderName: myName,
-      empfaengerId: activeRole === 'trainer' ? chatPartnerId : TRAINER_ID,
+      senderId:     myId,
+      senderName:   myName,
+      empfaengerId: chatPartnerId,
       text: t,
     });
     setText('');

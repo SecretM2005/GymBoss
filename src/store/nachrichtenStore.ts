@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { supabase, uid } from '../lib/supabase';
 
 export type Nachricht = {
   id: string;
@@ -8,77 +9,112 @@ export type Nachricht = {
   planId?: string;
   einheitId?: string;
   text: string;
-  datum: string; // ISO
+  datum: string;
   gelesen: boolean;
 };
 
-let _uid = 900;
-const uid = () => `msg${++_uid}`;
-
-const now = () => new Date().toISOString();
-
-const INITIAL_NACHRICHTEN: Nachricht[] = [
-  {
-    id: 'msg1',
-    senderId: 't1',
-    senderName: 'Trainer',
-    empfaengerId: 's1',
-    planId: 'p1',
-    text: 'Gute Leistung diese Woche! Denk daran, die Technik beim Kreuzheben zu fokussieren.',
-    datum: new Date(Date.now() - 2 * 86400000).toISOString(),
-    gelesen: true,
-  },
-  {
-    id: 'msg2',
-    senderId: 's1',
-    senderName: 'Max Müller',
-    empfaengerId: 't1',
-    planId: 'p1',
-    text: 'Danke! Hatte leichte Knieschmerzen beim Kniebeuge. Soll ich Gewicht reduzieren?',
-    datum: new Date(Date.now() - 1 * 86400000).toISOString(),
-    gelesen: false,
-  },
-  {
-    id: 'msg3',
-    senderId: 't1',
-    senderName: 'Trainer',
-    empfaengerId: 's1',
-    planId: 'p1',
-    text: 'Ja, reduziere auf 70% und fokussiere auf Bewegungsqualität. Ich schau es mir nächste Woche an.',
-    datum: new Date(Date.now() - 3600000).toISOString(),
-    gelesen: false,
-  },
-];
+function rowToNachricht(row: any): Nachricht {
+  return {
+    id: row.id,
+    senderId: row.sender_id,
+    senderName: row.sender_name,
+    empfaengerId: row.empfaenger_id,
+    planId: row.plan_id ?? undefined,
+    einheitId: row.einheit_id ?? undefined,
+    text: row.text,
+    datum: row.datum,
+    gelesen: row.gelesen,
+  };
+}
 
 type NachrichtenState = {
   nachrichten: Nachricht[];
-  sendNachricht: (data: Omit<Nachricht, 'id' | 'datum' | 'gelesen'>) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: (empfaengerId: string) => void;
+  hydrate:        (userId: string) => Promise<void>;
+  reset:          () => void;
+  sendNachricht:  (data: Omit<Nachricht, 'id' | 'datum' | 'gelesen'>) => void;
+  markAsRead:     (id: string) => void;
+  markAllAsRead:  (empfaengerId: string) => void;
   getNachrichtenForChat: (userId1: string, userId2: string, planId?: string) => Nachricht[];
   getUnreadCount: (empfaengerId: string) => number;
 };
 
 export const useNachrichtenStore = create<NachrichtenState>((set, get) => ({
-  nachrichten: INITIAL_NACHRICHTEN,
+  nachrichten: [],
 
-  sendNachricht: (data) => {
-    set((s) => ({
-      nachrichten: [...s.nachrichten, { ...data, id: uid(), datum: now(), gelesen: false }],
-    }));
+  hydrate: async (userId) => {
+    const { data } = await supabase
+      .from('nachrichten')
+      .select('*')
+      .or(`sender_id.eq.${userId},empfaenger_id.eq.${userId}`)
+      .order('datum', { ascending: true });
+    if (data) {
+      set({ nachrichten: data.map(rowToNachricht) });
+    }
+
+    // Real-time subscription for incoming messages
+    supabase
+      .channel(`nachrichten_${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'nachrichten',
+          filter: `empfaenger_id=eq.${userId}`,
+        },
+        (payload) => {
+          const msg = rowToNachricht(payload.new);
+          set((s) => {
+            // avoid duplicates (optimistic insert already added it for sender)
+            if (s.nachrichten.some((m) => m.id === msg.id)) return s;
+            return { nachrichten: [...s.nachrichten, msg] };
+          });
+        }
+      )
+      .subscribe();
   },
 
-  markAsRead: (id) =>
+  reset: () => {
+    supabase.removeAllChannels();
+    set({ nachrichten: [] });
+  },
+
+  sendNachricht: (data) => {
+    const id = uid();
+    const msg: Nachricht = { ...data, id, datum: new Date().toISOString(), gelesen: false };
+    set((s) => ({ nachrichten: [...s.nachrichten, msg] }));
+    supabase.from('nachrichten').insert({
+      id: msg.id,
+      sender_id: data.senderId,
+      sender_name: data.senderName,
+      empfaenger_id: data.empfaengerId,
+      plan_id: data.planId ?? null,
+      einheit_id: data.einheitId ?? null,
+      text: data.text,
+      gelesen: false,
+    });
+  },
+
+  markAsRead: (id) => {
     set((s) => ({
       nachrichten: s.nachrichten.map((m) => (m.id === id ? { ...m, gelesen: true } : m)),
-    })),
+    }));
+    supabase.from('nachrichten').update({ gelesen: true }).eq('id', id);
+  },
 
-  markAllAsRead: (empfaengerId) =>
+  markAllAsRead: (empfaengerId) => {
+    const ids = get().nachrichten
+      .filter((m) => m.empfaengerId === empfaengerId && !m.gelesen)
+      .map((m) => m.id);
     set((s) => ({
       nachrichten: s.nachrichten.map((m) =>
         m.empfaengerId === empfaengerId ? { ...m, gelesen: true } : m,
       ),
-    })),
+    }));
+    if (ids.length > 0) {
+      supabase.from('nachrichten').update({ gelesen: true }).in('id', ids);
+    }
+  },
 
   getNachrichtenForChat: (userId1, userId2, planId) =>
     get()
