@@ -12,7 +12,7 @@ import { PlaeneStackParamList } from '../../types';
 import { usePlanStore } from '../../store/planStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import { GBIcon } from '../../components/GBIcon';
-import { recognizeText, hasGeminiKey } from '../../utils/ocr';
+import { recognizeText, hasClaudeKey } from '../../utils/ocr';
 import { parseTrainingText, ParsedPlan } from '../../utils/trainingsplanParser';
 import { C, useColors, SP, R, FONT } from '../../theme';
 
@@ -218,16 +218,16 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
                 <Text style={[styles.pickerHeroTitle, { color: C.text }]}>Plan hochladen</Text>
                 <Text style={[styles.pickerHeroSub, { color: C.textDim }]}>
                   {Platform.OS === 'web'
-                    ? hasGeminiKey()
-                      ? 'Bild hochladen — Gemini KI erkennt den Plan und füllt alle Felder automatisch aus.'
+                    ? hasClaudeKey()
+                      ? 'Bild hochladen — Claude KI erkennt den Plan und füllt alle Felder automatisch aus.'
                       : 'Bild hochladen — Tesseract OCR erkennt Text und füllt die Felder vor.'
                     : 'Foto aufnehmen oder Datei wählen. Text wird mit Google ML Kit erkannt (Expo Dev Build erforderlich).'}
                 </Text>
                 {Platform.OS === 'web' && (
-                  <View style={[styles.engineBadge, { backgroundColor: hasGeminiKey() ? 'rgba(203,255,62,0.12)' : 'rgba(122,191,255,0.12)', borderColor: hasGeminiKey() ? 'rgba(203,255,62,0.3)' : 'rgba(122,191,255,0.3)' }]}>
-                    <View style={[styles.engineDot, { backgroundColor: hasGeminiKey() ? C.accent : '#7ABFFF' }]} />
-                    <Text style={[styles.engineBadgeText, { color: hasGeminiKey() ? C.accent : '#7ABFFF' }]}>
-                      {hasGeminiKey() ? 'Gemini 1.5 Flash aktiv' : 'Tesseract OCR (lokal)'}
+                  <View style={[styles.engineBadge, { backgroundColor: hasClaudeKey() ? 'rgba(203,255,62,0.12)' : 'rgba(122,191,255,0.12)', borderColor: hasClaudeKey() ? 'rgba(203,255,62,0.3)' : 'rgba(122,191,255,0.3)' }]}>
+                    <View style={[styles.engineDot, { backgroundColor: hasClaudeKey() ? C.accent : '#7ABFFF' }]} />
+                    <Text style={[styles.engineBadgeText, { color: hasClaudeKey() ? C.accent : '#7ABFFF' }]}>
+                      {hasClaudeKey() ? 'Claude Haiku aktiv' : 'Tesseract OCR (lokal)'}
                     </Text>
                   </View>
                 )}
@@ -304,9 +304,9 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
                   <ActivityIndicator color={C.accent} />
                   <View style={{ flex: 1 }}>
                     {Platform.OS === 'web' ? (
-                      hasGeminiKey() ? (
+                      hasClaudeKey() ? (
                         <>
-                          <Text style={[styles.scanTitle, { color: C.text }]}>Gemini analysiert Bild…</Text>
+                          <Text style={[styles.scanTitle, { color: C.text }]}>Claude analysiert Bild…</Text>
                           <Text style={[styles.scanSub, { color: C.textMuted }]}>Strukturierte Daten werden extrahiert</Text>
                         </>
                       ) : (
