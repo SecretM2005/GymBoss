@@ -32,7 +32,7 @@ export function hasGeminiKey(): boolean {
 // ─── Gemini 1.5 Flash ──────────────────────────────────────────────────────────
 
 const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 const GEMINI_PROMPT = `You are a fitness training plan extractor.
 Analyze this training plan image and extract the COMPLETE structure.
