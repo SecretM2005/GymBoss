@@ -9,9 +9,12 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import { usePlanStore } from '../../store/planStore';
 import { useSessionLogStore } from '../../store/sessionLogStore';
+import { useNachrichtenStore } from '../../store/nachrichtenStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
+
+const TRAINER_ID = 't1';
 
 type Props = {
   navigation: StackNavigationProp<MeinProfilStackParamList, 'MeinProfilMain'>;
@@ -31,8 +34,10 @@ export default function SportlerAppProfilScreen({ navigation }: Props) {
   const { sportler: allSportler, getSportlerById } = useAthletenStore();
   const { getPlaeneForSportler } = usePlanStore();
   const { getLogsForSportler }   = useSessionLogStore();
+  const { getUnreadCount }       = useNachrichtenStore();
   const insets = useSafeAreaInsets();
   const C = useColors();
+  const unreadCount = getUnreadCount(activeSportlerId ?? '');
 
   const sportler = getSportlerById(activeSportlerId ?? '');
   const plaene   = getPlaeneForSportler(activeSportlerId ?? '');
@@ -105,6 +110,26 @@ export default function SportlerAppProfilScreen({ navigation }: Props) {
         )}
 
         <View style={[styles.sectionCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <TouchableOpacity
+            style={[styles.actionRow, { borderBottomColor: C.border }]}
+            onPress={() => navigation.navigate('NachrichtenSportler', { chatPartnerId: TRAINER_ID, chatPartnerName: 'Trainer' })}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: 'rgba(122,191,255,0.12)' }]}>
+              <GBIcon name="message" size={17} color="#7ABFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.actionTitle, { color: C.text }]}>Nachrichten</Text>
+              <Text style={[styles.actionSub, { color: C.textDim }]}>Chat mit deinem Trainer</Text>
+            </View>
+            {unreadCount > 0 && (
+              <View style={[styles.unreadBadge, { backgroundColor: C.accent }]}>
+                <Text style={[styles.unreadText, { color: C.accentContrast }]}>{unreadCount}</Text>
+              </View>
+            )}
+            <GBIcon name="chevronRight" size={16} color={C.textDim} />
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.actionRow, { borderBottomColor: C.border }]}
             onPress={() => setPickerVisible(true)}
@@ -237,6 +262,8 @@ const styles = StyleSheet.create({
   statValue: { fontSize: FONT.xl, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
   statLabel: { fontSize: 10, fontWeight: '700', color: C.textDim, textTransform: 'uppercase', letterSpacing: 0.8 },
 
+  unreadBadge: { minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
+  unreadText:  { fontSize: 10, fontWeight: '800' },
   noProfileCard:  { alignItems: 'center', borderRadius: R.xl, borderWidth: 1, padding: SP.xxxl, gap: SP.md },
   noProfileTitle: { fontSize: FONT.md, fontWeight: '700', color: C.textSub },
   noProfileSub:   { fontSize: FONT.sm, color: C.textDim, textAlign: 'center', lineHeight: 20 },

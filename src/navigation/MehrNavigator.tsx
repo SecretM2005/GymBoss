@@ -6,6 +6,10 @@ import EinstellungenScreen from '../screens/mehr/EinstellungenScreen';
 import UebungsBibliothekScreen from '../screens/mehr/UebungsBibliothekScreen';
 import EinheitTemplateDetailScreen from '../screens/mehr/EinheitTemplateDetailScreen';
 import UebungTemplateFormScreen from '../screens/mehr/UebungTemplateFormScreen';
+import FortschrittScreen from '../screens/mehr/FortschrittScreen';
+import NachrichtenScreen from '../screens/mehr/NachrichtenScreen';
+import BenachrichtigungenScreen from '../screens/mehr/BenachrichtigungenScreen';
+import HealthSyncScreen from '../screens/mehr/HealthSyncScreen';
 
 const Stack = createStackNavigator<MehrStackParamList>();
 
@@ -17,6 +21,10 @@ export default function MehrNavigator() {
       <Stack.Screen name="Uebungsbibliothek"      component={UebungsBibliothekScreen} />
       <Stack.Screen name="EinheitTemplateDetail"  component={EinheitTemplateDetailScreen} />
       <Stack.Screen name="UebungTemplateForm"     component={UebungTemplateFormScreen} />
+      <Stack.Screen name="Fortschritt"            component={FortschrittScreen} />
+      <Stack.Screen name="Nachrichten"            component={NachrichtenScreen} />
+      <Stack.Screen name="Benachrichtigungen"     component={BenachrichtigungenScreen} />
+      <Stack.Screen name="HealthSync"             component={HealthSyncScreen} />
     </Stack.Navigator>
   );
 }
