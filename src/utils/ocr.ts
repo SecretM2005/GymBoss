@@ -179,10 +179,14 @@ async function runTesseract(
     const result = await (worker as any).recognize(enhanced);
     await (worker as any).terminate();
 
-    const words: any[] = result?.data?.words ?? [];
+    const words: any[] = result?.data?.words ?? result?.words ?? [];
     const text = words.length > 0
       ? reconstructTableFromBboxes(words)
-      : (result?.data?.text as string ?? '');
+      : (result?.data?.text ?? result?.text ?? '') as string;
+
+    if (__DEV__) {
+      console.log('[OCR] words:', words.length, '| first 500 chars of reconstructed text:\n', text.slice(0, 500));
+    }
 
     return { ok: true, text };
   } catch (e: any) {
@@ -298,7 +302,7 @@ function binarize(data: ImageData, w: number, h: number): ImageData {
  */
 function reconstructTableFromBboxes(words: any[]): string {
   const items = words
-    .filter((w: any) => w.text?.trim() && (w.confidence ?? 0) > 20)
+    .filter((w: any) => w.text?.trim() && (w.confidence ?? 0) > 10)
     .map((w: any) => ({
       text: w.text.trim() as string,
       x0:  w.bbox.x0 as number,

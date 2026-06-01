@@ -128,20 +128,37 @@ export function parseTrainingText(rawText: string): ParsedPlan {
 
 function buildWochenStructure(text: string, fallbackWochen: number): ParsedWoche[] {
   const wochen: ParsedWoche[] = [];
-  const wocheSegments = splitByPattern(text, /(?:woche|week)\s*\.?\s*(\d+)/gi);
 
+  // 1. Explicit "Woche N" / "Week N" headings
+  const wocheSegments = splitByPattern(text, /(?:woche|week)\s*\.?\s*(\d+)/gi);
   if (wocheSegments.length > 0) {
     for (const seg of wocheSegments) {
       wochen.push({ wochennummer: parseInt(seg.label), einheiten: extractEinheiten(seg.content) });
     }
-  } else {
-    const allEinheiten = extractEinheiten(text);
-    const numWeeks = Math.max(1, fallbackWochen);
-    for (let i = 1; i <= numWeeks; i++) {
-      wochen.push({ wochennummer: i, einheiten: i === 1 ? allEinheiten : [] });
-    }
+    return wochen;
   }
 
+  // 2. Date-range week headers ("1.-7. September", "8.-14. Oktober", …)
+  const dateRanges = [...text.matchAll(/\d{1,2}\.\s*[-–]\s*\d{1,2}\./g)];
+  if (dateRanges.length >= 2) {
+    for (let i = 0; i < dateRanges.length; i++) {
+      const start = (dateRanges[i].index ?? 0) + dateRanges[i][0].length;
+      const end   = i + 1 < dateRanges.length ? (dateRanges[i + 1].index ?? text.length) : text.length;
+      wochen.push({ wochennummer: i + 1, einheiten: extractEinheiten(text.slice(start, end)) });
+    }
+    return wochen;
+  }
+
+  // 3. Fallback: all einheiten distributed across weeks
+  const allEinheiten = extractEinheiten(text);
+  const numWeeks     = Math.max(1, fallbackWochen);
+  const perWeek      = Math.ceil(allEinheiten.length / numWeeks);
+  for (let i = 0; i < numWeeks; i++) {
+    wochen.push({
+      wochennummer: i + 1,
+      einheiten:    allEinheiten.slice(i * perWeek, (i + 1) * perWeek),
+    });
+  }
   return wochen;
 }
 
