@@ -73,8 +73,8 @@ export default function MehrHubScreen({ navigation }: Props) {
             <GBIcon name="barChart" size={24} color={C.accent} />
           </View>
           <View style={s.tileInfo}>
-            <Text style={[s.tileTitle, { color: C.text }]}>Fortschritt & Statistiken</Text>
-            <Text style={[s.tileSub, { color: C.textMuted }]}>Volumen · RPE · Plan-Fortschritt</Text>
+            <Text style={[s.tileTitle, { color: C.text }]}>Team-Statistiken</Text>
+            <Text style={[s.tileSub, { color: C.textMuted }]}>Alle Sportler · Plan-Fortschritt · RPE</Text>
           </View>
           <GBIcon name="chevronRight" size={16} color={C.textDim} />
         </TouchableOpacity>
@@ -99,39 +99,6 @@ export default function MehrHubScreen({ navigation }: Props) {
               <Text style={[s.badgeText, { color: C.accentContrast }]}>{unreadNachrichten}</Text>
             </View>
           )}
-          <GBIcon name="chevronRight" size={16} color={C.textDim} />
-        </TouchableOpacity>
-
-        {/* ── Gesundheit & Integration ── */}
-        <Text style={[s.sectionLabel, { color: C.textDim }]}>GESUNDHEIT & INTEGRATION</Text>
-
-        <TouchableOpacity
-          style={[s.tile, { backgroundColor: 'rgba(122,229,130,0.06)', borderColor: 'rgba(122,229,130,0.18)' }]}
-          onPress={() => navigation.navigate('HealthSync')}
-          activeOpacity={0.75}
-        >
-          <View style={[s.tileIcon, { backgroundColor: 'rgba(122,229,130,0.15)' }]}>
-            <GBIcon name="heart" size={24} color={C.success} />
-          </View>
-          <View style={s.tileInfo}>
-            <Text style={[s.tileTitle, { color: C.text }]}>Health Sync</Text>
-            <Text style={[s.tileSub, { color: C.textMuted }]}>Apple Health · Google Fit Integration</Text>
-          </View>
-          <GBIcon name="chevronRight" size={16} color={C.textDim} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[s.tile, { backgroundColor: C.surface, borderColor: C.border }]}
-          onPress={() => navigation.navigate('Benachrichtigungen')}
-          activeOpacity={0.75}
-        >
-          <View style={[s.tileIcon, { backgroundColor: 'rgba(255,209,102,0.12)' }]}>
-            <GBIcon name="bell" size={24} color="#FFD166" />
-          </View>
-          <View style={s.tileInfo}>
-            <Text style={[s.tileTitle, { color: C.text }]}>Benachrichtigungen</Text>
-            <Text style={[s.tileSub, { color: C.textMuted }]}>Training-Erinnerungen · Push-Alerts</Text>
-          </View>
           <GBIcon name="chevronRight" size={16} color={C.textDim} />
         </TouchableOpacity>
 

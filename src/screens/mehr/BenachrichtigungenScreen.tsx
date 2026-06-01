@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Switch } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MehrStackParamList } from '../../types';
 import { C, useColors, SP, R, FONT } from '../../theme';
 import { GBIcon } from '../../components/GBIcon';
 import { requestNotificationPermission, scheduleInstantNotification } from '../../services/notificationService';
 
 type Props = {
-  navigation: StackNavigationProp<MehrStackParamList, 'Benachrichtigungen'>;
+  navigation: StackNavigationProp<any>;
 };
 
 export default function BenachrichtigungenScreen({ navigation }: Props) {
