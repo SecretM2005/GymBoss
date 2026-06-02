@@ -165,13 +165,14 @@ export type SportlerAppTabParamList = {
 };
 
 export type MeinTrainingStackParamList = {
-  MeinTrainingMain: undefined;
-  EinheitLog:       { planId: string; wocheId: string; einheitId: string };
-  PlanForm:         { planId?: string; preselectedSportlerId?: string };
-  ImportPlan:       { preselectedSportlerId?: string } | undefined;
-  PlanWocheForm:    { planId: string; wocheId?: string };
-  PlanWocheDetail:  { planId: string; wocheId: string };
-  EinheitDetail:    { planId: string; wocheId: string; einheitId?: string; datum?: string };
+  MeinTrainingMain:  undefined;
+  EinheitLog:        { planId: string; wocheId: string; einheitId: string };
+  EinheitAusfuehren: { planId: string; wocheId: string; einheitId: string };
+  PlanForm:          { planId?: string; preselectedSportlerId?: string };
+  ImportPlan:        { preselectedSportlerId?: string } | undefined;
+  PlanWocheForm:     { planId: string; wocheId?: string };
+  PlanWocheDetail:   { planId: string; wocheId: string };
+  EinheitDetail:     { planId: string; wocheId: string; einheitId?: string; datum?: string };
 };
 
 export type MeinProfilStackParamList = {
