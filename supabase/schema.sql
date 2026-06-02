@@ -61,19 +61,13 @@ create table if not exists public.training_plans (
 );
 alter table public.training_plans enable row level security;
 
+-- Only the trainer policy here — the sportler policy references plan_athletes
+-- which does not exist yet. It is added below after plan_athletes is created.
 drop policy if exists "Trainers can manage own plans"    on public.training_plans;
 drop policy if exists "Sportler can read assigned plans" on public.training_plans;
 
 create policy "Trainers can manage own plans"
   on public.training_plans for all using (trainer_id = auth.uid());
-create policy "Sportler can read assigned plans"
-  on public.training_plans for select using (
-    exists (
-      select 1 from public.athletes a
-      join public.plan_athletes pa on pa.athlete_id = a.id
-      where pa.plan_id = id and a.profile_id = auth.uid()
-    )
-  );
 
 -- ─── plan_athletes ────────────────────────────────────────────────────────────
 create table if not exists public.plan_athletes (
@@ -93,6 +87,16 @@ create policy "Trainers can manage plan athlete assignments"
 create policy "Sportler can read own plan assignments"
   on public.plan_athletes for select using (
     exists (select 1 from public.athletes where id = athlete_id and profile_id = auth.uid())
+  );
+
+-- Sportler policy for training_plans — added here now that plan_athletes exists
+create policy "Sportler can read assigned plans"
+  on public.training_plans for select using (
+    exists (
+      select 1 from public.athletes a
+      join public.plan_athletes pa on pa.athlete_id = a.id
+      where pa.plan_id = id and a.profile_id = auth.uid()
+    )
   );
 
 -- ─── plan_wochen ─────────────────────────────────────────────────────────────
