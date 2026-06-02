@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TextInput, TouchableOpacity, Alert,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SportlerStackParamList, TrainingsPlan, Einheit } from '../../types';
 import { useAthletenStore } from '../../store/athletenStore';
 import { usePlanStore } from '../../store/planStore';
+import { supabase } from '../../lib/supabase';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import MonthCalendar from '../../components/MonthCalendar';
@@ -92,7 +93,7 @@ function formatDay(iso: string): string {
 type Form = { name: string; geburtsdatum: string | null; sportart: string; ziel: string };
 
 export default function SportlerDetailScreen({ navigation, route }: Props) {
-  const { getSportlerById, updateSportler, deleteSportler } = useAthletenStore();
+  const { getSportlerById, updateSportler, deleteSportler, linkProfile } = useAthletenStore();
   const { getPlaeneForSportler } = usePlanStore();
   const sportler = getSportlerById(route.params.sportlerId);
   const insets = useSafeAreaInsets();
@@ -105,8 +106,10 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
     sportart:     sportler?.sportart ?? 'Kraftsport',
     ziel:         sportler?.ziel ?? '',
   });
-  const [errors, setErrors]     = useState<Partial<Record<'name', string>>>({});
-  const [saved, setSaved]       = useState(false);
+  const [errors, setErrors]       = useState<Partial<Record<'name', string>>>({});
+  const [saved, setSaved]         = useState(false);
+  const [linkEmail, setLinkEmail] = useState('');
+  const [linking, setLinking]     = useState(false);
   const [calYear, setCalYear]   = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
@@ -210,6 +213,30 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
     Alert.alert('Sportler löschen', `${sportler.name} wirklich löschen?`, [
       { text: 'Abbrechen', style: 'cancel' },
       { text: 'Löschen', style: 'destructive', onPress: () => { deleteSportler(sportler.id); navigation.goBack(); } },
+    ]);
+  };
+
+  const handleLink = async () => {
+    const email = linkEmail.trim().toLowerCase();
+    if (!email) return;
+    setLinking(true);
+    const { data: profileId, error } = await supabase.rpc('get_sportler_profile_id_by_email', { p_email: email });
+    setLinking(false);
+    if (error || !profileId) {
+      Alert.alert('Nicht gefunden', 'Kein Sportler-Konto mit dieser E-Mail-Adresse gefunden.\nBitte stelle sicher, dass sich der Sportler bereits registriert hat.');
+      return;
+    }
+    await linkProfile(sportler.id, profileId);
+    setLinkEmail('');
+    Alert.alert('Verknüpft ✓', 'Das App-Konto wurde erfolgreich verknüpft.');
+  };
+
+  const handleUnlink = () => {
+    Alert.alert('Verknüpfung aufheben', 'App-Konto wirklich trennen?', [
+      { text: 'Abbrechen', style: 'cancel' },
+      { text: 'Trennen', style: 'destructive', onPress: async () => {
+        await linkProfile(sportler.id, '');
+      }},
     ]);
   };
 
@@ -581,6 +608,55 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
             </>
           )}
 
+          {/* ── App-Konto verknüpfen ── */}
+          <SectionHead>App-Konto</SectionHead>
+
+          {sportler.profileId ? (
+            <View style={[styles.linkedCard, { backgroundColor: 'rgba(122,229,130,0.08)', borderColor: 'rgba(122,229,130,0.25)' }]}>
+              <View style={[styles.linkedIcon, { backgroundColor: 'rgba(122,229,130,0.15)' }]}>
+                <GBIcon name="check" size={16} color="#7AE582" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.linkedTitle, { color: '#7AE582' }]}>App-Konto verknüpft</Text>
+                <Text style={[styles.linkedSub, { color: C.textMuted }]}>
+                  Sportler kann sich einloggen und sein Training sehen.
+                </Text>
+              </View>
+              <TouchableOpacity onPress={handleUnlink} activeOpacity={0.7}>
+                <GBIcon name="close" size={18} color={C.textDim} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={[styles.linkBox, { backgroundColor: C.surface, borderColor: C.border }]}>
+              <Text style={[styles.linkHint, { color: C.textMuted }]}>
+                Sportler registriert sich in der App → du gibst hier seine E-Mail ein.
+              </Text>
+              <View style={styles.linkRow}>
+                <TextInput
+                  style={[styles.linkInput, { backgroundColor: C.surfaceAlt, borderColor: C.border, color: C.text, flex: 1 }]}
+                  value={linkEmail}
+                  onChangeText={setLinkEmail}
+                  placeholder="sportler@example.com"
+                  placeholderTextColor={C.textDim}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={[styles.linkBtn, { backgroundColor: C.accent, opacity: linking ? 0.7 : 1 }]}
+                  onPress={handleLink}
+                  disabled={linking || !linkEmail.trim()}
+                  activeOpacity={0.8}
+                >
+                  {linking
+                    ? <ActivityIndicator size="small" color={C.accentContrast} />
+                    : <Text style={[styles.linkBtnText, { color: C.accentContrast }]}>Verknüpfen</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           {/* Löschen */}
           <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn} activeOpacity={0.8}>
             <GBIcon name="trash" size={17} color={C.warn} />
@@ -682,6 +758,17 @@ const styles = StyleSheet.create({
   einheitDatum:   { fontSize: 10, color: C.textDim, marginTop: 2 },
   overrideBadge:  { color: C.accent },
   einheitEditBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+
+  linkedCard:  { flexDirection: 'row', alignItems: 'center', gap: SP.md, borderRadius: R.xl, borderWidth: 1, padding: SP.md },
+  linkedIcon:  { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  linkedTitle: { fontSize: FONT.sm, fontWeight: '700' },
+  linkedSub:   { fontSize: FONT.xs, marginTop: 2 },
+  linkBox:     { borderRadius: R.xl, borderWidth: 1, padding: SP.lg, gap: SP.md },
+  linkHint:    { fontSize: FONT.sm, lineHeight: 20 },
+  linkRow:     { flexDirection: 'row', gap: SP.sm },
+  linkInput:   { borderRadius: R.md, borderWidth: 1, paddingHorizontal: SP.md, paddingVertical: 10, fontSize: FONT.sm },
+  linkBtn:     { borderRadius: R.md, paddingHorizontal: SP.md, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', minWidth: 100 },
+  linkBtnText: { fontSize: FONT.sm, fontWeight: '700' },
 
   deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.lg, borderRadius: R.lg, borderWidth: 1, borderColor: 'rgba(255,106,61,0.25)', backgroundColor: 'rgba(255,106,61,0.06)' },
   deleteBtnText: { fontSize: FONT.base, fontWeight: '600', color: C.warn },

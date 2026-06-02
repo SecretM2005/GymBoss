@@ -23,7 +23,7 @@ export const useEinheitStore = create<EinheitStoreState>((set) => ({
       .order('created_at', { ascending: true });
     if (data) {
       set({
-        einheiten: data.map((row) => ({
+        einheiten: data.map((row: any) => ({
           id: row.id,
           name: row.name,
           warmup: row.warmup ?? [],

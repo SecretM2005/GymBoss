@@ -23,7 +23,7 @@ export const useSessionLogStore = create<SessionLogState>((set, get) => ({
       .order('created_at', { ascending: true });
     if (data) {
       set({
-        logs: data.map((row) => ({
+        logs: data.map((row: any) => ({
           id: row.id,
           workoutId: row.einheit_id,
           sportlerId: row.athlete_id,

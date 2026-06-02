@@ -18,13 +18,12 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const C = useColors();
 
-  const [mode, setMode]           = useState<'login' | 'register'>('login');
-  const [role, setRole]           = useState<'trainer' | 'sportler'>('trainer');
-  const [email, setEmail]         = useState('');
-  const [password, setPassword]   = useState('');
-  const [name, setName]           = useState('');
-  const [trainerEmail, setTrainerEmail] = useState('');
-  const [loading, setLoading]     = useState(false);
+  const [mode, setMode]         = useState<'login' | 'register'>('login');
+  const [role, setRole]         = useState<'trainer' | 'sportler'>('trainer');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName]         = useState('');
+  const [loading, setLoading]   = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -42,15 +41,11 @@ export default function LoginScreen() {
 
   const handleRegister = async () => {
     if (!email.trim() || !password.trim() || !name.trim()) {
-      Alert.alert('Fehlende Angaben', 'Bitte alle Pflichtfelder ausfüllen.');
+      Alert.alert('Fehlende Angaben', 'Bitte alle Felder ausfüllen.');
       return;
     }
     if (password.length < 6) {
       Alert.alert('Passwort zu kurz', 'Mindestens 6 Zeichen erforderlich.');
-      return;
-    }
-    if (role === 'sportler' && !trainerEmail.trim()) {
-      Alert.alert('Trainer-E-Mail fehlt', 'Bitte die E-Mail-Adresse deines Trainers eingeben.');
       return;
     }
     setLoading(true);
@@ -66,71 +61,16 @@ export default function LoginScreen() {
       return;
     }
 
-    const userId  = data.user.id;
-    const initials = makeInitials(name);
-
-    // Create profile
     const { error: profileError } = await supabase.from('profiles').insert({
-      id: userId,
+      id: data.user.id,
       role,
       name: name.trim(),
-      initials,
+      initials: makeInitials(name),
     });
 
-    if (profileError) {
-      setLoading(false);
-      Alert.alert('Profil-Fehler', profileError.message);
-      return;
-    }
-
-    // If sportler: link to trainer
-    if (role === 'sportler') {
-      const { data: trainerProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'trainer')
-        .ilike('id', '%') // just fetch all, we match by email via auth
-        .limit(1);
-
-      // Look up trainer by email via RPC or auth admin — simplified approach:
-      // Use the trainer_id from the athletes table where profile_id is still null
-      // and the trainer email matches. We'll try to find the trainer's profile.
-      // For now: find athletes record for this sportler (created by trainer with same email hint)
-      const { data: athleteRecord } = await supabase
-        .from('athletes')
-        .select('id, trainer_id')
-        .is('profile_id', null)
-        .ilike('name', name.trim())
-        .limit(1);
-
-      if (athleteRecord && athleteRecord.length > 0) {
-        // Link this auth user to the existing athlete record
-        await supabase
-          .from('athletes')
-          .update({ profile_id: userId })
-          .eq('id', athleteRecord[0].id);
-      } else {
-        // Find trainer profile by looking up trainer email
-        // We search profiles by querying athletes whose trainer has this email — use a function
-        // Simplified: look for the trainer's profile.id by searching via their trainer email
-        const { data: trainerByEmail } = await supabase.rpc('get_profile_id_by_email', {
-          p_email: trainerEmail.trim().toLowerCase(),
-        });
-
-        if (trainerByEmail) {
-          // Create a new athlete record linked to this trainer and this sportler profile
-          await supabase.from('athletes').insert({
-            trainer_id: trainerByEmail,
-            profile_id: userId,
-            name: name.trim(),
-            initials,
-          });
-        }
-      }
-    }
-
     setLoading(false);
-    // Auth state change listener in App.tsx will handle navigation
+    if (profileError) Alert.alert('Profil-Fehler', profileError.message);
+    // Auth state change listener in App.tsx handles navigation
   };
 
   const isLogin = mode === 'login';
@@ -197,45 +137,24 @@ export default function LoginScreen() {
 
           {/* Name (register only) */}
           {!isLogin && (
-            <Field
-              label="Vollständiger Name"
-              value={name}
-              onChangeText={setName}
-              placeholder="Max Mustermann"
-              C={C}
-            />
+            <Field label="Vollständiger Name" value={name} onChangeText={setName}
+              placeholder="Max Mustermann" C={C} />
           )}
 
-          <Field
-            label="E-Mail"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="max@example.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            C={C}
-          />
+          <Field label="E-Mail" value={email} onChangeText={setEmail}
+            placeholder="max@example.com" keyboardType="email-address" autoCapitalize="none" C={C} />
 
-          <Field
-            label="Passwort"
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Mindestens 6 Zeichen"
-            secureTextEntry
-            C={C}
-          />
+          <Field label="Passwort" value={password} onChangeText={setPassword}
+            placeholder="Mindestens 6 Zeichen" secureTextEntry C={C} />
 
-          {/* Trainer email for sportler registration */}
+          {/* Info for sportler */}
           {!isLogin && role === 'sportler' && (
-            <Field
-              label="E-Mail des Trainers"
-              value={trainerEmail}
-              onChangeText={setTrainerEmail}
-              placeholder="trainer@example.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              C={C}
-            />
+            <View style={[s.infoBox, { backgroundColor: 'rgba(122,191,255,0.08)', borderColor: 'rgba(122,191,255,0.20)' }]}>
+              <GBIcon name="info" size={16} color="#7ABFFF" />
+              <Text style={[s.infoText, { color: '#7ABFFF' }]}>
+                Dein Trainer verknüpft dein Konto nach der Registrierung in der App.
+              </Text>
+            </View>
           )}
 
           <TouchableOpacity
@@ -275,28 +194,19 @@ function Field({
   label, value, onChangeText, placeholder,
   keyboardType, autoCapitalize, secureTextEntry, C,
 }: {
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  placeholder: string;
-  keyboardType?: any;
-  autoCapitalize?: any;
-  secureTextEntry?: boolean;
-  C: ReturnType<typeof useColors>;
+  label: string; value: string; onChangeText: (v: string) => void;
+  placeholder: string; keyboardType?: any; autoCapitalize?: any;
+  secureTextEntry?: boolean; C: ReturnType<typeof useColors>;
 }) {
   return (
     <View style={s.field}>
       <Text style={[s.fieldLabel, { color: C.textMuted }]}>{label}</Text>
       <TextInput
         style={[s.fieldInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={C.textDim}
-        keyboardType={keyboardType}
+        value={value} onChangeText={onChangeText} placeholder={placeholder}
+        placeholderTextColor={C.textDim} keyboardType={keyboardType}
         autoCapitalize={autoCapitalize ?? 'words'}
-        secureTextEntry={secureTextEntry}
-        autoCorrect={false}
+        secureTextEntry={secureTextEntry} autoCorrect={false}
       />
     </View>
   );
@@ -311,17 +221,20 @@ const s = StyleSheet.create({
   appName:  { fontSize: 32, fontWeight: '800', letterSpacing: -0.8 },
   appSub:   { fontSize: FONT.base, fontWeight: '500' },
 
-  modeToggle: { flexDirection: 'row', borderRadius: R.lg, borderWidth: 1, padding: 4, gap: 4 },
-  modeBtn:    { flex: 1, paddingVertical: SP.md, borderRadius: R.md, alignItems: 'center' },
+  modeToggle:  { flexDirection: 'row', borderRadius: R.lg, borderWidth: 1, padding: 4, gap: 4 },
+  modeBtn:     { flex: 1, paddingVertical: SP.md, borderRadius: R.md, alignItems: 'center' },
   modeBtnText: { fontSize: FONT.base, fontWeight: '700' },
 
-  roleRow: { flexDirection: 'row', gap: SP.sm },
-  roleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, borderRadius: R.lg, borderWidth: 1.5, paddingVertical: SP.md },
+  roleRow:     { flexDirection: 'row', gap: SP.sm },
+  roleBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, borderRadius: R.lg, borderWidth: 1.5, paddingVertical: SP.md },
   roleBtnText: { fontSize: FONT.base, fontWeight: '700' },
 
-  field:      { gap: 6 },
-  fieldLabel: { fontSize: FONT.sm, fontWeight: '600', letterSpacing: 0.4 },
-  fieldInput: { borderRadius: R.lg, borderWidth: 1, paddingHorizontal: SP.md, paddingVertical: 14, fontSize: FONT.base },
+  field:       { gap: 6 },
+  fieldLabel:  { fontSize: FONT.sm, fontWeight: '600', letterSpacing: 0.4 },
+  fieldInput:  { borderRadius: R.lg, borderWidth: 1, paddingHorizontal: SP.md, paddingVertical: 14, fontSize: FONT.base },
+
+  infoBox:  { flexDirection: 'row', alignItems: 'flex-start', gap: SP.sm, borderRadius: R.lg, borderWidth: 1, padding: SP.md },
+  infoText: { flex: 1, fontSize: FONT.sm, lineHeight: 20, fontWeight: '500' },
 
   submitBtn:     { borderRadius: R.full, paddingVertical: SP.lg, alignItems: 'center', marginTop: SP.sm },
   submitBtnText: { fontSize: FONT.md, fontWeight: '700', letterSpacing: -0.2 },

@@ -62,7 +62,7 @@ export const useNachrichtenStore = create<NachrichtenState>((set, get) => ({
           table: 'nachrichten',
           filter: `empfaenger_id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: { new: any }) => {
           const msg = rowToNachricht(payload.new);
           set((s) => {
             // avoid duplicates (optimistic insert already added it for sender)

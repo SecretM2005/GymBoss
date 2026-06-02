@@ -1,6 +1,7 @@
 import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { useSettingsStore } from './src/store/settingsStore';
 import { useAuthStore } from './src/store/authStore';
 import { useAthletenStore } from './src/store/athletenStore';
@@ -9,7 +10,7 @@ import { useEinheitStore } from './src/store/einheitStore';
 import { useUebungStore } from './src/store/uebungStore';
 import { useNachrichtenStore } from './src/store/nachrichtenStore';
 import { useSessionLogStore } from './src/store/sessionLogStore';
-import { supabase } from './src/lib/supabase';
+import { supabase, isSupabaseConfigured } from './src/lib/supabase';
 import RootNavigator from './src/navigation/RootNavigator';
 
 async function bootstrapUser(userId: string) {
@@ -80,16 +81,21 @@ export default function App() {
   const { setSession, setInitializing } = useAuthStore();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        bootstrapUser(session.user.id);
+    if (!isSupabaseConfigured) {
+      setInitializing(false);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
+      setSession(data.session);
+      if (data.session) {
+        bootstrapUser(data.session.user.id);
       } else {
         setInitializing(false);
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       setSession(session);
       if (event === 'SIGNED_IN' && session) {
         bootstrapUser(session.user.id);

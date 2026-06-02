@@ -23,7 +23,7 @@ export const useUebungStore = create<UebungState>((set) => ({
       .order('created_at', { ascending: true });
     if (data) {
       set({
-        uebungen: data.map((row) => ({
+        uebungen: data.map((row: any) => ({
           id: row.id,
           name: row.name,
           beschreibung: row.beschreibung ?? undefined,
