@@ -1,10 +1,9 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- GymBoss – Supabase Schema
+-- GymBoss – Supabase Schema  (idempotent: safe to re-run)
 -- Run this in the Supabase SQL editor (Project → SQL Editor → New Query)
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- ─── profiles ────────────────────────────────────────────────────────────────
--- One row per registered auth user (trainer or sportler)
 create table if not exists public.profiles (
   id         uuid primary key references auth.users(id) on delete cascade,
   role       text not null check (role in ('trainer', 'sportler')),
@@ -14,6 +13,10 @@ create table if not exists public.profiles (
 );
 alter table public.profiles enable row level security;
 
+drop policy if exists "Authenticated users can read all profiles" on public.profiles;
+drop policy if exists "Users can insert own profile"              on public.profiles;
+drop policy if exists "Users can update own profile"             on public.profiles;
+
 create policy "Authenticated users can read all profiles"
   on public.profiles for select to authenticated using (true);
 create policy "Users can insert own profile"
@@ -22,20 +25,22 @@ create policy "Users can update own profile"
   on public.profiles for update using (auth.uid() = id);
 
 -- ─── athletes ────────────────────────────────────────────────────────────────
--- Trainer-managed athlete records.
--- profile_id is null until the athlete installs the app and registers.
 create table if not exists public.athletes (
-  id          uuid primary key default gen_random_uuid(),
-  trainer_id  uuid not null references public.profiles(id) on delete cascade,
-  profile_id  uuid references public.profiles(id) on delete set null,
-  name        text not null,
-  initials    text not null default '',
-  sportart    text,
-  ziel        text,
+  id           uuid primary key default gen_random_uuid(),
+  trainer_id   uuid not null references public.profiles(id) on delete cascade,
+  profile_id   uuid references public.profiles(id) on delete set null,
+  name         text not null,
+  initials     text not null default '',
+  sportart     text,
+  ziel         text,
   geburtsdatum text,
-  created_at  timestamptz not null default now()
+  created_at   timestamptz not null default now()
 );
 alter table public.athletes enable row level security;
+
+drop policy if exists "Trainers can manage own athletes"       on public.athletes;
+drop policy if exists "Sportler can read own athlete record"   on public.athletes;
+drop policy if exists "Sportler can update own athlete record" on public.athletes;
 
 create policy "Trainers can manage own athletes"
   on public.athletes for all using (trainer_id = auth.uid());
@@ -56,6 +61,9 @@ create table if not exists public.training_plans (
 );
 alter table public.training_plans enable row level security;
 
+drop policy if exists "Trainers can manage own plans"    on public.training_plans;
+drop policy if exists "Sportler can read assigned plans" on public.training_plans;
+
 create policy "Trainers can manage own plans"
   on public.training_plans for all using (trainer_id = auth.uid());
 create policy "Sportler can read assigned plans"
@@ -75,6 +83,9 @@ create table if not exists public.plan_athletes (
 );
 alter table public.plan_athletes enable row level security;
 
+drop policy if exists "Trainers can manage plan athlete assignments" on public.plan_athletes;
+drop policy if exists "Sportler can read own plan assignments"       on public.plan_athletes;
+
 create policy "Trainers can manage plan athlete assignments"
   on public.plan_athletes for all using (
     exists (select 1 from public.training_plans where id = plan_id and trainer_id = auth.uid())
@@ -93,6 +104,9 @@ create table if not exists public.plan_wochen (
 );
 alter table public.plan_wochen enable row level security;
 
+drop policy if exists "Trainers can manage plan weeks"            on public.plan_wochen;
+drop policy if exists "Sportler can read weeks of assigned plans" on public.plan_wochen;
+
 create policy "Trainers can manage plan weeks"
   on public.plan_wochen for all using (
     exists (select 1 from public.training_plans where id = plan_id and trainer_id = auth.uid())
@@ -108,20 +122,21 @@ create policy "Sportler can read weeks of assigned plans"
   );
 
 -- ─── einheiten ───────────────────────────────────────────────────────────────
--- warmup / haupteinheit / cooldown stored as JSONB arrays of EinheitUebung
--- sportler_overrides stored as JSONB map: { athleteId: EinheitTemplate }
 create table if not exists public.einheiten (
-  id                  uuid primary key default gen_random_uuid(),
-  woche_id            uuid not null references public.plan_wochen(id) on delete cascade,
-  template_id         uuid,
-  name                text not null,
-  datum               text,
-  warmup              jsonb not null default '[]',
-  haupteinheit        jsonb not null default '[]',
-  cooldown            jsonb not null default '[]',
-  sportler_overrides  jsonb not null default '{}'
+  id                 uuid primary key default gen_random_uuid(),
+  woche_id           uuid not null references public.plan_wochen(id) on delete cascade,
+  template_id        uuid,
+  name               text not null,
+  datum              text,
+  warmup             jsonb not null default '[]',
+  haupteinheit       jsonb not null default '[]',
+  cooldown           jsonb not null default '[]',
+  sportler_overrides jsonb not null default '{}'
 );
 alter table public.einheiten enable row level security;
+
+drop policy if exists "Trainers can manage einheiten"                 on public.einheiten;
+drop policy if exists "Sportler can read einheiten in assigned plans" on public.einheiten;
 
 create policy "Trainers can manage einheiten"
   on public.einheiten for all using (
@@ -144,18 +159,21 @@ create policy "Sportler can read einheiten in assigned plans"
 
 -- ─── session_logs ─────────────────────────────────────────────────────────────
 create table if not exists public.session_logs (
-  id           uuid primary key default gen_random_uuid(),
-  einheit_id   text not null,
-  athlete_id   uuid not null references public.athletes(id) on delete cascade,
-  workout_id   text not null,
-  datum        text not null,
-  bewertung    int not null check (bewertung between 1 and 5),
-  rpe          int not null check (rpe between 1 and 10),
-  notiz        text,
+  id            uuid primary key default gen_random_uuid(),
+  einheit_id    text not null,
+  athlete_id    uuid not null references public.athletes(id) on delete cascade,
+  workout_id    text not null,
+  datum         text not null,
+  bewertung     int not null check (bewertung between 1 and 5),
+  rpe           int not null check (rpe between 1 and 10),
+  notiz         text,
   abgeschlossen boolean not null default false,
-  created_at   timestamptz not null default now()
+  created_at    timestamptz not null default now()
 );
 alter table public.session_logs enable row level security;
+
+drop policy if exists "Sportler can manage own logs"          on public.session_logs;
+drop policy if exists "Trainers can read their athletes logs" on public.session_logs;
 
 create policy "Sportler can manage own logs"
   on public.session_logs for all using (
@@ -167,9 +185,6 @@ create policy "Trainers can read their athletes logs"
   );
 
 -- ─── nachrichten ─────────────────────────────────────────────────────────────
--- sender_id / empfaenger_id are profiles.id for both trainer and sportler.
--- Sportler who have registered use their profiles.id; unregistered athletes
--- cannot use messaging.
 create table if not exists public.nachrichten (
   id            uuid primary key default gen_random_uuid(),
   sender_id     uuid not null references public.profiles(id) on delete cascade,
@@ -182,6 +197,10 @@ create table if not exists public.nachrichten (
   gelesen       boolean not null default false
 );
 alter table public.nachrichten enable row level security;
+
+drop policy if exists "Users can read own messages"          on public.nachrichten;
+drop policy if exists "Users can send messages"              on public.nachrichten;
+drop policy if exists "Recipients can mark messages as read" on public.nachrichten;
 
 create policy "Users can read own messages"
   on public.nachrichten for select using (
@@ -199,9 +218,12 @@ create table if not exists public.einheit_templates (
   name         text not null,
   warmup       jsonb not null default '[]',
   haupteinheit jsonb not null default '[]',
-  cooldown     jsonb not null default '[]'
+  cooldown     jsonb not null default '[]',
+  created_at   timestamptz not null default now()
 );
 alter table public.einheit_templates enable row level security;
+
+drop policy if exists "Trainers can manage own einheit templates" on public.einheit_templates;
 
 create policy "Trainers can manage own einheit templates"
   on public.einheit_templates for all using (trainer_id = auth.uid());
@@ -212,9 +234,28 @@ create table if not exists public.uebung_templates (
   trainer_id   uuid not null references public.profiles(id) on delete cascade,
   name         text not null,
   beschreibung text,
-  parameter    jsonb not null default '[]'
+  parameter    jsonb not null default '[]',
+  created_at   timestamptz not null default now()
 );
 alter table public.uebung_templates enable row level security;
 
+drop policy if exists "Trainers can manage own exercise templates" on public.uebung_templates;
+
 create policy "Trainers can manage own exercise templates"
   on public.uebung_templates for all using (trainer_id = auth.uid());
+
+-- ─── Helper: look up a trainer's profile ID by email ─────────────────────────
+-- Called during sportler registration to link them to their trainer.
+create or replace function public.get_profile_id_by_email(p_email text)
+returns uuid
+language sql
+security definer
+set search_path = public
+as $$
+  select au.id
+  from auth.users au
+  join public.profiles p on p.id = au.id
+  where lower(au.email) = lower(p_email)
+    and p.role = 'trainer'
+  limit 1;
+$$;
