@@ -71,7 +71,11 @@ export default function RootNavigator() {
   if (!isSupabaseConfigured) {
     return (
       <SafeAreaProvider>
-        <SupabaseSetupScreen />
+        <NavigationContainer>
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Main" component={BottomTabNavigator} />
+          </Stack.Navigator>
+        </NavigationContainer>
       </SafeAreaProvider>
     );
   }

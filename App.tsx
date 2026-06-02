@@ -11,7 +11,21 @@ import { useUebungStore } from './src/store/uebungStore';
 import { useNachrichtenStore } from './src/store/nachrichtenStore';
 import { useSessionLogStore } from './src/store/sessionLogStore';
 import { supabase, isSupabaseConfigured } from './src/lib/supabase';
+import { Sportler } from './src/types';
 import RootNavigator from './src/navigation/RootNavigator';
+
+const DEMO_SPORTLER: Sportler[] = [
+  { id: 'demo-s1', name: 'Anna Berger',    initials: 'AB', sportart: 'Leichtathletik', ziel: '10km unter 45 min' },
+  { id: 'demo-s2', name: 'Felix Wagner',   initials: 'FW', sportart: 'Kraft',          ziel: 'Bankdrücken 100 kg' },
+  { id: 'demo-s3', name: 'Laura Schmidt',  initials: 'LS', sportart: 'Triathlon',      ziel: 'Erster Sprint-Triathlon' },
+];
+
+function seedDemoData() {
+  useSettingsStore.getState().setTrainerId('demo');
+  useSettingsStore.getState().setActiveRole('trainer');
+  useAuthStore.getState().setProfile({ id: 'demo', role: 'trainer', name: 'Demo-Trainer', initials: 'DT' });
+  useAthletenStore.setState({ sportler: DEMO_SPORTLER });
+}
 
 async function bootstrapUser(userId: string) {
   const { setProfile, setInitializing } = useAuthStore.getState();
@@ -82,6 +96,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
+      seedDemoData();
       setInitializing(false);
       return;
     }
