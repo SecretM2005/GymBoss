@@ -249,7 +249,6 @@ create policy "Trainers can manage own exercise templates"
   on public.uebung_templates for all using (trainer_id = auth.uid());
 
 -- ─── Helper: look up a trainer's profile ID by email ─────────────────────────
--- Called during sportler registration to link them to their trainer.
 create or replace function public.get_profile_id_by_email(p_email text)
 returns uuid
 language sql
@@ -261,5 +260,21 @@ as $$
   join public.profiles p on p.id = au.id
   where lower(au.email) = lower(p_email)
     and p.role = 'trainer'
+  limit 1;
+$$;
+
+-- ─── Helper: look up a sportler's profile ID by email ────────────────────────
+-- Called by trainer when linking a sportler's registered account to an athlete record.
+create or replace function public.get_sportler_profile_id_by_email(p_email text)
+returns uuid
+language sql
+security definer
+set search_path = public
+as $$
+  select au.id
+  from auth.users au
+  join public.profiles p on p.id = au.id
+  where lower(au.email) = lower(p_email)
+    and p.role = 'sportler'
   limit 1;
 $$;

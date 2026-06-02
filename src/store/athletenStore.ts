@@ -16,6 +16,7 @@ type AthletenState = {
   addSportler:     (data: Omit<Sportler, 'id' | 'initials'>) => string;
   updateSportler:  (id: string, data: Omit<Sportler, 'id' | 'initials'>) => void;
   deleteSportler:  (id: string) => void;
+  linkProfile:     (id: string, profileId: string) => Promise<void>;
   getSportlerById: (id: string) => Sportler | undefined;
 };
 
@@ -81,6 +82,14 @@ export const useAthletenStore = create<AthletenState>((set, get) => ({
   deleteSportler: (id) => {
     set((s) => ({ sportler: s.sportler.filter((sp) => sp.id !== id) }));
     supabase.from('athletes').delete().eq('id', id);
+  },
+
+  linkProfile: async (id, profileId) => {
+    const val = profileId || undefined;
+    set((s) => ({
+      sportler: s.sportler.map((sp) => sp.id === id ? { ...sp, profileId: val } : sp),
+    }));
+    await supabase.from('athletes').update({ profile_id: profileId || null }).eq('id', id);
   },
 
   getSportlerById: (id) => get().sportler.find((sp) => sp.id === id),
