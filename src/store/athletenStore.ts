@@ -30,7 +30,7 @@ export const useAthletenStore = create<AthletenState>((set, get) => ({
       .order('created_at', { ascending: true });
     if (data) {
       set({
-        sportler: data.map((row) => ({
+        sportler: data.map((row: any) => ({
           id: row.id,
           name: row.name,
           initials: row.initials,

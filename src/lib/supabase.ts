@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey);
+
 const storage =
   Platform.OS === 'web'
     ? undefined
@@ -12,18 +17,17 @@ const storage =
         removeItem: SecureStore.deleteItemAsync,
       };
 
-export const supabase = createClient(
-  process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
-  {
-    auth: {
-      storage: storage as any,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-    },
-  },
-);
+// Only create a real client when credentials are present
+export const supabase = isSupabaseConfigured
+  ? createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        storage: storage as any,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      },
+    })
+  : (null as any);
 
 /** Client-side UUID v4 for optimistic inserts */
 export function uid(): string {
