@@ -11,6 +11,8 @@ import {
 import { useColors } from '../theme';
 import { useNachrichtenStore } from '../store/nachrichtenStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useAuthStore } from '../store/authStore';
+import { useAthletenStore } from '../store/athletenStore';
 
 import SportlerAppPlanScreen      from '../screens/sportler-app/SportlerAppPlanScreen';
 import SportlerFortschrittScreen  from '../screens/sportler-app/SportlerFortschrittScreen';
@@ -60,8 +62,15 @@ function MeinProfilNavigator() {
 function NachrichtenTabIcon({ color, focused }: { color: string; focused: boolean }) {
   const { getUnreadCount } = useNachrichtenStore();
   const { activeSportlerId } = useSettingsStore();
-  const unread = getUnreadCount(activeSportlerId ?? '');
+  const { user, profile: authProfile } = useAuthStore();
+  const { getSportlerById } = useAthletenStore();
   const C = useColors();
+
+  const isActualSportler = authProfile?.role === 'sportler';
+  const myId = isActualSportler
+    ? (user?.id ?? '')
+    : (getSportlerById(activeSportlerId ?? '')?.profileId ?? '');
+  const unread = getUnreadCount(myId);
 
   return (
     <View>

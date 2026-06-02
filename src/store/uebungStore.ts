@@ -1,122 +1,65 @@
 import { create } from 'zustand';
 import { UebungTemplate } from '../types';
-
-const INITIAL_UEBUNGEN: UebungTemplate[] = [
-  { id: 'ut1', name: 'Bankdrücken', parameter: [
-    { typ: 'serien', wert: '4' },
-    { typ: 'wiederholungen', wert: '8' },
-    { typ: 'gewicht', wert: '80', einheit: 'kg' },
-    { typ: 'serienpause', wert: '120', einheit: 's' },
-  ]},
-  { id: 'ut2', name: 'Kniebeuge', parameter: [
-    { typ: 'serien', wert: '4' },
-    { typ: 'wiederholungen', wert: '5' },
-    { typ: 'gewicht', wert: '100', einheit: 'kg' },
-    { typ: 'serienpause', wert: '180', einheit: 's' },
-  ]},
-  { id: 'ut3', name: 'Kreuzheben', parameter: [
-    { typ: 'serien', wert: '3' },
-    { typ: 'wiederholungen', wert: '5' },
-    { typ: 'gewicht', wert: '120', einheit: 'kg' },
-    { typ: 'serienpause', wert: '180', einheit: 's' },
-  ]},
-  { id: 'ut4', name: 'Schulterdrücken', parameter: [
-    { typ: 'serien', wert: '3' },
-    { typ: 'wiederholungen', wert: '10' },
-    { typ: 'gewicht', wert: '50', einheit: 'kg' },
-    { typ: 'serienpause', wert: '90', einheit: 's' },
-  ]},
-  { id: 'ut5', name: 'Klimmzüge', parameter: [
-    { typ: 'serien', wert: '3' },
-    { typ: 'wiederholungen', wert: '8' },
-    { typ: 'serienpause', wert: '120', einheit: 's' },
-  ]},
-  { id: 'ut6', name: 'Liegestütze', parameter: [
-    { typ: 'serien', wert: '3' },
-    { typ: 'wiederholungen', wert: '15' },
-    { typ: 'serienpause', wert: '60', einheit: 's' },
-  ]},
-  { id: 'ut7', name: 'Laufen (Aufwärmen)', parameter: [
-    { typ: 'dauer', wert: '10', einheit: 'min' },
-  ]},
-  { id: 'ut8', name: 'Stretching', parameter: [
-    { typ: 'dauer', wert: '5', einheit: 'min' },
-  ]},
-  { id: 'ut9', name: '400m Intervall', parameter: [
-    { typ: 'serien', wert: '6' },
-    { typ: 'distanz', wert: '400', einheit: 'm' },
-    { typ: 'dauer', wert: '63', einheit: 's' },
-    { typ: 'pause', wert: '30', einheit: 's', bezeichnung: 'Trabpause' },
-  ]},
-  { id: 'ut10', name: 'VO2 Max Intervall', parameter: [
-    { typ: 'serien', wert: '5' },
-    { typ: 'distanz', wert: '1', einheit: 'km' },
-    { typ: 'pause', wert: '3', einheit: 'min', bezeichnung: 'Gehpause' },
-  ]},
-  { id: 'ut11', name: 'Schattenboxen', parameter: [
-    { typ: 'serien', wert: '5' },
-    { typ: 'dauer', wert: '3', einheit: 'min' },
-    { typ: 'serienpause', wert: '60', einheit: 's' },
-  ]},
-  { id: 'ut12', name: 'Springseil', parameter: [
-    { typ: 'serien', wert: '3' },
-    { typ: 'dauer', wert: '2', einheit: 'min' },
-    { typ: 'serienpause', wert: '60', einheit: 's' },
-  ]},
-  { id: 'ut13', name: 'Radfahren', parameter: [
-    { typ: 'dauer', wert: '45', einheit: 'min' },
-  ]},
-  { id: 'ut14', name: 'Aufschlag (Tennis)', parameter: [
-    { typ: 'serien', wert: '4' },
-    { typ: 'wiederholungen', wert: '10' },
-    { typ: 'pause', wert: '90', einheit: 's' },
-  ]},
-  { id: 'ut15', name: 'Kurzhantel-Curl', parameter: [
-    { typ: 'serien', wert: '3' },
-    { typ: 'wiederholungen', wert: '12' },
-    { typ: 'gewicht', wert: '15', einheit: 'kg' },
-    { typ: 'serienpause', wert: '60', einheit: 's' },
-  ]},
-  { id: 'ut16', name: 'Trizeps-Dips', parameter: [
-    { typ: 'serien', wert: '3' },
-    { typ: 'wiederholungen', wert: '10' },
-    { typ: 'serienpause', wert: '90', einheit: 's' },
-  ]},
-  { id: 'ut17', name: 'Plank', parameter: [
-    { typ: 'serien', wert: '3' },
-    { typ: 'dauer', wert: '60', einheit: 's' },
-    { typ: 'serienpause', wert: '30', einheit: 's' },
-  ]},
-  { id: 'ut18', name: 'Hip Thrust', parameter: [
-    { typ: 'serien', wert: '4' },
-    { typ: 'wiederholungen', wert: '12' },
-    { typ: 'gewicht', wert: '60', einheit: 'kg' },
-    { typ: 'serienpause', wert: '90', einheit: 's' },
-  ]},
-];
-
-let _uid = 300;
-const uid = () => `ut${++_uid}`;
+import { supabase, uid } from '../lib/supabase';
+import { useSettingsStore } from './settingsStore';
 
 type UebungState = {
   uebungen: UebungTemplate[];
-  addUebung: (data: Omit<UebungTemplate, 'id'>) => string;
+  hydrate:      (trainerId: string) => Promise<void>;
+  reset:        () => void;
+  addUebung:    (data: Omit<UebungTemplate, 'id'>) => string;
   updateUebung: (id: string, data: Omit<UebungTemplate, 'id'>) => void;
   deleteUebung: (id: string) => void;
 };
 
 export const useUebungStore = create<UebungState>((set) => ({
-  uebungen: INITIAL_UEBUNGEN,
+  uebungen: [],
+
+  hydrate: async (trainerId) => {
+    const { data } = await supabase
+      .from('uebung_templates')
+      .select('*')
+      .eq('trainer_id', trainerId)
+      .order('created_at', { ascending: true });
+    if (data) {
+      set({
+        uebungen: data.map((row) => ({
+          id: row.id,
+          name: row.name,
+          beschreibung: row.beschreibung ?? undefined,
+          parameter: row.parameter ?? [],
+        })),
+      });
+    }
+  },
+
+  reset: () => set({ uebungen: [] }),
 
   addUebung: (data) => {
     const id = uid();
     set((s) => ({ uebungen: [...s.uebungen, { ...data, id }] }));
+    const trainerId = useSettingsStore.getState().trainerId;
+    supabase.from('uebung_templates').insert({
+      id,
+      trainer_id: trainerId,
+      name: data.name,
+      beschreibung: data.beschreibung ?? null,
+      parameter: data.parameter,
+    });
     return id;
   },
 
-  updateUebung: (id, data) =>
-    set((s) => ({ uebungen: s.uebungen.map((u) => (u.id === id ? { ...u, ...data } : u)) })),
+  updateUebung: (id, data) => {
+    set((s) => ({ uebungen: s.uebungen.map((u) => (u.id === id ? { ...u, ...data } : u)) }));
+    supabase.from('uebung_templates').update({
+      name: data.name,
+      beschreibung: data.beschreibung ?? null,
+      parameter: data.parameter,
+    }).eq('id', id);
+  },
 
-  deleteUebung: (id) =>
-    set((s) => ({ uebungen: s.uebungen.filter((u) => u.id !== id) })),
+  deleteUebung: (id) => {
+    set((s) => ({ uebungen: s.uebungen.filter((u) => u.id !== id) }));
+    supabase.from('uebung_templates').delete().eq('id', id);
+  },
 }));

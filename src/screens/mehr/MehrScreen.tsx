@@ -10,13 +10,12 @@ import { useEinheitStore } from '../../store/einheitStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import { useNachrichtenStore } from '../../store/nachrichtenStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useAuthStore } from '../../store/authStore';
 import GBAvatar from '../../components/GBAvatar';
 
 type Props = {
   navigation: StackNavigationProp<MehrStackParamList, 'MehrHub'>;
 };
-
-const TRAINER_ID = 't1';
 
 export default function MehrHubScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -24,11 +23,12 @@ export default function MehrHubScreen({ navigation }: Props) {
   const { uebungen } = useUebungStore();
   const { einheiten } = useEinheitStore();
   const { sportler } = useAthletenStore();
-  const { setActiveRole, setActiveSportlerId } = useSettingsStore();
+  const { setActiveRole, setActiveSportlerId, trainerId } = useSettingsStore();
   const { getUnreadCount } = useNachrichtenStore();
+  const { profile, signOut } = useAuthStore();
   const [pickerVisible, setPickerVisible] = useState(false);
 
-  const unreadNachrichten = getUnreadCount(TRAINER_ID);
+  const unreadNachrichten = getUnreadCount(trainerId);
 
   const handleSelect = (sportlerId: string) => {
     setPickerVisible(false);
@@ -39,7 +39,19 @@ export default function MehrHubScreen({ navigation }: Props) {
   return (
     <View style={[s.root, { backgroundColor: C.bg, paddingTop: insets.top }]}>
       <View style={[s.header, { borderBottomColor: C.border }]}>
-        <Text style={[s.headerTitle, { color: C.text }]}>Mehr</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.headerTitle, { color: C.text }]}>Mehr</Text>
+          {profile && (
+            <Text style={[s.headerSub, { color: C.textMuted }]}>{profile.name}</Text>
+          )}
+        </View>
+        <TouchableOpacity
+          onPress={signOut}
+          style={[s.signOutBtn, { backgroundColor: C.surface, borderColor: C.border }]}
+          activeOpacity={0.7}
+        >
+          <GBIcon name="logOut" size={18} color={C.textMuted} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -200,8 +212,10 @@ export default function MehrHubScreen({ navigation }: Props) {
 
 const s = StyleSheet.create({
   root:    { flex: 1 },
-  header:  { paddingHorizontal: SP.xl, paddingVertical: SP.lg, borderBottomWidth: 1 },
+  header:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SP.xl, paddingVertical: SP.lg, borderBottomWidth: 1 },
   headerTitle: { fontSize: FONT.xl, fontWeight: '700', letterSpacing: -0.5, color: C.text },
+  headerSub:   { fontSize: FONT.sm, color: C.textMuted, marginTop: 2 },
+  signOutBtn:  { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
 
   content: { padding: SP.xl, gap: SP.sm },
 

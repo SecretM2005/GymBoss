@@ -152,13 +152,8 @@ export default function PlanDetailScreen({ navigation, route }: Props) {
   };
 
   const handleDuplicate = () => {
-    Alert.alert('Plan duplizieren', `„${plan.name}" als Kopie speichern?`, [
-      { text: 'Abbrechen', style: 'cancel' },
-      { text: 'Duplizieren', onPress: () => {
-        const newId = duplicatePlan(plan.id);
-        if (newId) navigation.navigate('PlanDetail', { planId: newId });
-      }},
-    ]);
+    const newId = duplicatePlan(plan.id);
+    if (newId) navigation.navigate('PlanDetail', { planId: newId });
   };
 
   const handleExport = async () => {

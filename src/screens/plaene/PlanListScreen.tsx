@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TextInput, TouchableOpacity, Alert,
+  TextInput, TouchableOpacity,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,14 +42,8 @@ export default function PlanListScreen({ navigation }: Props) {
   const [q, setQ] = useState('');
   const insets = useSafeAreaInsets();
 
-  const handleDuplicate = (planId: string, planName: string) => {
-    Alert.alert('Plan duplizieren', `„${planName}" als Kopie speichern?`, [
-      { text: 'Abbrechen', style: 'cancel' },
-      { text: 'Duplizieren', onPress: () => {
-        const newId = duplicatePlan(planId);
-        if (newId) navigation.navigate('PlanDetail', { planId: newId });
-      }},
-    ]);
+  const handleDuplicate = (planId: string) => {
+    duplicatePlan(planId);
   };
 
   const filtered = plaene.filter((p) =>
@@ -157,7 +151,7 @@ export default function PlanListScreen({ navigation }: Props) {
                     </View>
                     <TouchableOpacity
                       style={[styles.copyBtn, { backgroundColor: C.surfaceAlt }]}
-                      onPress={() => handleDuplicate(plan.id, plan.name)}
+                      onPress={() => handleDuplicate(plan.id)}
                       activeOpacity={0.7}
                       hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     >
