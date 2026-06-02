@@ -17,8 +17,9 @@ import { useAthletenStore } from '../store/athletenStore';
 import SportlerAppPlanScreen      from '../screens/sportler-app/SportlerAppPlanScreen';
 import SportlerFortschrittScreen  from '../screens/sportler-app/SportlerFortschrittScreen';
 import SportlerNachrichtenScreen  from '../screens/sportler-app/SportlerNachrichtenScreen';
-import SportlerAppEinheitLogScreen from '../screens/sportler-app/SportlerAppEinheitLogScreen';
-import SportlerAppProfilScreen     from '../screens/sportler-app/SportlerAppProfilScreen';
+import SportlerAppEinheitLogScreen    from '../screens/sportler-app/SportlerAppEinheitLogScreen';
+import EinheitAusfuehrenScreen        from '../screens/sportler-app/EinheitAusfuehrenScreen';
+import SportlerAppProfilScreen        from '../screens/sportler-app/SportlerAppProfilScreen';
 import PlanFormScreen              from '../screens/plaene/PlanFormScreen';
 import PlanWocheFormScreen         from '../screens/plaene/PlanWocheFormScreen';
 import PlanWocheDetailScreen       from '../screens/plaene/PlanWocheDetailScreen';
@@ -38,7 +39,8 @@ function MeinTrainingNavigator() {
   return (
     <TrainingStack.Navigator screenOptions={{ headerShown: false }}>
       <TrainingStack.Screen name="MeinTrainingMain"  component={SportlerAppPlanScreen} />
-      <TrainingStack.Screen name="EinheitLog"        component={SportlerAppEinheitLogScreen} />
+      <TrainingStack.Screen name="EinheitLog"         component={SportlerAppEinheitLogScreen} />
+      <TrainingStack.Screen name="EinheitAusfuehren" component={EinheitAusfuehrenScreen} />
       <TrainingStack.Screen name="ImportPlan"        component={ImportPlanScreen as any} />
       <TrainingStack.Screen name="PlanForm"          component={PlanFormScreen as any} />
       <TrainingStack.Screen name="PlanWocheForm"     component={PlanWocheFormScreen as any} />

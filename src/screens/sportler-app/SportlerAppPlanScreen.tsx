@@ -228,7 +228,13 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
                       <TouchableOpacity
                         key={einheit.id}
                         style={[styles.einheitRow, { borderBottomColor: C.border }, log?.abgeschlossen && styles.einheitRowDone]}
-                        onPress={() => navigation.navigate('EinheitLog', { planId: plan.id, wocheId, einheitId: einheit.id })}
+                        onPress={() => {
+                          if (log?.abgeschlossen) {
+                            navigation.navigate('EinheitLog', { planId: plan.id, wocheId, einheitId: einheit.id });
+                          } else {
+                            navigation.navigate('EinheitAusfuehren', { planId: plan.id, wocheId, einheitId: einheit.id });
+                          }
+                        }}
                         activeOpacity={0.75}
                       >
                         <View style={[styles.einheitDot, { backgroundColor: log?.abgeschlossen ? C.accent : C.border }]} />
@@ -246,7 +252,7 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
                         </View>
                         {log?.abgeschlossen
                           ? <View style={styles.donePill}><Text style={[styles.donePillText, { color: C.accent }]}>{log.bewertung}★</Text></View>
-                          : <GBIcon name="chevronRight" size={14} color={C.textDim} />
+                          : <View style={styles.playBadge}><GBIcon name="play" size={11} color={C.accentContrast} /></View>
                         }
                       </TouchableOpacity>
                     );
@@ -372,7 +378,13 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
                                 <TouchableOpacity
                                   key={einheit.id}
                                   style={[styles.einheitRow, { borderBottomColor: C.border }, log?.abgeschlossen && styles.einheitRowDone]}
-                                  onPress={() => navigation.navigate('EinheitLog', { planId: plan.id, wocheId: woche.id, einheitId: einheit.id })}
+                                  onPress={() => {
+                                    if (log?.abgeschlossen) {
+                                      navigation.navigate('EinheitLog', { planId: plan.id, wocheId: woche.id, einheitId: einheit.id });
+                                    } else {
+                                      navigation.navigate('EinheitAusfuehren', { planId: plan.id, wocheId: woche.id, einheitId: einheit.id });
+                                    }
+                                  }}
                                   activeOpacity={0.75}
                                 >
                                   <View style={[styles.einheitDot, { backgroundColor: log?.abgeschlossen ? C.accent : C.border }]} />
@@ -387,7 +399,7 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
                                   </View>
                                   {log?.abgeschlossen
                                     ? <View style={styles.donePill}><Text style={[styles.donePillText, { color: C.accent }]}>{log.bewertung}★</Text></View>
-                                    : <GBIcon name="chevronRight" size={14} color={C.textDim} />
+                                    : <View style={styles.playBadge}><GBIcon name="play" size={11} color={C.accentContrast} /></View>
                                   }
                                 </TouchableOpacity>
                               );
@@ -455,6 +467,7 @@ const styles = StyleSheet.create({
   einheitDatum:     { fontSize: 10, color: C.textDim, marginTop: 1 },
   donePill:         { backgroundColor: 'rgba(203,255,62,0.15)', borderRadius: R.full, paddingHorizontal: 8, paddingVertical: 3 },
   donePillText:     { fontSize: FONT.xs, fontWeight: '800', color: C.accent },
+  playBadge:        { width: 22, height: 22, borderRadius: 11, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
 
   planCard:       { borderRadius: R.xl, borderWidth: 1, overflow: 'hidden' },
   planCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.sm, padding: SP.md, borderBottomWidth: 1 },
