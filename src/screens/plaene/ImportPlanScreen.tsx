@@ -11,6 +11,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { PlaeneStackParamList } from '../../types';
 import { usePlanStore } from '../../store/planStore';
 import { useAthletenStore } from '../../store/athletenStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import { GBIcon } from '../../components/GBIcon';
 import { recognizeText, hasClaudeKey } from '../../utils/ocr';
 import { parseTrainingText, ParsedPlan } from '../../utils/trainingsplanParser';
@@ -148,7 +149,7 @@ export default function ImportPlanScreen({ navigation, route }: Props) {
       beschreibung: form.beschreibung.trim() || undefined,
       startdatum:   form.startdatum.trim() || undefined,
       sportlerIds,
-      trainerId: 't1',
+      trainerId: useSettingsStore.getState().trainerId,
     });
 
     // Create weeks — use the higher of user input and what the parser found

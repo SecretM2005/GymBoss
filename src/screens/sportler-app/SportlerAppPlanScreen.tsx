@@ -11,6 +11,7 @@ import { usePlanStore } from '../../store/planStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import { useSessionLogStore } from '../../store/sessionLogStore';
+import { useAuthStore } from '../../store/authStore';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import MonthCalendar from '../../components/MonthCalendar';
@@ -70,6 +71,8 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
   const { activeSportlerId, coachingView } = useSettingsStore();
   const { getSportlerById } = useAthletenStore();
   const { getLogForEinheit } = useSessionLogStore();
+  const { profile: authProfile } = useAuthStore();
+  const isActualSportler = authProfile?.role === 'sportler';
   const insets = useSafeAreaInsets();
   const C = useColors();
 
@@ -145,54 +148,66 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
             </Text>
           </View>
         </View>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={[styles.iconBtn, { backgroundColor: C.surface, borderColor: C.border }]}
-            onPress={() => navigation.navigate('ImportPlan', { preselectedSportlerId: activeSportlerId ?? undefined })}
-            activeOpacity={0.8}
-          >
-            <GBIcon name="camera" size={17} color={C.textMuted} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.newPlanBtn, { backgroundColor: C.accent }]}
-            onPress={() => navigation.navigate('PlanForm', { preselectedSportlerId: activeSportlerId ?? undefined })}
-            activeOpacity={0.8}
-          >
-            <GBIcon name="plus" size={15} color={C.accentContrast} />
-            <Text style={[styles.newPlanBtnText, { color: C.accentContrast }]}>Plan</Text>
-          </TouchableOpacity>
-        </View>
+        {!isActualSportler && (
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={[styles.iconBtn, { backgroundColor: C.surface, borderColor: C.border }]}
+              onPress={() => navigation.navigate('ImportPlan', { preselectedSportlerId: activeSportlerId ?? undefined })}
+              activeOpacity={0.8}
+            >
+              <GBIcon name="camera" size={17} color={C.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.newPlanBtn, { backgroundColor: C.accent }]}
+              onPress={() => navigation.navigate('PlanForm', { preselectedSportlerId: activeSportlerId ?? undefined })}
+              activeOpacity={0.8}
+            >
+              <GBIcon name="plus" size={15} color={C.accentContrast} />
+              <Text style={[styles.newPlanBtnText, { color: C.accentContrast }]}>Plan</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
 
         {/* ── Empty ── */}
         {plaene.length === 0 && (
-          <View style={[styles.emptyCard, { backgroundColor: C.surface, borderColor: C.border }]}>
-            <GBIcon name="dumbbell" size={44} color={C.textDim} />
-            <Text style={[styles.emptyTitle, { color: C.textSub }]}>Noch kein Trainingsplan</Text>
-            <Text style={[styles.emptySub, { color: C.textDim }]}>
-              Dein Trainer weist dir Pläne zu, oder erstelle selbst einen.
-            </Text>
-            <View style={styles.emptyBtnRow}>
-              <TouchableOpacity
-                style={[styles.emptyBtn, { backgroundColor: C.accent }]}
-                onPress={() => navigation.navigate('PlanForm', { preselectedSportlerId: activeSportlerId ?? undefined })}
-                activeOpacity={0.8}
-              >
-                <GBIcon name="plus" size={16} color={C.accentContrast} />
-                <Text style={[styles.emptyBtnText, { color: C.accentContrast }]}>Neuer Plan</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.emptyBtnAlt, { borderColor: C.border }]}
-                onPress={() => navigation.navigate('ImportPlan', { preselectedSportlerId: activeSportlerId ?? undefined })}
-                activeOpacity={0.8}
-              >
-                <GBIcon name="camera" size={16} color={C.textMuted} />
-                <Text style={[styles.emptyBtnAltText, { color: C.textMuted }]}>Importieren</Text>
-              </TouchableOpacity>
+          isActualSportler ? (
+            <View style={[styles.emptyCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+              <GBIcon name="clock" size={44} color={C.textDim} />
+              <Text style={[styles.emptyTitle, { color: C.textSub }]}>Warte auf deinen Trainer</Text>
+              <Text style={[styles.emptySub, { color: C.textDim }]}>
+                Dein Trainer hat dir noch keinen Trainingsplan zugewiesen. Sobald er einen Plan erstellt und dich verknüpft hat, erscheint er hier.
+              </Text>
             </View>
-          </View>
+          ) : (
+            <View style={[styles.emptyCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+              <GBIcon name="dumbbell" size={44} color={C.textDim} />
+              <Text style={[styles.emptyTitle, { color: C.textSub }]}>Noch kein Trainingsplan</Text>
+              <Text style={[styles.emptySub, { color: C.textDim }]}>
+                Erstelle einen neuen Plan oder importiere einen.
+              </Text>
+              <View style={styles.emptyBtnRow}>
+                <TouchableOpacity
+                  style={[styles.emptyBtn, { backgroundColor: C.accent }]}
+                  onPress={() => navigation.navigate('PlanForm', { preselectedSportlerId: activeSportlerId ?? undefined })}
+                  activeOpacity={0.8}
+                >
+                  <GBIcon name="plus" size={16} color={C.accentContrast} />
+                  <Text style={[styles.emptyBtnText, { color: C.accentContrast }]}>Neuer Plan</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.emptyBtnAlt, { borderColor: C.border }]}
+                  onPress={() => navigation.navigate('ImportPlan', { preselectedSportlerId: activeSportlerId ?? undefined })}
+                  activeOpacity={0.8}
+                >
+                  <GBIcon name="camera" size={16} color={C.textMuted} />
+                  <Text style={[styles.emptyBtnAltText, { color: C.textMuted }]}>Importieren</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )
         )}
 
         {/* ── Kalender ── */}
@@ -210,10 +225,12 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
               <View style={[styles.dayPanel, { backgroundColor: C.surface, borderColor: C.border }]}>
                 <View style={[styles.dayPanelHeader, { borderBottomColor: C.border }]}>
                   <Text style={[styles.dayPanelTitle, { color: C.text }]}>{formatDay(selectedIso)}</Text>
-                  <TouchableOpacity style={[styles.dayAddBtn, { backgroundColor: C.accent }]} onPress={handleAddOnDay} activeOpacity={0.8}>
-                    <GBIcon name="plus" size={16} color={C.accentContrast} />
-                    <Text style={[styles.dayAddBtnText, { color: C.accentContrast }]}>Einheit</Text>
-                  </TouchableOpacity>
+                  {!isActualSportler && (
+                    <TouchableOpacity style={[styles.dayAddBtn, { backgroundColor: C.accent }]} onPress={handleAddOnDay} activeOpacity={0.8}>
+                      <GBIcon name="plus" size={16} color={C.accentContrast} />
+                      <Text style={[styles.dayAddBtnText, { color: C.accentContrast }]}>Einheit</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
                 {dayEinheiten.length === 0 ? (
                   <View style={styles.dayEmpty}>
