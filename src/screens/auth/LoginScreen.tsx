@@ -50,27 +50,22 @@ export default function LoginScreen() {
     }
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
-    });
-
-    if (error || !data.user) {
-      setLoading(false);
-      Alert.alert('Registrierung fehlgeschlagen', error?.message ?? 'Unbekannter Fehler');
-      return;
-    }
-
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: data.user.id,
-      role,
-      name: name.trim(),
-      initials: makeInitials(name),
+      options: {
+        data: {
+          role,
+          name: name.trim(),
+          initials: makeInitials(name),
+        },
+      },
     });
 
     setLoading(false);
-    if (profileError) Alert.alert('Profil-Fehler', profileError.message);
-    // Auth state change listener in App.tsx handles navigation
+    if (error) Alert.alert('Registrierung fehlgeschlagen', error.message);
+    // Profile is created by handle_new_user DB trigger from signup metadata.
+    // Auth state change listener in App.tsx handles navigation.
   };
 
   const isLogin = mode === 'login';

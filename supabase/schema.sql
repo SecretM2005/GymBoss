@@ -248,6 +248,35 @@ drop policy if exists "Trainers can manage own exercise templates" on public.ueb
 create policy "Trainers can manage own exercise templates"
   on public.uebung_templates for all using (trainer_id = auth.uid());
 
+-- ─── Trigger: auto-create profile on new auth user ──────────────────────────
+-- Reads role/name/initials from signup metadata so the client never needs to
+-- insert the profile manually (avoids auth timing / RLS 401 issues).
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.raw_user_meta_data->>'name' is not null then
+    insert into public.profiles (id, role, name, initials)
+    values (
+      new.id,
+      coalesce(new.raw_user_meta_data->>'role', 'sportler'),
+      new.raw_user_meta_data->>'name',
+      coalesce(new.raw_user_meta_data->>'initials', '')
+    )
+    on conflict (id) do nothing;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
 -- ─── Helper: look up a trainer's profile ID by email ─────────────────────────
 create or replace function public.get_profile_id_by_email(p_email text)
 returns uuid
