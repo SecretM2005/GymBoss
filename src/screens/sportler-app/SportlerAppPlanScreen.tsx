@@ -17,6 +17,10 @@ import { GBIcon } from '../../components/GBIcon';
 import MonthCalendar from '../../components/MonthCalendar';
 import { buildUebSuffix, formatWocheRange } from '../plaene/EinheitDetailScreen';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
+import { useGamificationStore } from '../../store/gamificationStore';
+import { WeekProgressWidget } from '../../components/WeekProgressWidget';
+import { StreakWidget } from '../../components/StreakWidget';
+import { getPlannedEinheiten } from '../../utils/compliance';
 
 type Props = {
   navigation: StackNavigationProp<MeinTrainingStackParamList, 'MeinTrainingMain'>;
@@ -70,7 +74,7 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
   const { getPlaeneForSportler } = usePlanStore();
   const { activeSportlerId, coachingView } = useSettingsStore();
   const { getSportlerById } = useAthletenStore();
-  const { getLogForEinheit } = useSessionLogStore();
+  const { getLogForEinheit, logs: allSessionLogs } = useSessionLogStore();
   const { profile: authProfile } = useAuthStore();
   const isActualSportler = authProfile?.role === 'sportler';
   const insets = useSafeAreaInsets();
@@ -78,6 +82,38 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
 
   const sportler = getSportlerById(activeSportlerId ?? '');
   const plaene   = getPlaeneForSportler(activeSportlerId ?? '');
+
+  const gamification = useGamificationStore();
+  const plannedEinheiten = getPlannedEinheiten(plaene, activeSportlerId ?? '');
+  const logsForAthlete = allSessionLogs.filter((l) => l.sportlerId === activeSportlerId);
+  const streakData = gamification.getStreak(activeSportlerId ?? '', logsForAthlete, plannedEinheiten);
+
+  // Current week's einheiten
+  const nowDate = new Date();
+  const weekStart = new Date(nowDate);
+  weekStart.setDate(nowDate.getDate() - ((nowDate.getDay() + 6) % 7));
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
+  const weekEinheiten = plannedEinheiten.filter((e) => {
+    if (!e.datum) return false;
+    const d = new Date(e.datum);
+    return d >= weekStart && d < weekEnd;
+  });
+  const weekCompleted = weekEinheiten.filter((e) =>
+    logsForAthlete.some((l) => l.workoutId === e.id && l.abgeschlossen)
+  ).length;
+
+  // Current plan week
+  const activePlanForProgress = plaene[0];
+  const planProgressData = activePlanForProgress && activePlanForProgress.startdatum ? (() => {
+    const parts = activePlanForProgress.startdatum.split('.');
+    const start = parts.length === 3
+      ? new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
+      : new Date(activePlanForProgress.startdatum.split('.').reverse().join('-'));
+    const diffWeeks = Math.floor((nowDate.getTime() - start.getTime()) / (7 * 86400000));
+    return { currentWeek: Math.min(diffWeeks + 1, activePlanForProgress.wochen.length), totalWeeks: activePlanForProgress.wochen.length };
+  })() : undefined;
+
 
   const [calYear, setCalYear]   = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -168,6 +204,23 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
           </View>
         )}
       </View>
+
+      {plaene.length > 0 && (
+        <View style={{ paddingHorizontal: SP.xl, paddingBottom: SP.sm, gap: SP.sm }}>
+          <StreakWidget
+            streak={streakData.current}
+            freezeAvailable={streakData.freezeAvailable}
+            compact
+          />
+          {weekEinheiten.length > 0 && (
+            <WeekProgressWidget
+              completed={weekCompleted}
+              total={weekEinheiten.length}
+              planProgress={planProgressData}
+            />
+          )}
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.content}>
 

@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, KeyboardAvoidingView, Platform,
+  TextInput, KeyboardAvoidingView, Platform, Modal,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MeinTrainingStackParamList } from '../../types';
+import { MeinTrainingStackParamList, TrainingsPlan, Badge } from '../../types';
 import { usePlanStore } from '../../store/planStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useSessionLogStore } from '../../store/sessionLogStore';
 import { GBIcon } from '../../components/GBIcon';
 import { PHASE_CFG, PHASES, buildUebSuffix } from '../plaene/EinheitDetailScreen';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
+import { useGamificationStore } from '../../store/gamificationStore';
+import { PlanCompletionScreen } from './PlanCompletionScreen';
 
 type Props = {
   navigation: StackNavigationProp<MeinTrainingStackParamList, 'EinheitLog'>;
@@ -44,6 +46,8 @@ export default function SportlerAppEinheitLogScreen({ navigation, route }: Props
   const [bewertung, setBewertung] = useState(existingLog?.bewertung ?? 0);
   const [rpe, setRpe]             = useState(existingLog?.rpe ?? 6);
   const [notiz, setNotiz]         = useState(existingLog?.notiz ?? '');
+  const [planCompleted, setPlanCompleted] = useState<{ plan: TrainingsPlan; badges: Badge[] } | null>(null);
+  const gamification = useGamificationStore();
 
   if (!display) { navigation.goBack(); return null; }
 
@@ -58,6 +62,21 @@ export default function SportlerAppEinheitLogScreen({ navigation, route }: Props
       notiz:        notiz.trim(),
       abgeschlossen,
     });
+
+    if (abgeschlossen && plan) {
+      const { logs: storeLogs } = require('../../store/sessionLogStore').useSessionLogStore.getState();
+      const athleteLogs = storeLogs.filter((l: any) => l.sportlerId === activeSportlerId);
+      const allEinheiten = plan.wochen.flatMap((w: any) => w.einheiten);
+      const isComplete = allEinheiten.length > 0 && allEinheiten.every((e: any) =>
+        e.id === einheitId || athleteLogs.some((l: any) => l.workoutId === e.id && l.abgeschlossen)
+      );
+      if (isComplete) {
+        const badges = gamification.getEarnedBadges(activeSportlerId ?? '', athleteLogs, allEinheiten, [plan]);
+        setPlanCompleted({ plan, badges });
+        return;
+      }
+    }
+
     navigation.goBack();
   };
 
@@ -65,6 +84,7 @@ export default function SportlerAppEinheitLogScreen({ navigation, route }: Props
   const alreadyDone = existingLog?.abgeschlossen ?? false;
 
   return (
+    <>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.root, { paddingTop: insets.top, backgroundColor: C.bg }]}>
 
@@ -222,6 +242,19 @@ export default function SportlerAppEinheitLogScreen({ navigation, route }: Props
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
+    {planCompleted && (
+      <Modal visible animationType="slide">
+        <PlanCompletionScreen
+          plan={planCompleted.plan}
+          logs={require('../../store/sessionLogStore').useSessionLogStore.getState().logs.filter(
+            (l: any) => l.sportlerId === activeSportlerId
+          )}
+          earnedBadges={planCompleted.badges}
+          onClose={() => { setPlanCompleted(null); navigation.goBack(); }}
+        />
+      </Modal>
+    )}
+    </>
   );
 }
 
