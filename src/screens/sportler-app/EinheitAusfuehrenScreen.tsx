@@ -24,15 +24,24 @@ function getParam(ueb: EinheitUebung, typ: string): string | undefined {
   return ueb.parameter.find((p) => p.typ === typ)?.wert;
 }
 
-function getPauseSeconds(ueb: EinheitUebung): number {
+function getPauseSeconds(ueb: EinheitUebung): number | null {
   const sp  = ueb.parameter.find((p) => p.typ === 'serienpause');
   const pau = ueb.parameter.find((p) => p.typ === 'pause');
   const src = sp ?? pau;
-  if (!src) return 90;
+  if (!src) return null;
   const val = parseFloat(src.wert);
-  if (isNaN(val)) return 90;
+  if (isNaN(val)) return null;
   const unit = src.einheit ?? 's';
   return unit === 'min' ? val * 60 : val;
+}
+
+function getDauerSeconds(ueb: EinheitUebung): number | null {
+  const d = ueb.parameter.find((p) => p.typ === 'dauer');
+  if (!d) return null;
+  const val = parseFloat(d.wert);
+  if (isNaN(val)) return null;
+  const unit = d.einheit ?? 's';
+  return unit === 'min' ? val * 60 : unit === 'h' ? val * 3600 : val;
 }
 
 function fmtTime(sec: number): string {
@@ -164,7 +173,8 @@ export default function EinheitAusfuehrenScreen({ navigation, route }: Props) {
       const current = prev[key];
       const next = !current.done;
       if (next) {
-        startRest(getPauseSeconds(ueb));
+        const pause = getPauseSeconds(ueb);
+        if (pause !== null && pause > 0) startRest(pause);
       }
       return { ...prev, [key]: { ...current, done: next } };
     });
@@ -195,7 +205,7 @@ export default function EinheitAusfuehrenScreen({ navigation, route }: Props) {
             {plan?.name}
           </Text>
           <Text style={[styles.topTitle, { color: C.text }]} numberOfLines={1}>
-            {display.name}
+            {display.name || (display.datum ? new Date(display.datum).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Training')}
           </Text>
         </View>
 
@@ -306,6 +316,72 @@ export default function EinheitAusfuehrenScreen({ navigation, route }: Props) {
   );
 }
 
+// ─── DurationSetRow ───────────────────────────────────────────────────────────
+
+type DurRowProps = {
+  idx: number;
+  keyStr: SetMapKey;
+  ueb: EinheitUebung;
+  totalSec: number;
+  entry: SetState;
+  onToggleDone: (key: SetMapKey, ueb: EinheitUebung) => void;
+  C: ReturnType<typeof useColors>;
+};
+
+function DurationSetRow({ idx, keyStr, ueb, totalSec, entry, onToggleDone, C }: DurRowProps) {
+  const [remaining, setRemaining] = useState(totalSec);
+  const [ticking, setTicking]     = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!entry.done) setRemaining(totalSec);
+  }, [entry.done, totalSec]);
+
+  useEffect(() => {
+    if (!ticking) {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      return;
+    }
+    timerRef.current = setInterval(() => {
+      setRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          timerRef.current = null;
+          setTicking(false);
+          onToggleDone(keyStr, ueb);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [ticking]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <View style={[styles.setRow, { borderBottomColor: C.border }, entry.done && { backgroundColor: `${C.accent}10` }]}>
+      <Text style={[styles.setNumCell, styles.setNumCol, { color: C.textDim }]}>{idx + 1}</Text>
+      <TouchableOpacity
+        style={[styles.durCell, styles.setRepsCol, { backgroundColor: ticking ? C.accentLight : C.surfaceAlt, borderColor: ticking ? C.accent : C.border }]}
+        onPress={() => { if (!entry.done) setTicking((t) => !t); }}
+        activeOpacity={0.7}
+      >
+        <GBIcon name={ticking ? 'pause' : 'play'} size={11} color={ticking ? C.accent : C.textDim} />
+        <Text style={[styles.durText, { color: ticking ? C.accent : C.text }]}>{fmtTime(remaining)}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.doneToggle, styles.setDoneCol,
+          entry.done ? { backgroundColor: C.accent } : { backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border },
+        ]}
+        onPress={() => { setTicking(false); onToggleDone(keyStr, ueb); }}
+        activeOpacity={0.8}
+      >
+        <GBIcon name="check" size={13} color={entry.done ? C.accentContrast : C.textDim} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ─── ExerciseCard ─────────────────────────────────────────────────────────────
 
 type CardProps = {
@@ -326,22 +402,14 @@ function ExerciseCard({ ueb, phaseColor, setMap, onToggleDone, onUpdateSet, C }:
     const entry = setMap[key];
     const done = entry?.done ?? false;
     return (
-      <View
-        style={[
-          styles.uebCard,
-          { backgroundColor: C.surface, borderColor: done ? C.accent : C.border },
-        ]}
-      >
+      <View style={[styles.uebCard, { backgroundColor: C.surface, borderColor: done ? C.accent : C.border }]}>
         <View style={styles.uebCardHeader}>
           <View style={[styles.uebDot, { backgroundColor: phaseColor }]} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.uebName, { color: C.text }]}>{ueb.name}</Text>
-            {suffix.length > 0 && (
-              <Text style={[styles.uebParams, { color: C.textMuted }]}>{suffix}</Text>
-            )}
+            {suffix.length > 0 && <Text style={[styles.uebParams, { color: C.textMuted }]}>{suffix}</Text>}
           </View>
         </View>
-
         {ueb.kreisUebungen && ueb.kreisUebungen.length > 0 && (
           <View style={[styles.kreisListWrap, { borderTopColor: C.border }]}>
             {ueb.kreisUebungen.map((ku) => (
@@ -355,15 +423,8 @@ function ExerciseCard({ ueb, phaseColor, setMap, onToggleDone, onUpdateSet, C }:
             ))}
           </View>
         )}
-
         <TouchableOpacity
-          style={[
-            styles.circuitDoneBtn,
-            {
-              borderTopColor: C.border,
-              backgroundColor: done ? C.accentLight : 'transparent',
-            },
-          ]}
+          style={[styles.circuitDoneBtn, { borderTopColor: C.border, backgroundColor: done ? C.accentLight : 'transparent' }]}
           onPress={() => onToggleDone(key, ueb)}
           activeOpacity={0.75}
         >
@@ -378,79 +439,90 @@ function ExerciseCard({ ueb, phaseColor, setMap, onToggleDone, onUpdateSet, C }:
 
   // Normal exercise — per-set rows
   const serienStr = ueb.parameter.find((p) => p.typ === 'serien')?.wert;
-  const sets = serienStr ? Math.max(1, parseInt(serienStr, 10) || 1) : 1;
+  const sets      = serienStr ? Math.max(1, parseInt(serienStr, 10) || 1) : 1;
   const hasWeight = ueb.parameter.some((p) => p.typ === 'gewicht');
+  const hasReps   = ueb.parameter.some((p) => p.typ === 'wiederholungen');
+  const dauerSec  = getDauerSeconds(ueb);
+  const hasDauer  = dauerSec !== null;
+
+  // Middle column label: Dauer > Wdh > nothing
+  const midLabel = hasDauer ? 'Dauer' : hasReps ? 'Wdh' : null;
 
   return (
-    <View
-      style={[
-        styles.uebCard,
-        { backgroundColor: C.surface, borderColor: C.border },
-      ]}
-    >
+    <View style={[styles.uebCard, { backgroundColor: C.surface, borderColor: C.border }]}>
       <View style={styles.uebCardHeader}>
         <View style={[styles.uebDot, { backgroundColor: phaseColor }]} />
         <View style={{ flex: 1 }}>
           <Text style={[styles.uebName, { color: C.text }]}>{ueb.name}</Text>
-          {suffix.length > 0 && (
-            <Text style={[styles.uebParams, { color: C.textMuted }]}>{suffix}</Text>
-          )}
+          {suffix.length > 0 && <Text style={[styles.uebParams, { color: C.textMuted }]}>{suffix}</Text>}
         </View>
       </View>
 
-      {/* Header row for set columns */}
+      {/* Column headers */}
       <View style={[styles.setHeaderRow, { borderTopColor: C.border, borderBottomColor: C.border }]}>
         <Text style={[styles.setHeaderCell, styles.setNumCol, { color: C.textDim }]}>#</Text>
-        <Text style={[styles.setHeaderCell, styles.setRepsCol, { color: C.textDim }]}>Wdh</Text>
-        {hasWeight && (
-          <Text style={[styles.setHeaderCell, styles.setWeightCol, { color: C.textDim }]}>Gewicht</Text>
-        )}
+        {midLabel && <Text style={[styles.setHeaderCell, styles.setRepsCol, { color: C.textDim }]}>{midLabel}</Text>}
+        {hasWeight && <Text style={[styles.setHeaderCell, styles.setWeightCol, { color: C.textDim }]}>Gewicht</Text>}
         <View style={styles.setDoneCol} />
       </View>
 
       {Array.from({ length: sets }).map((_, i) => {
-        const key = `${ueb.id}_${i}`;
+        const key   = `${ueb.id}_${i}`;
         const entry = setMap[key] ?? { reps: '', weight: '', done: false };
+
+        // Duration row
+        if (hasDauer) {
+          return (
+            <React.Fragment key={key}>
+              <DurationSetRow
+                idx={i} keyStr={key} ueb={ueb}
+                totalSec={dauerSec!}
+                entry={entry}
+                onToggleDone={onToggleDone}
+                C={C}
+              />
+              {hasWeight && (
+                <View style={[styles.setRow, { borderBottomColor: C.border }, entry.done && { backgroundColor: `${C.accent}10` }]}>
+                  <View style={styles.setNumCol} />
+                  <TextInput
+                    style={[styles.setInput, styles.setWeightCol, { backgroundColor: C.surfaceAlt, borderColor: C.border, color: C.text }]}
+                    value={entry.weight}
+                    onChangeText={(v) => onUpdateSet(key, 'weight', v)}
+                    keyboardType="numeric"
+                    placeholder="kg"
+                    placeholderTextColor={C.textDim}
+                    editable={!entry.done}
+                  />
+                  <View style={styles.setDoneCol} />
+                </View>
+              )}
+            </React.Fragment>
+          );
+        }
+
+        // Reps / no-middle row
         return (
           <View
             key={key}
-            style={[
-              styles.setRow,
-              { borderBottomColor: C.border },
-              entry.done && { backgroundColor: `${C.accent}10` },
-            ]}
+            style={[styles.setRow, { borderBottomColor: C.border }, entry.done && { backgroundColor: `${C.accent}10` }]}
           >
             <Text style={[styles.setNumCell, styles.setNumCol, { color: C.textDim }]}>{i + 1}</Text>
 
-            <TextInput
-              style={[
-                styles.setInput,
-                styles.setRepsCol,
-                {
-                  backgroundColor: C.surfaceAlt,
-                  borderColor: C.border,
-                  color: C.text,
-                },
-              ]}
-              value={entry.reps}
-              onChangeText={(v) => onUpdateSet(key, 'reps', v)}
-              keyboardType="numeric"
-              placeholder="—"
-              placeholderTextColor={C.textDim}
-              editable={!entry.done}
-            />
+            {hasReps && (
+              <TextInput
+                style={[styles.setInput, styles.setRepsCol, { backgroundColor: C.surfaceAlt, borderColor: C.border, color: C.text }]}
+                value={entry.reps}
+                onChangeText={(v) => onUpdateSet(key, 'reps', v)}
+                keyboardType="numeric"
+                placeholder="—"
+                placeholderTextColor={C.textDim}
+                editable={!entry.done}
+              />
+            )}
 
             {hasWeight && (
               <TextInput
-                style={[
-                  styles.setInput,
-                  styles.setWeightCol,
-                  {
-                    backgroundColor: C.surfaceAlt,
-                    borderColor: C.border,
-                    color: C.text,
-                  },
-                ]}
+                style={[styles.setInput, styles.setWeightCol, { backgroundColor: C.surfaceAlt, borderColor: C.border, color: C.text }]}
                 value={entry.weight}
                 onChangeText={(v) => onUpdateSet(key, 'weight', v)}
                 keyboardType="numeric"
@@ -462,11 +534,8 @@ function ExerciseCard({ ueb, phaseColor, setMap, onToggleDone, onUpdateSet, C }:
 
             <TouchableOpacity
               style={[
-                styles.doneToggle,
-                styles.setDoneCol,
-                entry.done
-                  ? { backgroundColor: C.accent }
-                  : { backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border },
+                styles.doneToggle, styles.setDoneCol,
+                entry.done ? { backgroundColor: C.accent } : { backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border },
               ]}
               onPress={() => onToggleDone(key, ueb)}
               activeOpacity={0.8}
@@ -618,6 +687,21 @@ const styles = StyleSheet.create({
     fontSize: FONT.sm,
     fontFamily: FONT_MONO,
     textAlign: 'center',
+  },
+  durCell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderRadius: R.sm,
+    borderWidth: 1,
+    paddingVertical: Platform.OS === 'ios' ? SP.sm : SP.xs,
+    paddingHorizontal: SP.sm,
+  },
+  durText: {
+    fontFamily: FONT_MONO,
+    fontSize: FONT.sm,
+    fontWeight: '700',
   },
   doneToggle: {
     width: 34,

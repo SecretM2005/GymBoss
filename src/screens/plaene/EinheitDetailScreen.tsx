@@ -1288,7 +1288,6 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
   const [selectedWochentag, setSelectedWochentag] = useState<number | null>(initWochentag);
 
   const [name, setName]                 = useState(existing?.name ?? '');
-  const [nameError, setNameError]       = useState('');
   const [phases, setPhases]             = useState<Phases>({
     warmup:       existing?.warmup       ?? [],
     haupteinheit: existing?.haupteinheit ?? [],
@@ -1328,7 +1327,6 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
   };
 
   const handleSaveEinheit = () => {
-    if (!name.trim()) { setNameError('Name ist erforderlich'); return; }
     let computedDatum = existing?.datum ?? datum;
     if (coachingView === 'wochen' && selectedWochentag !== null && plan?.startdatum && woche) {
       computedDatum = getWocheDayIso(plan.startdatum, woche.wochennummer, selectedWochentag);
@@ -1375,10 +1373,10 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
           <View style={styles.nameSection}>
             <View style={styles.nameRow}>
               <TextInput
-                style={[styles.nameInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }, nameError ? styles.inputError : null]}
+                style={[styles.nameInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
                 value={name}
-                onChangeText={(v) => { setName(v); setNameError(''); }}
-                placeholder="Einheit benennen…"
+                onChangeText={setName}
+                placeholder="Einheit benennen… (optional)"
                 placeholderTextColor={C.textDim}
                 autoCapitalize="words"
               />
@@ -1391,8 +1389,6 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
                 <Text style={[styles.libBtnText, { color: C.textMuted }, showEinheitLib && styles.libBtnTextOn]}>Einheit</Text>
               </TouchableOpacity>
             </View>
-            {nameError ? <Text style={styles.errText}>{nameError}</Text> : null}
-
             {showEinheitLib && (
               <View style={[styles.einheitLibList, { backgroundColor: C.surface, borderColor: C.border }]}>
                 <Text style={[styles.einheitLibTitle, { color: C.textMuted, borderBottomColor: C.border }]}>Aus Einheitenbibliothek</Text>
