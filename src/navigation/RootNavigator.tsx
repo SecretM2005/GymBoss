@@ -71,10 +71,14 @@ export default function RootNavigator() {
   if (!isSupabaseConfigured) {
     return (
       <SafeAreaProvider>
-        <NavigationContainer>
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Main" component={BottomTabNavigator} />
-          </Stack.Navigator>
+        <NavigationContainer key={activeRole}>
+          {activeRole === 'sportler' ? (
+            <SportlerAppNavigator />
+          ) : (
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="Main" component={BottomTabNavigator} />
+            </Stack.Navigator>
+          )}
         </NavigationContainer>
       </SafeAreaProvider>
     );
