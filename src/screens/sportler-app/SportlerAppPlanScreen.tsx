@@ -65,6 +65,24 @@ function isoDate(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+function getWocheMonday(startdatum: string, wocheNr: number): Date | null {
+  const start = parseDatum(startdatum);
+  if (!start) return null;
+  const startMon = new Date(start);
+  startMon.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  const monday = new Date(startMon);
+  monday.setDate(startMon.getDate() + (wocheNr - 1) * 7);
+  return monday;
+}
+
+function getISOWeek(date: Date): number {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+}
+
 function formatDay(iso: string): string {
   const d = new Date(iso);
   return `${WOCHENTAGE_LANG[(d.getDay() + 6) % 7]}, ${d.getDate()}. ${MONATE_KURZ[d.getMonth()]}`;
@@ -411,24 +429,29 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
                 [...plan.wochen]
                   .sort((a, b) => a.wochennummer - b.wochennummer)
                   .map((woche) => {
+                    const monday = plan.startdatum ? getWocheMonday(plan.startdatum, woche.wochennummer) : null;
+                    const kwNum = monday ? getISOWeek(monday) : null;
                     const dateRange = plan.startdatum ? formatWocheRange(plan.startdatum, woche.wochennummer) : null;
+                    const wocheLabel = kwNum ? `KW ${kwNum}` : `Woche ${woche.wochennummer}`;
                     return (
                       <View key={woche.id} style={[styles.wocheBlock, { borderBottomColor: C.border }]}>
                         <View style={[styles.wocheBlockHeader, { backgroundColor: C.surfaceAlt }]}>
                           <View style={[styles.wocheNumBadge, { backgroundColor: C.accent }]}>
-                            <Text style={[styles.wocheNumText, { color: C.accentContrast }]}>{woche.wochennummer}</Text>
+                            <Text style={[styles.wocheNumText, { color: C.accentContrast }]}>{kwNum ?? woche.wochennummer}</Text>
                           </View>
                           <View style={{ flex: 1 }}>
-                            <Text style={[styles.wocheLabel, { color: C.text }]}>Woche {woche.wochennummer}</Text>
+                            <Text style={[styles.wocheLabel, { color: C.text }]}>{wocheLabel}</Text>
                             {dateRange && <Text style={[styles.wocheDateRange, { color: C.textDim }]}>{dateRange}</Text>}
                           </View>
-                          <TouchableOpacity
-                            style={[styles.wocheAddBtn, { backgroundColor: C.accentLight, borderColor: C.accent }]}
-                            onPress={() => navigation.navigate('EinheitDetail', { planId: plan.id, wocheId: woche.id })}
-                            activeOpacity={0.7}
-                          >
-                            <GBIcon name="plus" size={13} color={C.accent} />
-                          </TouchableOpacity>
+                          {!isActualSportler && (
+                            <TouchableOpacity
+                              style={[styles.wocheAddBtn, { backgroundColor: C.accentLight, borderColor: C.accent }]}
+                              onPress={() => navigation.navigate('EinheitDetail', { planId: plan.id, wocheId: woche.id })}
+                              activeOpacity={0.7}
+                            >
+                              <GBIcon name="plus" size={13} color={C.accent} />
+                            </TouchableOpacity>
+                          )}
                         </View>
 
                         {woche.einheiten.length === 0 ? (
@@ -480,14 +503,16 @@ export default function SportlerAppPlanScreen({ navigation }: Props) {
                   })
               )}
 
-              <TouchableOpacity
-                style={[styles.addWocheRow, { borderTopColor: C.border }]}
-                onPress={() => navigation.navigate('PlanWocheForm', { planId: plan.id })}
-                activeOpacity={0.7}
-              >
-                <GBIcon name="plus" size={14} color={C.textMuted} />
-                <Text style={[styles.addWocheText, { color: C.textMuted }]}>Woche hinzufügen</Text>
-              </TouchableOpacity>
+              {!isActualSportler && (
+                <TouchableOpacity
+                  style={[styles.addWocheRow, { borderTopColor: C.border }]}
+                  onPress={() => navigation.navigate('PlanWocheForm', { planId: plan.id })}
+                  activeOpacity={0.7}
+                >
+                  <GBIcon name="plus" size={14} color={C.textMuted} />
+                  <Text style={[styles.addWocheText, { color: C.textMuted }]}>Woche hinzufügen</Text>
+                </TouchableOpacity>
+              )}
             </View>
           );
         })}
