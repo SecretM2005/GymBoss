@@ -10,6 +10,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SportlerStackParamList, TrainingsPlan, Einheit } from '../../types';
 import { useAthletenStore } from '../../store/athletenStore';
 import { usePlanStore } from '../../store/planStore';
+import { useSessionLogStore } from '../../store/sessionLogStore';
+import { useGamificationStore } from '../../store/gamificationStore';
+import { ComplianceMeter } from '../../components/ComplianceMeter';
+import { BadgeGrid } from '../../components/BadgeGrid';
+import { calculateWeeklyCompliance, getPlannedEinheiten } from '../../utils/compliance';
 import { supabase } from '../../lib/supabase';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
@@ -95,6 +100,8 @@ type Form = { name: string; geburtsdatum: string | null; sportart: string; ziel:
 export default function SportlerDetailScreen({ navigation, route }: Props) {
   const { getSportlerById, updateSportler, deleteSportler, linkProfile } = useAthletenStore();
   const { getPlaeneForSportler } = usePlanStore();
+  const { logs } = useSessionLogStore();
+  const gamification = useGamificationStore();
   const sportler = getSportlerById(route.params.sportlerId);
   const insets = useSafeAreaInsets();
   const C = useColors();
@@ -120,6 +127,11 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
   }
 
   const plaene = getPlaeneForSportler(sportler.id);
+  const athleteLogs = logs.filter((l) => l.sportlerId === sportler.id);
+  const plannedEinheiten = getPlannedEinheiten(plaene, sportler.id);
+  const weeklyCompliance = calculateWeeklyCompliance(athleteLogs, plannedEinheiten, 4);
+  const earnedBadges = gamification.getEarnedBadges(sportler.id, athleteLogs, plannedEinheiten, plaene);
+
 
   const markedDays = useMemo(() => {
     const days = new Set<number>();
@@ -605,6 +617,35 @@ export default function SportlerDetailScreen({ navigation, route }: Props) {
                   );
                 })
               )}
+            </>
+          )}
+
+          {/* ── Compliance ── */}
+          <SectionHead>Compliance</SectionHead>
+          <View style={[styles.planCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <View style={{ padding: SP.md, gap: SP.md }}>
+              {weeklyCompliance.map((week) => (
+                <ComplianceMeter
+                  key={week.label}
+                  rate={week.planned > 0 ? week.rate : 0}
+                  label={`${week.label} (${week.completed}/${week.planned})`}
+                />
+              ))}
+              {weeklyCompliance.every((w) => w.planned === 0) && (
+                <Text style={{ color: C.textDim, fontSize: FONT.xs }}>Noch keine Einheiten geplant</Text>
+              )}
+            </View>
+          </View>
+
+          {/* ── Badges ── */}
+          {earnedBadges.length > 0 && (
+            <>
+              <SectionHead>Badges</SectionHead>
+              <View style={[styles.planCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <View style={{ padding: SP.md }}>
+                  <BadgeGrid badges={earnedBadges} horizontal />
+                </View>
+              </View>
             </>
           )}
 

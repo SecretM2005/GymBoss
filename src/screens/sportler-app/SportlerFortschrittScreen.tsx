@@ -7,6 +7,11 @@ import { usePlanStore } from '../../store/planStore';
 import { useSessionLogStore } from '../../store/sessionLogStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useAthletenStore } from '../../store/athletenStore';
+import { useGamificationStore } from '../../store/gamificationStore';
+import { calculateWeeklyCompliance, getPlannedEinheiten } from '../../utils/compliance';
+import { StreakWidget } from '../../components/StreakWidget';
+import { ComplianceMeter } from '../../components/ComplianceMeter';
+import { BadgeGrid } from '../../components/BadgeGrid';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 import { GBIcon } from '../../components/GBIcon';
 
@@ -73,28 +78,37 @@ export default function SportlerFortschrittScreen() {
   const C = useColors();
   const { activeSportlerId } = useSettingsStore();
   const { getSportlerById }  = useAthletenStore();
-  const { getPlaeneForSportler } = usePlanStore();
+  const { plaene, getPlaeneForSportler } = usePlanStore();
   const { getLogsForSportler }   = useSessionLogStore();
+  const gamification = useGamificationStore();
 
   const sportler = getSportlerById(activeSportlerId ?? '');
   const allLogs  = getLogsForSportler(activeSportlerId ?? '');
   const doneLogs = allLogs.filter((l) => l.abgeschlossen);
-  const plaene   = getPlaeneForSportler(activeSportlerId ?? '');
+  const planList = getPlaeneForSportler(activeSportlerId ?? '');
+
+  const plannedEinheiten = useMemo(
+    () => getPlannedEinheiten(plaene, activeSportlerId ?? ''),
+    [plaene, activeSportlerId],
+  );
+
+  const streakData = useMemo(
+    () => gamification.getStreak(activeSportlerId ?? '', allLogs, plannedEinheiten),
+    [activeSportlerId, allLogs, plannedEinheiten],
+  );
+
+  const earnedBadges = useMemo(
+    () => gamification.getEarnedBadges(activeSportlerId ?? '', allLogs, plannedEinheiten, plaene),
+    [activeSportlerId, allLogs, plannedEinheiten, plaene],
+  );
+
+  const weeklyCompliance = useMemo(
+    () => calculateWeeklyCompliance(allLogs, plannedEinheiten, 4),
+    [allLogs, plannedEinheiten],
+  );
 
   const weeklyStats  = useWeeklyStats(allLogs);
   const totalDone    = doneLogs.length;
-  const currentStreak = useMemo(() => {
-    let streak = 0;
-    const sorted = [...doneLogs].sort((a, b) => b.datum.localeCompare(a.datum));
-    let prev: Date | null = null;
-    for (const log of sorted) {
-      const d = new Date(log.datum);
-      if (!prev) { streak = 1; prev = d; continue; }
-      const diffDays = Math.floor((prev.getTime() - d.getTime()) / 86400000);
-      if (diffDays <= 7) { streak++; prev = d; } else break;
-    }
-    return streak;
-  }, [doneLogs]);
 
   const avgRpe = useMemo(() => {
     const with_rpe = doneLogs.filter((l) => l.rpe > 0);
@@ -109,7 +123,7 @@ export default function SportlerFortschrittScreen() {
   }, [doneLogs]);
 
   const planProgress = useMemo(() =>
-    plaene.map((plan) => {
+    planList.map((plan) => {
       const allE = plan.wochen.flatMap((w) => w.einheiten);
       const done = allE.filter((e) =>
         allLogs.find((l) => l.workoutId === e.id && l.abgeschlossen)
@@ -117,7 +131,7 @@ export default function SportlerFortschrittScreen() {
       const pct = allE.length > 0 ? done / allE.length : 0;
       return { plan, done, total: allE.length, pct };
     }),
-  [plaene, allLogs]);
+  [planList, allLogs]);
 
   return (
     <View style={[s.root, { backgroundColor: C.bg, paddingTop: insets.top }]}>
@@ -137,8 +151,8 @@ export default function SportlerFortschrittScreen() {
             <Text style={[s.kpiLabel, { color: C.textDim }]}>Einheiten{'\n'}absolviert</Text>
           </View>
           <View style={[s.kpiCard, { backgroundColor: C.surface, borderColor: C.border }]}>
-            <Text style={[s.kpiValue, { color: '#FF8A66' }]}>{currentStreak}</Text>
-            <Text style={[s.kpiLabel, { color: C.textDim }]}>Wochen{'\n'}Streak</Text>
+            <Text style={[s.kpiValue, { color: '#FF8A66' }]}>{streakData.current}</Text>
+            <Text style={[s.kpiLabel, { color: C.textDim }]}>Tage{'\n'}Streak</Text>
           </View>
           <View style={[s.kpiCard, { backgroundColor: C.surface, borderColor: C.border }]}>
             <Text style={[s.kpiValue, { color: '#7ABFFF' }]}>{avgRpe || '—'}</Text>
@@ -149,6 +163,35 @@ export default function SportlerFortschrittScreen() {
             <Text style={[s.kpiLabel, { color: C.textDim }]}>Ø Bewertung</Text>
           </View>
         </View>
+
+        {/* Streak Widget */}
+        <StreakWidget
+          streak={streakData.current}
+          freezeAvailable={streakData.freezeAvailable}
+          onFreeze={() => gamification.useFreeze(activeSportlerId ?? '')}
+        />
+
+        {/* Compliance Section */}
+        {plannedEinheiten.length > 0 && (
+          <View style={[compStyles.card, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <Text style={[compStyles.cardTitle, { color: C.text }]}>Compliance letzte 4 Wochen</Text>
+            {weeklyCompliance.map((week) => (
+              <ComplianceMeter
+                key={week.label}
+                rate={week.planned > 0 ? week.rate : 0}
+                label={`${week.label} (${week.completed}/${week.planned})`}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Badges Section */}
+        {earnedBadges.length > 0 && (
+          <View style={[compStyles.card, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <Text style={[compStyles.cardTitle, { color: C.text }]}>Meine Badges</Text>
+            <BadgeGrid badges={earnedBadges} horizontal={false} />
+          </View>
+        )}
 
         {/* Weekly Volume Chart */}
         <View style={[s.card, { backgroundColor: C.surface, borderColor: C.border }]}>
@@ -198,6 +241,11 @@ export default function SportlerFortschrittScreen() {
     </View>
   );
 }
+
+const compStyles = StyleSheet.create({
+  card:      { borderRadius: R.xl, borderWidth: 1, padding: SP.md, gap: SP.md },
+  cardTitle: { fontSize: FONT.sm, fontWeight: '800', letterSpacing: -0.2 },
+});
 
 const s = StyleSheet.create({
   root:   { flex: 1 },

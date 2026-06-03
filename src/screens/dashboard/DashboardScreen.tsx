@@ -9,6 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePlanStore } from '../../store/planStore';
 import { useAthletenStore } from '../../store/athletenStore';
 import { useFeedbackStore, Feedback } from '../../store/feedbackStore';
+import { useGamificationStore } from '../../store/gamificationStore';
+import { useSessionLogStore } from '../../store/sessionLogStore';
+import { getPlannedEinheiten, overallComplianceRate, getComplianceColor } from '../../utils/compliance';
 import GBAvatar from '../../components/GBAvatar';
 import { GBIcon } from '../../components/GBIcon';
 import { C, useColors, SP, R, FONT, FONT_MONO, SHADOW_SM } from '../../theme';
@@ -185,6 +188,8 @@ export default function DashboardScreen() {
   const { plaene } = usePlanStore();
   const { sportler } = useAthletenStore();
   const { feedback } = useFeedbackStore();
+  const gamification = useGamificationStore();
+  const { logs } = useSessionLogStore();
   const C = useColors();
 
   const today = new Date();
@@ -238,6 +243,14 @@ export default function DashboardScreen() {
 
   const getSportler = (id: string) => sportler.find((s) => s.id === id);
 
+  // Trainer score
+  const trainerScore = gamification.getTrainerScore(
+    sportler.map((s) => s.id),
+    Object.fromEntries(sportler.map((sp) => [sp.id, logs.filter((l) => l.sportlerId === sp.id)])),
+    Object.fromEntries(sportler.map((sp) => [sp.id, getPlannedEinheiten(plaene, sp.id)])),
+  );
+  const scoreLabel = trainerScore >= 71 ? 'Elite' : trainerScore >= 41 ? 'Erfahren' : 'Einsteiger';
+
   // Date header
   const dateLabel = `${WOCHENTAGE_LANG[(today.getDay() + 6) % 7]}, ${today.getDate()}. ${MONATE[today.getMonth()]} ${today.getFullYear()}`;
 
@@ -251,8 +264,14 @@ export default function DashboardScreen() {
             <Text style={[s.greeting, { color: C.text }]}>{getGreeting()}</Text>
             <Text style={[s.dateText, { color: C.textMuted }]}>{dateLabel}</Text>
           </View>
-          <View style={[s.logo, { backgroundColor: C.accent }]}>
-            <Text style={[s.logoText, { color: C.accentContrast }]}>GB</Text>
+          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+            <View style={[s.logo, { backgroundColor: C.accent }]}>
+              <Text style={[s.logoText, { color: C.accentContrast }]}>GB</Text>
+            </View>
+            <View style={[s.scoreBadge, { backgroundColor: C.surface, borderColor: C.border }]}>
+              <Text style={[s.scoreVal, { color: C.accent }]}>{trainerScore}</Text>
+              <Text style={[s.scoreLabel, { color: C.textMuted }]}>{scoreLabel}</Text>
+            </View>
           </View>
         </View>
 
@@ -392,6 +411,29 @@ export default function DashboardScreen() {
               </View>
             );
           })
+        )}
+
+        {/* ── Compliance Übersicht ── */}
+        {sportler.length > 0 && (
+          <View style={[s.complianceCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+            <Text style={[s.cardTitle, { color: C.text }]}>Compliance Übersicht</Text>
+            {sportler.slice(0, 5).map((sp) => {
+              const spLogs = logs.filter((l) => l.sportlerId === sp.id);
+              const spEinheiten = getPlannedEinheiten(plaene, sp.id);
+              const rate = overallComplianceRate(spLogs, spEinheiten);
+              const color = getComplianceColor(rate);
+              return (
+                <View key={sp.id} style={s.complianceRow}>
+                  <GBAvatar name={sp.name} initials={sp.initials} size={28} />
+                  <Text style={[s.complianceName, { color: C.text }]} numberOfLines={1}>{sp.name}</Text>
+                  <View style={[s.complianceBar, { backgroundColor: C.surfaceAlt }]}>
+                    <View style={[s.complianceFill, { width: `${Math.round(rate * 100)}%` as any, backgroundColor: color }]} />
+                  </View>
+                  <Text style={[s.compliancePct, { color }]}>{Math.round(rate * 100)}%</Text>
+                </View>
+              );
+            })}
+          </View>
         )}
 
         {/* ── Letzte Bewertungen ── */}
@@ -569,4 +611,18 @@ const s = StyleSheet.create({
   quickRow:   { flexDirection: 'row', gap: SP.sm },
   quickBtn:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SP.sm, paddingVertical: SP.md, borderRadius: R.lg, borderWidth: 1.5, borderStyle: 'dashed', borderColor: 'rgba(203,255,62,0.35)', backgroundColor: 'rgba(203,255,62,0.04)' },
   quickBtnText: { fontSize: FONT.sm, fontWeight: '700', color: C.accent },
+
+  // Trainer score
+  scoreBadge: { paddingHorizontal: SP.md, paddingVertical: SP.xs, borderRadius: R.full, borderWidth: 1, alignItems: 'center' },
+  scoreVal:   { fontSize: FONT.lg, fontWeight: '800' },
+  scoreLabel: { fontSize: 10, fontWeight: '600' },
+
+  // Compliance card
+  complianceCard: { borderRadius: R.xl, borderWidth: 1, padding: SP.md, gap: SP.sm },
+  cardTitle:      { fontSize: FONT.base, fontWeight: '700', color: C.text },
+  complianceRow:  { flexDirection: 'row', alignItems: 'center', gap: SP.sm },
+  complianceName: { flex: 1, fontSize: FONT.sm, fontWeight: '600' },
+  complianceBar:  { width: 80, height: 6, borderRadius: 3, overflow: 'hidden' },
+  complianceFill: { height: 6, borderRadius: 3 },
+  compliancePct:  { fontSize: FONT.xs, fontWeight: '700', width: 32, textAlign: 'right' },
 });

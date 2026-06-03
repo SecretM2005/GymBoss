@@ -186,3 +186,58 @@ export type MeinNachrichtenStackParamList = {
   NachrichtenList: undefined;
   NachrichtenChat: { chatPartnerId: string; chatPartnerName: string };
 };
+
+// ─── Gamification ─────────────────────────────────────────────────────────────
+
+export type SystemBadgeId =
+  | 'first_step'       // 1st completed planned session
+  | 'perfect_week'     // all sessions of a week completed
+  | 'reliable'         // plan fulfilled 4 consecutive weeks
+  | 'plan_done'        // full plan completed
+  | 'communicator'     // 10x detailed feedback (rpe + note ≥ 20 chars)
+  | 'analyst';         // 30x detailed feedback
+
+export type Badge = {
+  id: string;                  // SystemBadgeId for system badges, uuid for custom
+  name: string;
+  emoji: string;
+  description: string;
+  type: 'system' | 'custom';
+  condition?: string;          // freetext for trainer-created badges
+};
+
+export type BadgeAssignment = {
+  id: string;
+  badgeId: string;
+  athleteId: string;
+  awardedAt: string;           // ISO date
+  awardedBy?: string;          // trainerId for manual awards
+};
+
+export type StreakData = {
+  current: number;
+  longest: number;
+  freezeAvailable: boolean;    // resets monthly
+  freezeUsedDate: string | null; // ISO month "2026-06"
+  lastActivityDate: string | null;
+};
+
+export type Challenge = {
+  id: string;
+  trainerId: string;
+  athleteIds: string[];        // empty = all athletes
+  title: string;
+  description: string;
+  startDate: string;           // ISO "2026-06-01"
+  endDate: string;
+  goal: string;
+  completedBy: string[];       // athleteIds who completed
+  badgeId?: string;            // optional badge to award on completion
+};
+
+export type ComplianceWeek = {
+  label: string;               // "KW 23"
+  completed: number;
+  planned: number;
+  rate: number;                // 0–1
+};
