@@ -1,0 +1,579 @@
+import { Platform } from 'react-native';
+import { ParsedPlan, ParsedWoche, ParsedEinheit, ParsedUebung, paramStringToUebungParams } from './trainingsplanParser';
+
+export type OcrResult =
+  | { ok: true;  text: string; parsed?: ParsedPlan }
+  | { ok: false; reason: 'unsupported' | 'not_linked' | 'error' | 'no_key'; message: string };
+
+const CLAUDE_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
+
+/**
+ * Runs OCR / AI extraction on a local image URI.
+ *
+ * Web + Anthropic key → Claude Haiku (returns structured JSON directly)
+ * Web without key     → Tesseract.js with canvas preprocessing
+ * Native              → Google ML Kit (on-device, free, requires Expo Dev Build)
+ */
+export async function recognizeText(
+  uri: string,
+  onProgress?: (percent: number) => void,
+): Promise<OcrResult> {
+  if (Platform.OS === 'web') {
+    if (CLAUDE_KEY) return runClaude(uri);
+    return runTesseract(uri, onProgress ?? (() => {}));
+  }
+  return runMlKit(uri);
+}
+
+export function hasClaudeKey(): boolean {
+  return Boolean(CLAUDE_KEY);
+}
+
+// ─── Claude Vision ─────────────────────────────────────────────────────────────
+
+const CLAUDE_URL    = 'https://api.anthropic.com/v1/messages';
+const CLAUDE_MODEL  = 'claude-haiku-4-5-20251001';
+
+const PLAN_PROMPT = `You are a fitness training plan extractor.
+Analyze this training plan image and extract the COMPLETE structure.
+Return ONLY valid JSON — no markdown fences, no explanation.
+
+JSON schema:
+{
+  "name": "plan title (string)",
+  "sportart": "one of: Kraftsport | Leichtathletik | Kampfsport | Konditionierung | Mobility | Crossfit | Andere",
+  "anzahlWochen": <number>,
+  "wochen": [
+    {
+      "wochennummer": <number>,
+      "einheiten": [
+        {
+          "name": "e.g. Montag / Tuesday / Training A",
+          "uebungen": [
+            {
+              "name": "exercise name",
+              "parameter": "e.g. 3x8 80kg  or  35min  or  40 Minuten"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Extract ALL weeks and ALL training days that have exercises.
+- Skip rest days (Rest / Ruhe / Off) — leave them out entirely.
+- For "parameter": use sets×reps + optional weight (e.g. "4x10 60kg"),
+  or duration (e.g. "35min" / "40 Minuten" / "150-180 Minuten"),
+  or distance (e.g. "5km").
+- If a cell has multiple exercises, create multiple uebungen entries.
+- Preserve the original language for names (German or English).`;
+
+async function runClaude(uri: string): Promise<OcrResult> {
+  try {
+    const { data, mimeType } = await uriToBase64Web(uri);
+
+    const body = {
+      model:      CLAUDE_MODEL,
+      max_tokens: 2048,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mimeType, data } },
+          { type: 'text',  text: PLAN_PROMPT },
+        ],
+      }],
+    };
+
+    const res = await fetch(CLAUDE_URL, {
+      method:  'POST',
+      headers: {
+        'Content-Type':                          'application/json',
+        'x-api-key':                             CLAUDE_KEY,
+        'anthropic-version':                     '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      return { ok: false, reason: 'error', message: `Claude API Fehler ${res.status}: ${err.slice(0, 200)}` };
+    }
+
+    const json = await res.json();
+    const raw  = json?.content?.[0]?.text ?? '';
+    const plan = parsePlanJson(raw);
+
+    return { ok: true, text: raw, parsed: plan };
+  } catch (e: any) {
+    return { ok: false, reason: 'error', message: String(e?.message ?? e) };
+  }
+}
+
+/** Parses the AI-returned JSON string into a typed ParsedPlan. */
+function parsePlanJson(raw: string): ParsedPlan {
+  try {
+    const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const g     = JSON.parse(clean);
+
+    const wochen: ParsedWoche[] = (g.wochen ?? []).map((w: any) => {
+      const einheiten: ParsedEinheit[] = (w.einheiten ?? []).map((e: any) => {
+        const uebungen: ParsedUebung[] = (e.uebungen ?? []).map((u: any) => ({
+          name:      String(u.name ?? '').trim(),
+          parameter: String(u.parameter ?? '').trim(),
+          params:    paramStringToUebungParams(String(u.parameter ?? '')),
+        }));
+        return { name: String(e.name ?? 'Einheit'), uebungen };
+      });
+      return { wochennummer: Number(w.wochennummer ?? 1), einheiten };
+    });
+
+    return {
+      name:         g.name         ? String(g.name).trim()        : undefined,
+      sportart:     g.sportart     ? String(g.sportart).trim()     : undefined,
+      anzahlWochen: g.anzahlWochen ? Number(g.anzahlWochen)        : wochen.length || undefined,
+      wochen,
+      rawText: raw,
+    };
+  } catch {
+    return { name: undefined, sportart: undefined, anzahlWochen: undefined, wochen: [], rawText: raw };
+  }
+}
+
+async function uriToBase64Web(uri: string): Promise<{ data: string; mimeType: string }> {
+  const response = await fetch(uri);
+  const blob     = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror  = reject;
+    reader.onloadend = () => {
+      const result   = reader.result as string;
+      const [header] = result.split(',');
+      const mimeType = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg';
+      resolve({ data: result.split(',')[1], mimeType });
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+// ─── Web fallback: Tesseract.js with canvas preprocessing ─────────────────────
+
+async function runTesseract(
+  uri: string,
+  onProgress: (p: number) => void,
+): Promise<OcrResult> {
+  try {
+    const enhanced = await preprocessImageWeb(uri);
+
+    const mod          = await import('tesseract.js');
+    const createWorker = (mod.createWorker ?? (mod.default as any)?.createWorker) as Function;
+
+    const worker = await createWorker('deu+eng', 1, {
+      logger: (m: any) => {
+        if (m.status === 'recognizing text') onProgress(Math.round(m.progress * 100));
+      },
+    });
+
+    // PSM 3 = auto: full page analysis, returns word-level bbox data for table reconstruction
+    await (worker as any).setParameters({
+      tessedit_pageseg_mode: '3',
+      preserve_interword_spaces: '1',
+    });
+
+    const result = await (worker as any).recognize(enhanced);
+    await (worker as any).terminate();
+
+    const words: any[] = result?.data?.words ?? result?.words ?? [];
+    const rawText = (result?.data?.text ?? result?.text ?? '') as string;
+    const text = words.length > 0
+      ? reconstructTableFromBboxes(words)
+      : reconstructFromCharPositions(rawText);
+
+    if (__DEV__) {
+      console.log('[OCR] words:', words.length, '| reconstructed:\n', text.slice(0, 600));
+    }
+
+    return { ok: true, text };
+  } catch (e: any) {
+    return { ok: false, reason: 'error', message: String(e?.message ?? e) };
+  }
+}
+
+async function preprocessImageWeb(uri: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new (window as any).Image() as HTMLImageElement;
+    img.crossOrigin = 'anonymous';
+    img.onerror = () => resolve(uri);
+    img.onload  = () => {
+      try {
+        // Scale up small images more aggressively; cap so the longer side stays ≤ 3000px
+        const maxSide = Math.max(img.naturalWidth, img.naturalHeight);
+        const SCALE   = maxSide <= 800 ? 3 : maxSide <= 1600 ? 2 : 1;
+        const w = img.naturalWidth  * SCALE;
+        const h = img.naturalHeight * SCALE;
+
+        // Pass 1: grayscale + moderate contrast — let Tesseract do its own binarization.
+        // Otsu pre-binarization hurts colored text (e.g. blue headers on white BG)
+        // because a global threshold inverts those regions.
+        const c1   = document.createElement('canvas');
+        c1.width   = w; c1.height = h;
+        const ctx1 = c1.getContext('2d')!;
+        ctx1.filter = 'grayscale(100%) contrast(1.8) brightness(1.05)';
+        ctx1.drawImage(img, 0, 0, w, h);
+        ctx1.filter = 'none';
+
+        // Pass 2: unsharp mask to sharpen character edges
+        const c2   = document.createElement('canvas');
+        c2.width   = w; c2.height = h;
+        const ctx2 = c2.getContext('2d')!;
+        ctx2.putImageData(unsharpMask(ctx1.getImageData(0, 0, w, h), w, h), 0, 0);
+
+        resolve(c2.toDataURL('image/png', 1.0));
+      } catch { resolve(uri); }
+    };
+    img.src = uri;
+  });
+}
+
+function unsharpMask(data: ImageData, w: number, h: number): ImageData {
+  const src = data.data;
+  const out = new ImageData(w, h);
+  const dst = out.data;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      let sum = 0;
+      for (let ky = -1; ky <= 1; ky++)
+        for (let kx = -1; kx <= 1; kx++)
+          sum += src[((y + ky) * w + (x + kx)) * 4];
+      const i = (y * w + x) * 4;
+      const v = Math.max(0, Math.min(255, src[i] + 1.5 * (src[i] - sum / 9)));
+      dst[i] = dst[i + 1] = dst[i + 2] = v;
+      dst[i + 3] = 255;
+    }
+  }
+  return out;
+}
+
+/** Otsu's method: finds the optimal global threshold that maximises between-class variance. */
+function otsuThreshold(pixels: Uint8ClampedArray, n: number): number {
+  const hist = new Int32Array(256);
+  for (let i = 0; i < n; i++) hist[pixels[i * 4]]++;
+
+  let sum = 0;
+  for (let t = 0; t < 256; t++) sum += t * hist[t];
+
+  let sumB = 0, wB = 0, maxVar = 0, threshold = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (!wB) continue;
+    const wF = n - wB;
+    if (!wF) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const variance = wB * wF * (mB - mF) ** 2;
+    if (variance > maxVar) { maxVar = variance; threshold = t; }
+  }
+  return threshold;
+}
+
+function binarize(data: ImageData, w: number, h: number): ImageData {
+  const t   = otsuThreshold(data.data, w * h);
+  const out = new ImageData(w, h);
+  const src = data.data;
+  const dst = out.data;
+  for (let i = 0; i < w * h; i++) {
+    const v = src[i * 4] >= t ? 255 : 0;
+    dst[i * 4] = dst[i * 4 + 1] = dst[i * 4 + 2] = v;
+    dst[i * 4 + 3] = 255;
+  }
+  return out;
+}
+
+// ─── Tesseract character-position table reconstruction (no bbox needed) ───────
+/**
+ * When Tesseract doesn't return word bboxes, we can still reconstruct table
+ * columns from the flat OCR text: with preserve_interword_spaces enabled,
+ * words stay roughly at the same character offset as their visual column.
+ *
+ * Detects the weekday header row, maps every subsequent word to the nearest
+ * day column by character index, then emits structured text the parser
+ * can split by day name.
+ */
+function reconstructFromCharPositions(rawText: string): string {
+  const lines = rawText.split('\n');
+
+  const ALL_DAYS = [
+    'montag','dienstag','mittwoch','donnerstag','freitag','samstag','sonntag',
+    'monday','tuesday','wednesday','thursday','friday','saturday','sunday',
+  ];
+
+  // Find header row: a line that contains ≥ 3 different day names
+  let headerIdx = -1;
+  let cols: { name: string; pos: number }[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const lower = lines[i].toLowerCase();
+    const found: { name: string; pos: number }[] = [];
+    for (const d of ALL_DAYS) {
+      const p = lower.indexOf(d);
+      if (p !== -1) found.push({ name: lines[i].slice(p, p + d.length), pos: p });
+    }
+    if (found.length >= 3) {
+      headerIdx = i;
+      cols = found.sort((a, b) => a.pos - b.pos);
+      break;
+    }
+  }
+
+  if (headerIdx === -1) return rawText; // no table structure — return as-is
+
+  // Some OCR outputs split the 7-day header across two lines.
+  // Check the next 2 lines for more day names and estimate their column positions
+  // using the average spacing from the detected header row.
+  {
+    const avgWidth = cols.length > 1
+      ? (cols[cols.length - 1].pos - cols[0].pos) / (cols.length - 1)
+      : 12;
+    let nextPos = cols[cols.length - 1].pos + avgWidth;
+
+    for (let i = headerIdx + 1; i <= Math.min(headerIdx + 2, lines.length - 1); i++) {
+      const lower = lines[i].toLowerCase();
+      const extra: { name: string; pos: number }[] = [];
+      for (const d of ALL_DAYS) {
+        if (cols.some(c => c.name.toLowerCase() === d)) continue;
+        if (lower.includes(d)) {
+          extra.push({ name: lines[i].slice(lower.indexOf(d), lower.indexOf(d) + d.length), pos: Math.round(nextPos) });
+          nextPos += avgWidth;
+        }
+      }
+      // Only treat as a header continuation if it contains day names and little else
+      if (extra.length > 0 && extra.length >= lines[i].trim().split(/\s+/).length - 1) {
+        cols = [...cols, ...extra];
+        headerIdx = i;
+      }
+    }
+  }
+
+  // Column boundary: each col owns chars from its pos up to the next col's pos
+  const colOf = (charPos: number): number => {
+    for (let i = cols.length - 1; i >= 0; i--) {
+      if (charPos >= cols[i].pos) return i;
+    }
+    return 0;
+  };
+
+  const output: string[] = [];
+  for (let i = 0; i < headerIdx; i++) {
+    if (lines[i].trim()) output.push(lines[i].trim());
+  }
+
+  // Week separator: short line (≤5 tokens) with date range "1-7" / "1.-7." or "Woche N"
+  // Trailing period is optional; exclude reps-like contexts (followed by reps/wdh/kg)
+  const WEEK_RE = /\d{1,2}\.?\s*[-–]\s*\d{1,2}\.?(?!\s*(?:reps?|wdh|wiederh|mal|kg|x\d))|\bwoche\s+\d|\bweek\s+\d/i;
+
+  const colBuf = new Map<number, string[]>();
+  let weekLine = '';
+  const hasBuf = () => { for (const v of colBuf.values()) if (v.length) return true; return false; };
+
+  const flush = () => {
+    if (!hasBuf()) return;
+    if (weekLine) { output.push(weekLine); weekLine = ''; }
+    for (let c = 0; c < cols.length; c++) {
+      const ws = colBuf.get(c);
+      if (ws?.length) { output.push(cols[c].name); output.push(ws.join(' ')); }
+    }
+    colBuf.clear();
+  };
+
+  for (let li = headerIdx + 1; li < lines.length; li++) {
+    const raw  = lines[li];
+    const trim = raw.trim();
+    if (!trim) continue;
+
+    // Skip another header-like row (≥3 day names on one line)
+    if (ALL_DAYS.filter(d => raw.toLowerCase().includes(d)).length >= 3) continue;
+
+    // Week separator
+    if (WEEK_RE.test(trim) && trim.split(/\s+/).length <= 5) {
+      flush();
+      weekLine = trim;
+      continue;
+    }
+
+    // Assign each token to a column by its character offset in the line
+    const tok = /\S+/g;
+    let m: RegExpExecArray | null;
+    while ((m = tok.exec(raw)) !== null) {
+      const c  = colOf(m.index);
+      const arr = colBuf.get(c) ?? [];
+      arr.push(m[0]);
+      colBuf.set(c, arr);
+    }
+  }
+
+  flush();
+  if (weekLine) output.push(weekLine);
+  return output.join('\n');
+}
+
+// ─── Tesseract bbox-based table reconstruction ────────────────────────────────
+/**
+ * Converts Tesseract word-level bounding-box data into structured text.
+ *
+ * For table-formatted plans (e.g. Week × Day grid):
+ *   - detects the weekday column-header row
+ *   - assigns every content word to its day column via x-proximity
+ *   - emits: <week-heading>\n<DAY>\n<exercise text>\n...
+ *
+ * Falls back to plain line-by-line output when no weekday header row is found.
+ */
+function reconstructTableFromBboxes(words: any[]): string {
+  const items = words
+    .filter((w: any) => w.text?.trim() && (w.confidence ?? 0) > 10)
+    .map((w: any) => ({
+      text: w.text.trim() as string,
+      x0:  w.bbox.x0 as number,
+      x1:  w.bbox.x1 as number,
+      cy:  ((w.bbox.y0 + w.bbox.y1) / 2) as number,
+      cx:  ((w.bbox.x0 + w.bbox.x1) / 2) as number,
+    }));
+
+  if (!items.length) return '';
+
+  // Group words into visual rows by y-center clustering
+  items.sort((a, b) => a.cy - b.cy);
+  const ROW_GAP = 20;
+  const rows: (typeof items)[] = [];
+  for (const item of items) {
+    const last = rows[rows.length - 1];
+    const lastCy = last ? last.reduce((s, x) => s + x.cy, 0) / last.length : -Infinity;
+    if (Math.abs(item.cy - lastCy) <= ROW_GAP) last.push(item);
+    else rows.push([item]);
+  }
+  for (const row of rows) row.sort((a, b) => a.x0 - b.x0);
+
+  // Find the row containing ≥ 3 weekday names → these are column headers
+  const DAY_RE = /^(montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i;
+  let headerRowIdx = -1;
+  let dayHeaders: { name: string; cx: number }[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const dayWords = rows[i].filter(w => DAY_RE.test(w.text));
+    if (dayWords.length >= 3) {
+      headerRowIdx = i;
+      dayHeaders = dayWords.sort((a, b) => a.cx - b.cx).map(w => ({ name: w.text, cx: w.cx }));
+      break;
+    }
+  }
+
+  // No table → plain row output
+  if (headerRowIdx === -1) {
+    return rows.map(row => row.map(w => w.text).join(' ')).join('\n');
+  }
+
+  // Assign a word to the nearest day column by left-edge proximity
+  const getCol = (x0: number) => {
+    let best = 0, bestDist = Infinity;
+    for (let i = 0; i < dayHeaders.length; i++) {
+      const d = Math.abs(x0 - dayHeaders[i].cx);
+      if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return best;
+  };
+
+  const output: string[] = [];
+
+  // Emit pre-header lines (title etc.)
+  for (let i = 0; i < headerRowIdx; i++) {
+    output.push(rows[i].map(w => w.text).join(' '));
+  }
+
+  // Week-separator rows: few words containing a date range or "Woche N"
+  const WEEK_HDR = /\d{1,2}\.\s*[-–]\s*\d{1,2}\.|\bwoche\s+\d|\bweek\s+\d/i;
+
+  let pendingWeekLine = '';
+  let colWords: { [col: number]: string[] } = {};
+  const hasContent = () => Object.values(colWords).some(ws => ws.length > 0);
+
+  const flushWeek = () => {
+    if (!hasContent()) return;
+    if (pendingWeekLine) { output.push(pendingWeekLine); pendingWeekLine = ''; }
+    for (let col = 0; col < dayHeaders.length; col++) {
+      const ws = colWords[col];
+      if (ws?.length) { output.push(dayHeaders[col].name); output.push(ws.join(' ')); }
+    }
+    colWords = {};
+  };
+
+  for (let ri = headerRowIdx + 1; ri < rows.length; ri++) {
+    const row  = rows[ri];
+    const text = row.map(w => w.text).join(' ');
+    if (row.length <= 4 && WEEK_HDR.test(text)) {
+      flushWeek();
+      pendingWeekLine = text;
+      continue;
+    }
+    for (const word of row) {
+      const col = getCol(word.x0);
+      (colWords[col] ??= []).push(word.text);
+    }
+  }
+  flushWeek();
+  if (pendingWeekLine) output.push(pendingWeekLine);
+
+  return output.join('\n');
+}
+
+// ─── Native: Google ML Kit ─────────────────────────────────────────────────────
+
+async function runMlKit(uri: string): Promise<OcrResult> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const TextRecognition = require('@react-native-ml-kit/text-recognition').default;
+    const result = await TextRecognition.recognize(uri);
+    return { ok: true, text: extractOrderedText(result) };
+  } catch (e: any) {
+    const msg = String(e?.message ?? e);
+    if (msg.includes("doesn't seem to be linked") || msg.includes('not linked')) {
+      return {
+        ok: false,
+        reason: 'not_linked',
+        message:
+          'Google ML Kit ist noch nicht verknüpft.\n' +
+          'Erstelle einen Expo Development Build:\n\n' +
+          'npx expo run:android\n—oder—\nnpx expo run:ios',
+      };
+    }
+    return { ok: false, reason: 'error', message: msg };
+  }
+}
+
+function extractOrderedText(result: any): string {
+  const blocks: any[] = result?.blocks ?? [];
+  if (blocks.length === 0) return result?.text ?? '';
+
+  const items = blocks.map((b: any) => ({
+    b,
+    cy:   (b.frame?.top ?? 0) + (b.frame?.height ?? 0) / 2,
+    left:  b.frame?.left ?? 0,
+  }));
+  items.sort((a, b) => a.cy - b.cy);
+
+  const ROW_TOLERANCE = 24;
+  const rows: (typeof items)[] = [];
+  for (const item of items) {
+    const last   = rows[rows.length - 1];
+    const lastCy = last ? last.reduce((s, x) => s + x.cy, 0) / last.length : -Infinity;
+    if (Math.abs(item.cy - lastCy) <= ROW_TOLERANCE) last.push(item);
+    else rows.push([item]);
+  }
+  for (const row of rows) row.sort((a, b) => a.left - b.left);
+
+  return rows
+    .map((row) => row.map((x) => x.b.text.trim()).filter(Boolean).join('\t'))
+    .filter(Boolean)
+    .join('\n');
+}

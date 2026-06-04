@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { C, FONT, SP } from '../theme';
+import { C, useColors, FONT, SP } from '../theme';
 
 type Props = {
   title: string;
@@ -12,24 +12,25 @@ type Props = {
 };
 
 export default function TopBar({ title, subtitle, large = false, leading, trailing }: Props) {
+  const C = useColors();
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, 20);
 
   return (
-    <View style={[styles.container, { paddingTop: topPad }]}>
+    <View style={[styles.container, { paddingTop: topPad, backgroundColor: C.bg }]}>
       <View style={styles.row}>
         <View style={styles.side}>{leading}</View>
         {!large && (
-          <Text style={styles.centerTitle} numberOfLines={1}>{title}</Text>
+          <Text style={[styles.centerTitle, { color: C.text }]} numberOfLines={1}>{title}</Text>
         )}
         <View style={[styles.side, styles.trailingSide]}>{trailing}</View>
       </View>
       {large && (
         <View style={styles.largeBlock}>
           {subtitle ? (
-            <Text style={styles.subtitle}>{subtitle}</Text>
+            <Text style={[styles.subtitle, { color: C.textMuted }]}>{subtitle}</Text>
           ) : null}
-          <Text style={styles.bigTitle}>{title}</Text>
+          <Text style={[styles.bigTitle, { color: C.text }]}>{title}</Text>
         </View>
       )}
     </View>
