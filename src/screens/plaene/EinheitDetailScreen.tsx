@@ -1296,6 +1296,9 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
   const [saveEinheitLib, setSaveEinheitLib] = useState(false);
   const [showEinheitLib, setShowEinheitLib] = useState(false);
   const [activeForm, setActiveForm]     = useState<ActiveForm>(null);
+  const [addPhase, setAddPhase]         = useState<Phase>('haupteinheit');
+
+  const NEXT_PHASE: Record<Phase, Phase> = { warmup: 'haupteinheit', haupteinheit: 'cooldown', cooldown: 'warmup' };
 
   const closeForm = () => setActiveForm(null);
 
@@ -1316,6 +1319,14 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
   const deleteUeb = (phase: Phase, uid: string) => {
     if (activeForm?.editId === uid) closeForm();
     setPhases((prev) => ({ ...prev, [phase]: prev[phase].filter((u) => u.id !== uid) }));
+  };
+
+  const changePhase = (ueb: EinheitUebung, from: Phase, to: Phase) => {
+    setPhases((prev) => ({
+      ...prev,
+      [from]: prev[from].filter((u) => u.id !== ueb.id),
+      [to]: [...prev[to], ueb],
+    }));
   };
 
   const pickEinheitLib = (tpl: EinheitTemplate) => {
@@ -1445,7 +1456,7 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
 
           {/* Stats + save-to-lib toggle */}
           <View style={styles.statsRow}>
-            <Text style={[styles.statsText, { color: C.textDim }]}>{totalEx} Einträge · 3 Phasen</Text>
+            <Text style={[styles.statsText, { color: C.textDim }]}>{totalEx} Übungen</Text>
             <TouchableOpacity style={styles.libToggle} onPress={() => setSaveEinheitLib((v) => !v)} activeOpacity={0.7}>
               <View style={[styles.check, { borderColor: C.border, backgroundColor: C.surfaceAlt }, saveEinheitLib && styles.checkOn]}>
                 {saveEinheitLib && <GBIcon name="check" size={11} color={C.accentContrast} />}
@@ -1454,135 +1465,159 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
             </TouchableOpacity>
           </View>
 
-          {/* Phase sections */}
-          {PHASES.map((phase) => {
+          {/* Flat exercise list with phase badges */}
+          {PHASES.flatMap((phase) => {
             const cfg = PHASE_CFG[phase];
-            const exercises = phases[phase];
-            const formActive = activeForm?.phase === phase;
+            return phases[phase].map((u) => {
+              const isEditing = activeForm?.editId === u.id;
+              const badge = (
+                <TouchableOpacity
+                  style={[styles.phaseBadge, { backgroundColor: `${cfg.color}22`, borderColor: `${cfg.color}55` }]}
+                  onPress={() => changePhase(u, phase, NEXT_PHASE[phase])}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.phaseBadgeDot, { backgroundColor: cfg.color }]} />
+                  <Text style={[styles.phaseBadgeText, { color: cfg.color }]}>{cfg.label}</Text>
+                </TouchableOpacity>
+              );
 
-            return (
-              <View key={phase} style={styles.phaseSection}>
-                {/* Phase header */}
-                <View style={[styles.phaseHeader, { borderLeftColor: cfg.color }]}>
-                  <Text style={[styles.phaseTitle, { color: cfg.color }]}>{cfg.label}</Text>
-                  <Text style={[styles.phaseCount, { color: C.textDim }]}>{exercises.length} Einträge</Text>
-                </View>
-
-                {/* Exercise / Circuit rows */}
-                {exercises.map((u) => {
-                  const isEditing = activeForm?.editId === u.id && formActive;
-                  if (u.typ === 'kreis') {
-                    return (
-                      <KreisCard
-                        key={u.id}
-                        ueb={u}
-                        phaseColor={cfg.color}
-                        isEditing={isEditing}
-                        onEdit={() => setActiveForm({ phase, kind: 'kreis', editId: u.id })}
-                        onDelete={() => deleteUeb(phase, u.id)}
-                      />
-                    );
-                  }
-                  if (u.typ === 'intervall') {
-                    return (
-                      <IntervallCard
-                        key={u.id}
-                        ueb={u}
-                        phaseColor={cfg.color}
-                        isEditing={isEditing}
-                        onEdit={() => setActiveForm({ phase, kind: 'intervall', editId: u.id })}
-                        onDelete={() => deleteUeb(phase, u.id)}
-                      />
-                    );
-                  }
-                  return (
-                    <View key={u.id} style={[styles.uebRow, { backgroundColor: C.surface, borderColor: C.border }, isEditing && styles.uebRowActive, isEditing && { borderColor: C.accent }]}>
-                      <View style={[styles.uebDot, { backgroundColor: cfg.color }]} />
-                      <View style={styles.uebInfo}>
-                        <Text style={[styles.uebName, { color: C.text }]}>{u.name}</Text>
-                        {u.parameter.length > 0 && (
-                          <Text style={[styles.uebParams, { color: C.textMuted }]}>{buildSuffix(u.parameter)}</Text>
-                        )}
-                      </View>
-                      <View style={styles.uebActions}>
-                        <TouchableOpacity onPress={() => setActiveForm({ phase, kind: 'ueb', editId: u.id })} style={[styles.miniBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
-                          <GBIcon name="edit" size={13} color={C.textMuted} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => deleteUeb(phase, u.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>
-                          <GBIcon name="trash" size={13} color={C.warn} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                })}
-
-                {/* Add buttons (when no form open for this phase) */}
-                {!formActive && (
-                  <View style={styles.addBtnsRow}>
-                    <TouchableOpacity
-                      style={[styles.addUebBtn, { borderColor: `${cfg.color}55`, flex: 1 }]}
-                      onPress={() => setActiveForm({ phase, kind: 'ueb' })}
-                      activeOpacity={0.8}
-                    >
-                      <GBIcon name="plus" size={14} color={cfg.color} />
-                      <Text style={[styles.addUebText, { color: cfg.color }]}>Übung</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.addUebBtn, { borderColor: `${cfg.color}33`, flex: 1 }]}
-                      onPress={() => setActiveForm({ phase, kind: 'kreis' })}
-                      activeOpacity={0.8}
-                    >
-                      <GBIcon name="repeat" size={14} color={cfg.color} />
-                      <Text style={[styles.addUebText, { color: cfg.color }]}>Kreis</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.addUebBtn, { borderColor: `${cfg.color}33`, flex: 1 }]}
-                      onPress={() => setActiveForm({ phase, kind: 'intervall' })}
-                      activeOpacity={0.8}
-                    >
-                      <GBIcon name="flag" size={14} color={cfg.color} />
-                      <Text style={[styles.addUebText, { color: cfg.color }]}>Intervall</Text>
-                    </TouchableOpacity>
+              if (u.typ === 'kreis') {
+                return (
+                  <View key={u.id}>
+                    {badge}
+                    <KreisCard
+                      ueb={u}
+                      phaseColor={cfg.color}
+                      isEditing={isEditing}
+                      onEdit={() => setActiveForm({ phase, kind: 'kreis', editId: u.id })}
+                      onDelete={() => deleteUeb(phase, u.id)}
+                    />
                   </View>
-                )}
+                );
+              }
+              if (u.typ === 'intervall') {
+                return (
+                  <View key={u.id}>
+                    {badge}
+                    <IntervallCard
+                      ueb={u}
+                      phaseColor={cfg.color}
+                      isEditing={isEditing}
+                      onEdit={() => setActiveForm({ phase, kind: 'intervall', editId: u.id })}
+                      onDelete={() => deleteUeb(phase, u.id)}
+                    />
+                  </View>
+                );
+              }
+              return (
+                <View key={u.id}>
+                  {badge}
+                  <View style={[styles.uebRow, { backgroundColor: C.surface, borderColor: C.border }, isEditing && styles.uebRowActive, isEditing && { borderColor: C.accent }]}>
+                    <View style={[styles.uebDot, { backgroundColor: cfg.color }]} />
+                    <View style={styles.uebInfo}>
+                      <Text style={[styles.uebName, { color: C.text }]}>{u.name}</Text>
+                      {u.parameter.length > 0 && (
+                        <Text style={[styles.uebParams, { color: C.textMuted }]}>{buildSuffix(u.parameter)}</Text>
+                      )}
+                    </View>
+                    <View style={styles.uebActions}>
+                      <TouchableOpacity onPress={() => setActiveForm({ phase, kind: 'ueb', editId: u.id })} style={[styles.miniBtn, { backgroundColor: C.surfaceAlt }]} activeOpacity={0.7}>
+                        <GBIcon name="edit" size={13} color={C.textMuted} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => deleteUeb(phase, u.id)} style={styles.miniBtnDanger} activeOpacity={0.7}>
+                        <GBIcon name="trash" size={13} color={C.warn} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              );
+            });
+          })}
 
-                {/* Inline forms */}
-                {formActive && activeForm.kind === 'ueb' && (
+          {/* Inline form for active editing/adding */}
+          {activeForm && (() => {
+            const cfg = PHASE_CFG[activeForm.phase];
+            const allUeb = [...phases.warmup, ...phases.haupteinheit, ...phases.cooldown];
+            return (
+              <>
+                {activeForm.kind === 'ueb' && (
                   <UebungForm
-                    key={`${phase}-ueb-${activeForm.editId ?? 'new'}`}
-                    phase={phase}
+                    key={`ueb-${activeForm.phase}-${activeForm.editId ?? 'new'}`}
+                    phase={activeForm.phase}
                     phaseColor={cfg.color}
-                    initialUebung={activeForm.editId ? exercises.find(u => u.id === activeForm.editId) : undefined}
+                    initialUebung={activeForm.editId ? allUeb.find(u => u.id === activeForm.editId) : undefined}
                     uebungLib={uebungLib}
                     onSubmit={handleUebSubmit}
                     onCancel={closeForm}
                   />
                 )}
-
-                {formActive && activeForm.kind === 'kreis' && (
+                {activeForm.kind === 'kreis' && (
                   <KreisForm
-                    key={`${phase}-kreis-${activeForm.editId ?? 'new'}`}
-                    phase={phase}
+                    key={`kreis-${activeForm.phase}-${activeForm.editId ?? 'new'}`}
+                    phase={activeForm.phase}
                     phaseColor={cfg.color}
-                    initialKreis={activeForm.editId ? exercises.find(u => u.id === activeForm.editId) as EinheitUebung : undefined}
+                    initialKreis={activeForm.editId ? allUeb.find(u => u.id === activeForm.editId) as EinheitUebung : undefined}
                     onSubmit={handleUebSubmit}
                     onCancel={closeForm}
                   />
                 )}
-
-                {formActive && activeForm.kind === 'intervall' && (
+                {activeForm.kind === 'intervall' && (
                   <IntervallForm
-                    key={`${phase}-intervall-${activeForm.editId ?? 'new'}`}
-                    phase={phase}
+                    key={`intervall-${activeForm.phase}-${activeForm.editId ?? 'new'}`}
+                    phase={activeForm.phase}
                     phaseColor={cfg.color}
-                    initialIntervall={activeForm.editId ? exercises.find(u => u.id === activeForm.editId) as EinheitUebung : undefined}
+                    initialIntervall={activeForm.editId ? allUeb.find(u => u.id === activeForm.editId) as EinheitUebung : undefined}
                     onSubmit={handleUebSubmit}
                     onCancel={closeForm}
                   />
                 )}
-              </View>
+              </>
             );
-          })}
+          })()}
+
+          {/* Phase selector + add buttons */}
+          {!activeForm && (
+            <View style={styles.addSection}>
+              <View style={styles.addPhaseRow}>
+                {PHASES.map((phase) => {
+                  const cfg = PHASE_CFG[phase];
+                  const active = addPhase === phase;
+                  return (
+                    <TouchableOpacity
+                      key={phase}
+                      style={[styles.addPhasePill, { borderColor: active ? cfg.color : C.border, backgroundColor: active ? `${cfg.color}22` : C.surfaceAlt }]}
+                      onPress={() => setAddPhase(phase)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[styles.phaseBadgeDot, { backgroundColor: active ? cfg.color : C.textDim }]} />
+                      <Text style={[styles.addPhasePillText, { color: active ? cfg.color : C.textDim }]}>{cfg.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <View style={styles.addBtnsRow}>
+                {(() => {
+                  const cfg = PHASE_CFG[addPhase];
+                  return (
+                    <>
+                      <TouchableOpacity style={[styles.addUebBtn, { borderColor: `${cfg.color}55`, flex: 1 }]} onPress={() => setActiveForm({ phase: addPhase, kind: 'ueb' })} activeOpacity={0.8}>
+                        <GBIcon name="plus" size={14} color={cfg.color} />
+                        <Text style={[styles.addUebText, { color: cfg.color }]}>Übung</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.addUebBtn, { borderColor: `${cfg.color}33`, flex: 1 }]} onPress={() => setActiveForm({ phase: addPhase, kind: 'kreis' })} activeOpacity={0.8}>
+                        <GBIcon name="repeat" size={14} color={cfg.color} />
+                        <Text style={[styles.addUebText, { color: cfg.color }]}>Kreis</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.addUebBtn, { borderColor: `${cfg.color}33`, flex: 1 }]} onPress={() => setActiveForm({ phase: addPhase, kind: 'intervall' })} activeOpacity={0.8}>
+                        <GBIcon name="flag" size={14} color={cfg.color} />
+                        <Text style={[styles.addUebText, { color: cfg.color }]}>Intervall</Text>
+                      </TouchableOpacity>
+                    </>
+                  );
+                })()}
+              </View>
+            </View>
+          )}
 
           <View style={{ height: 80 }} />
         </ScrollView>
@@ -1634,6 +1669,15 @@ const styles = StyleSheet.create({
   phaseHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderLeftWidth: 3, paddingLeft: SP.sm },
   phaseTitle:   { fontSize: FONT.sm, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.2 },
   phaseCount:   { fontFamily: FONT_MONO, fontSize: FONT.xs, color: C.textDim, fontWeight: '600' },
+
+  phaseBadge:     { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.full, borderWidth: 1, marginBottom: -SP.xs },
+  phaseBadgeDot:  { width: 5, height: 5, borderRadius: 3 },
+  phaseBadgeText: { fontSize: FONT.xs, fontWeight: '700', letterSpacing: 0.4 },
+
+  addSection:     { gap: SP.sm },
+  addPhaseRow:    { flexDirection: 'row', gap: SP.sm },
+  addPhasePill:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: SP.sm, borderRadius: R.full, borderWidth: 1 },
+  addPhasePillText: { fontSize: FONT.xs, fontWeight: '700' },
 
   uebRow:       { flexDirection: 'row', alignItems: 'center', gap: SP.md, backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: SP.md },
   uebRowActive: { borderColor: C.accent },
