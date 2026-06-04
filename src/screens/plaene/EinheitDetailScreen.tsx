@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, KeyboardAvoidingView, Platform,
+  Modal, ActivityIndicator,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -16,6 +17,11 @@ import { useEinheitStore } from '../../store/einheitStore';
 import { GBIcon } from '../../components/GBIcon';
 import { C, useColors, SP, R, FONT, FONT_MONO } from '../../theme';
 import { useSettingsStore } from '../../store/settingsStore';
+import {
+  parseWorkoutFromVoice,
+  parsedExercisesToUebungen,
+  VoiceParseResult,
+} from '../../utils/voiceParser';
 
 type Props = {
   navigation: StackNavigationProp<PlaeneStackParamList, 'EinheitDetail'>;
@@ -1299,6 +1305,7 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
   const [addPhase, setAddPhase]         = useState<Phase>('haupteinheit');
   const [showUebLib, setShowUebLib]     = useState(false);
   const [libSearch, setLibSearch]       = useState('');
+  const [showVoice, setShowVoice]       = useState(false);
 
   const NEXT_PHASE: Record<Phase, Phase> = { warmup: 'haupteinheit', haupteinheit: 'cooldown', cooldown: 'warmup' };
 
@@ -1387,6 +1394,9 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
             <Text style={[styles.topSub, { color: C.textMuted }]}>{existing ? 'Einheit bearbeiten' : 'Neue Einheit'}</Text>
             <Text style={[styles.topTitle, { color: C.text }]} numberOfLines={1}>{name.trim() || '—'}</Text>
           </View>
+          <TouchableOpacity onPress={() => setShowVoice(true)} style={styles.iconBtn} activeOpacity={0.7}>
+            <GBIcon name="mic" size={20} color={C.text} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={handleSaveEinheit} style={[styles.saveBtn, { backgroundColor: C.accent }]} activeOpacity={0.8}>
             <Text style={[styles.saveBtnText, { color: C.accentContrast }]}>Speichern</Text>
           </TouchableOpacity>
@@ -1694,10 +1704,322 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
 
           <View style={{ height: 80 }} />
         </ScrollView>
+
+        <VoiceModal
+          visible={showVoice}
+          phase={addPhase}
+          onClose={() => setShowVoice(false)}
+          onAccept={(exercises, sessionName) => {
+            setPhases((prev) => {
+              const next = { ...prev };
+              for (const { ueb, phase } of exercises) {
+                next[phase] = [...next[phase], ueb];
+              }
+              return next;
+            });
+            if (sessionName && !name.trim()) setName(sessionName);
+            setShowVoice(false);
+          }}
+        />
       </View>
     </KeyboardAvoidingView>
   );
 }
+
+// ─── VoiceModal ───────────────────────────────────────────────────────────────
+
+type VoiceModalProps = {
+  visible: boolean;
+  phase: Phase;
+  onClose: () => void;
+  onAccept: (exercises: Array<{ ueb: EinheitUebung; phase: Phase }>, name?: string) => void;
+};
+
+function VoiceModal({ visible, onClose, onAccept }: VoiceModalProps) {
+  const C = useColors();
+  const [transcript, setTranscript]       = useState('');
+  const [recording, setRecording]         = useState(false);
+  const [parsing, setParsing]             = useState(false);
+  const [result, setResult]               = useState<VoiceParseResult | null>(null);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+
+  // Keep a ref to the SpeechRecognition instance for cleanup
+  const recognizerRef = useRef<any>(null);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (visible) {
+      setTranscript('');
+      setRecording(false);
+      setParsing(false);
+      setResult(null);
+      setSelectedIndices(new Set());
+    } else {
+      stopRecording();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  function stopRecording() {
+    if (recognizerRef.current) {
+      try { recognizerRef.current.stop(); } catch { /* ignore */ }
+      recognizerRef.current = null;
+    }
+    setRecording(false);
+  }
+
+  function toggleRecording() {
+    if (recording) {
+      stopRecording();
+      return;
+    }
+
+    if (Platform.OS !== 'web') {
+      // On native: no speech API — just use the TextInput
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const rec = new SpeechRecognition();
+    rec.lang            = 'de-DE';
+    rec.interimResults  = true;
+    rec.continuous      = true;
+
+    rec.onresult = (e: any) => {
+      let interim = '';
+      let final   = '';
+      for (let i = 0; i < e.results.length; i++) {
+        const text = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += text + ' ';
+        else interim += text;
+      }
+      setTranscript((final + interim).trim());
+    };
+
+    rec.onerror = () => { stopRecording(); };
+    rec.onend   = () => { setRecording(false); };
+
+    recognizerRef.current = rec;
+    rec.start();
+    setRecording(true);
+  }
+
+  async function handleParse() {
+    if (!transcript.trim()) return;
+    setParsing(true);
+    const res = await parseWorkoutFromVoice(transcript.trim());
+    setParsing(false);
+    setResult(res);
+    if (res.ok) {
+      setSelectedIndices(new Set(res.exercises.map((_, i) => i)));
+    }
+  }
+
+  function toggleIndex(i: number) {
+    setSelectedIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  }
+
+  function handleAccept() {
+    if (!result?.ok) return;
+    const chosen = result.exercises.filter((_, i) => selectedIndices.has(i));
+    const uebungen = parsedExercisesToUebungen(chosen);
+    onAccept(uebungen, result.sessionName);
+  }
+
+  const hasSpeechAPI = Platform.OS === 'web' && Boolean(
+    (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition,
+  );
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={vm.overlay}>
+        <View style={[vm.sheet, { backgroundColor: C.bg, borderColor: C.border }]}>
+          {/* Header */}
+          <View style={[vm.header, { borderBottomColor: C.border }]}>
+            <Text style={[vm.title, { color: C.text }]}>Spracherfassung</Text>
+            <TouchableOpacity onPress={onClose} style={vm.closeBtn} activeOpacity={0.7}>
+              <GBIcon name="close" size={20} color={C.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Loading state */}
+          {parsing && (
+            <View style={vm.center}>
+              <ActivityIndicator size="large" color={C.accent} />
+              <Text style={[vm.hint, { color: C.textMuted }]}>Analysiere…</Text>
+            </View>
+          )}
+
+          {/* Result state */}
+          {!parsing && result && (
+            <ScrollView style={vm.resultScroll} contentContainerStyle={vm.resultContent}>
+              {result.ok ? (
+                <>
+                  {result.sessionName ? (
+                    <View style={[vm.nameChip, { backgroundColor: C.accentLight, borderColor: C.accent }]}>
+                      <Text style={[vm.nameChipLabel, { color: C.textMuted }]}>Vorschlag:</Text>
+                      <Text style={[vm.nameChipText, { color: C.accent }]}>{result.sessionName}</Text>
+                    </View>
+                  ) : null}
+                  {result.exercises.map((ex, i) => {
+                    const cfg  = PHASE_CFG[ex.phase];
+                    const sel  = selectedIndices.has(i);
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        style={[vm.exRow, { backgroundColor: C.surface, borderColor: sel ? C.accent : C.border }]}
+                        onPress={() => toggleIndex(i)}
+                        activeOpacity={0.75}
+                      >
+                        <View style={[vm.checkbox, { borderColor: sel ? C.accent : C.border, backgroundColor: sel ? C.accent : 'transparent' }]}>
+                          {sel && <GBIcon name="check" size={12} color={C.accentContrast} />}
+                        </View>
+                        <View style={vm.exInfo}>
+                          <Text style={[vm.exName, { color: C.text }]}>{ex.name}</Text>
+                          {ex.parameter ? (
+                            <Text style={[vm.exParam, { color: C.textMuted }]}>{ex.parameter}</Text>
+                          ) : null}
+                        </View>
+                        <View style={[vm.phasePill, { backgroundColor: `${cfg.color}22`, borderColor: `${cfg.color}55` }]}>
+                          <Text style={[vm.phaseText, { color: cfg.color }]}>{cfg.label}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {result.exercises.length === 0 && (
+                    <Text style={[vm.hint, { color: C.textMuted }]}>Keine Übungen erkannt.</Text>
+                  )}
+                </>
+              ) : (
+                <Text style={[vm.errorText, { color: C.warn }]}>{result.message}</Text>
+              )}
+            </ScrollView>
+          )}
+
+          {/* Input state */}
+          {!parsing && !result && (
+            <View style={vm.inputSection}>
+              {Platform.OS === 'web' ? (
+                <>
+                  <TouchableOpacity
+                    style={[vm.micBtn, { backgroundColor: recording ? 'rgba(255,106,61,0.15)' : C.surfaceAlt, borderColor: recording ? C.warn : C.border }]}
+                    onPress={hasSpeechAPI ? toggleRecording : undefined}
+                    activeOpacity={hasSpeechAPI ? 0.7 : 1}
+                  >
+                    <GBIcon name="mic" size={32} color={recording ? C.warn : C.textMuted} />
+                  </TouchableOpacity>
+                  {recording && (
+                    <Text style={[vm.recLabel, { color: C.warn }]}>Aufnahme läuft…</Text>
+                  )}
+                  {!hasSpeechAPI && (
+                    <Text style={[vm.hint, { color: C.textMuted }]}>
+                      Dein Browser unterstützt keine Spracheingabe.{'\n'}Bitte Text unten eingeben.
+                    </Text>
+                  )}
+                  {transcript.length > 0 && (
+                    <View style={[vm.transcriptBox, { backgroundColor: C.surface, borderColor: C.border }]}>
+                      <Text style={[vm.transcriptText, { color: C.text }]}>{transcript}</Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <TextInput
+                  style={[vm.nativeInput, { backgroundColor: C.surface, borderColor: C.border, color: C.text }]}
+                  value={transcript}
+                  onChangeText={setTranscript}
+                  placeholder="Trainingseinheit beschreiben… z.B. &quot;Beintraining: Kniebeuge 4x8 80kg, Ausfallschritte 3x12&quot;"
+                  placeholderTextColor={C.textDim}
+                  multiline
+                  textAlignVertical="top"
+                  autoCapitalize="none"
+                />
+              )}
+            </View>
+          )}
+
+          {/* Footer buttons */}
+          <View style={[vm.footer, { borderTopColor: C.border }]}>
+            {!parsing && !result && (
+              <TouchableOpacity
+                style={[vm.actionBtn, { backgroundColor: transcript.trim().length > 0 ? C.accent : C.surfaceAlt }]}
+                onPress={handleParse}
+                disabled={transcript.trim().length === 0}
+                activeOpacity={0.8}
+              >
+                <Text style={[vm.actionBtnText, { color: transcript.trim().length > 0 ? C.accentContrast : C.textDim }]}>
+                  Verarbeiten
+                </Text>
+              </TouchableOpacity>
+            )}
+            {!parsing && result?.ok && (
+              <TouchableOpacity
+                style={[vm.actionBtn, { backgroundColor: selectedIndices.size > 0 ? C.accent : C.surfaceAlt }]}
+                onPress={handleAccept}
+                disabled={selectedIndices.size === 0}
+                activeOpacity={0.8}
+              >
+                <Text style={[vm.actionBtnText, { color: selectedIndices.size > 0 ? C.accentContrast : C.textDim }]}>
+                  {selectedIndices.size} Übung{selectedIndices.size !== 1 ? 'en' : ''} übernehmen
+                </Text>
+              </TouchableOpacity>
+            )}
+            {!parsing && result && (
+              <TouchableOpacity
+                style={[vm.secondaryBtn, { borderColor: C.border }]}
+                onPress={() => { setResult(null); setTranscript(''); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[vm.secondaryBtnText, { color: C.textMuted }]}>Neu eingeben</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const vm = StyleSheet.create({
+  overlay:        { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  sheet:          { borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, maxHeight: '90%', overflow: 'hidden' },
+  header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SP.xl, paddingVertical: SP.md, borderBottomWidth: 1 },
+  title:          { fontSize: FONT.md, fontWeight: '700' },
+  closeBtn:       { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  center:         { alignItems: 'center', justifyContent: 'center', paddingVertical: SP.xxxl, gap: SP.md },
+  hint:           { fontSize: FONT.sm, textAlign: 'center', lineHeight: 20 },
+  inputSection:   { padding: SP.xl, gap: SP.md, alignItems: 'center' },
+  micBtn:         { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
+  recLabel:       { fontSize: FONT.sm, fontWeight: '700', letterSpacing: 0.5 },
+  transcriptBox:  { width: '100%', borderRadius: R.md, borderWidth: 1, padding: SP.md, minHeight: 60 },
+  transcriptText: { fontSize: FONT.sm, lineHeight: 20 },
+  nativeInput:    { width: '100%', borderRadius: R.md, borderWidth: 1, padding: SP.md, minHeight: 100, fontSize: FONT.sm, lineHeight: 20 },
+  resultScroll:   { maxHeight: 340 },
+  resultContent:  { padding: SP.xl, gap: SP.sm },
+  nameChip:       { flexDirection: 'row', alignItems: 'center', gap: SP.sm, padding: SP.md, borderRadius: R.md, borderWidth: 1, marginBottom: SP.sm },
+  nameChipLabel:  { fontSize: FONT.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  nameChipText:   { fontSize: FONT.sm, fontWeight: '700', flex: 1 },
+  exRow:          { flexDirection: 'row', alignItems: 'center', gap: SP.md, padding: SP.md, borderRadius: R.lg, borderWidth: 1 },
+  checkbox:       { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  exInfo:         { flex: 1, gap: 2 },
+  exName:         { fontSize: FONT.base, fontWeight: '600' },
+  exParam:        { fontFamily: FONT_MONO, fontSize: FONT.xs },
+  phasePill:      { paddingHorizontal: SP.sm, paddingVertical: 3, borderRadius: R.full, borderWidth: 1, flexShrink: 0 },
+  phaseText:      { fontSize: FONT.xs, fontWeight: '700' },
+  errorText:      { fontSize: FONT.sm, textAlign: 'center', lineHeight: 20, fontStyle: 'italic' },
+  footer:         { flexDirection: 'row', gap: SP.sm, padding: SP.xl, borderTopWidth: 1, flexWrap: 'wrap' },
+  actionBtn:      { flex: 1, paddingVertical: SP.md, borderRadius: R.full, alignItems: 'center', justifyContent: 'center' },
+  actionBtnText:  { fontSize: FONT.sm, fontWeight: '700' },
+  secondaryBtn:   { paddingVertical: SP.md, paddingHorizontal: SP.lg, borderRadius: R.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  secondaryBtnText: { fontSize: FONT.sm, fontWeight: '600' },
+});
 
 // ─── Screen Styles ────────────────────────────────────────────────────────────
 
