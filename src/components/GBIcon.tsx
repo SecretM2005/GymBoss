@@ -56,6 +56,7 @@ const MAP: Record<string, IoniconsName> = {
   copy:         'copy-outline',
   share:        'share-outline',
   logOut:       'log-out-outline',
+  mic:          'mic-outline',
 };
 
 type Props = {
