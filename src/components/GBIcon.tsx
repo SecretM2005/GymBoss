@@ -12,6 +12,7 @@ const MAP: Record<string, IoniconsName> = {
   chevronLeft:  'chevron-back-outline',
   chevronRight: 'chevron-forward-outline',
   chevronDown:  'chevron-down-outline',
+  chevronUp:    'chevron-up-outline',
   dumbbell:     'barbell-outline',
   user:         'person-outline',
   users:        'people-outline',

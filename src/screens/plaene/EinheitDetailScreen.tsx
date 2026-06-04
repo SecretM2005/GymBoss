@@ -1297,6 +1297,8 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
   const [showEinheitLib, setShowEinheitLib] = useState(false);
   const [activeForm, setActiveForm]     = useState<ActiveForm>(null);
   const [addPhase, setAddPhase]         = useState<Phase>('haupteinheit');
+  const [showUebLib, setShowUebLib]     = useState(false);
+  const [libSearch, setLibSearch]       = useState('');
 
   const NEXT_PHASE: Record<Phase, Phase> = { warmup: 'haupteinheit', haupteinheit: 'cooldown', cooldown: 'warmup' };
 
@@ -1327,6 +1329,18 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
       [from]: prev[from].filter((u) => u.id !== ueb.id),
       [to]: [...prev[to], ueb],
     }));
+  };
+
+  const addFromLib = (tpl: UebungTemplate) => {
+    const ueb: EinheitUebung = {
+      id: newUebId(),
+      name: tpl.name,
+      templateId: tpl.id,
+      parameter: tpl.parameter,
+    };
+    setPhases((prev) => ({ ...prev, [addPhase]: [...prev[addPhase], ueb] }));
+    setShowUebLib(false);
+    setLibSearch('');
   };
 
   const pickEinheitLib = (tpl: EinheitTemplate) => {
@@ -1616,6 +1630,65 @@ export default function EinheitDetailScreen({ navigation, route }: Props) {
                   );
                 })()}
               </View>
+
+              {/* Library picker */}
+              <TouchableOpacity
+                style={[styles.libPickerToggle, { borderColor: showUebLib ? C.accent : C.border, backgroundColor: showUebLib ? C.accentLight : C.surface }]}
+                onPress={() => { setShowUebLib((v) => !v); setLibSearch(''); }}
+                activeOpacity={0.8}
+              >
+                <GBIcon name="book" size={15} color={showUebLib ? C.accent : C.textMuted} />
+                <Text style={[styles.libPickerToggleText, { color: showUebLib ? C.accent : C.textMuted }]}>Aus Übungsbibliothek</Text>
+                <GBIcon name={showUebLib ? 'chevronUp' : 'chevronDown'} size={13} color={showUebLib ? C.accent : C.textDim} />
+              </TouchableOpacity>
+
+              {showUebLib && (
+                <View style={[styles.libPickerPanel, { backgroundColor: C.surface, borderColor: C.border }]}>
+                  <TextInput
+                    style={[styles.libPickerSearch, { backgroundColor: C.surfaceAlt, borderColor: C.border, color: C.text }]}
+                    value={libSearch}
+                    onChangeText={setLibSearch}
+                    placeholder="Übung suchen…"
+                    placeholderTextColor={C.textDim}
+                    autoCapitalize="none"
+                  />
+                  {(() => {
+                    const q = libSearch.toLowerCase().trim();
+                    const filtered = q
+                      ? uebungLib.filter((t) => t.name.toLowerCase().includes(q))
+                      : uebungLib;
+                    if (filtered.length === 0) {
+                      return (
+                        <Text style={[styles.libPickerEmpty, { color: C.textDim }]}>
+                          {uebungLib.length === 0
+                            ? 'Keine Übungen in der Bibliothek gespeichert'
+                            : 'Keine Übungen gefunden'}
+                        </Text>
+                      );
+                    }
+                    return filtered.map((tpl) => (
+                      <TouchableOpacity
+                        key={tpl.id}
+                        style={[styles.libPickerItem, { borderBottomColor: C.border }]}
+                        onPress={() => addFromLib(tpl)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.libPickerItemInfo}>
+                          <Text style={[styles.libPickerItemName, { color: C.text }]}>{tpl.name}</Text>
+                          {tpl.parameter.length > 0 && (
+                            <Text style={[styles.libPickerItemParams, { color: C.textMuted }]}>
+                              {buildSuffix(tpl.parameter)}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={[styles.libPickerAddBtn, { backgroundColor: C.accentLight }]}>
+                          <GBIcon name="plus" size={14} color={C.accent} />
+                        </View>
+                      </TouchableOpacity>
+                    ));
+                  })()}
+                </View>
+              )}
             </View>
           )}
 
@@ -1678,6 +1751,17 @@ const styles = StyleSheet.create({
   addPhaseRow:    { flexDirection: 'row', gap: SP.sm },
   addPhasePill:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: SP.sm, borderRadius: R.full, borderWidth: 1 },
   addPhasePillText: { fontSize: FONT.xs, fontWeight: '700' },
+
+  libPickerToggle:     { flexDirection: 'row', alignItems: 'center', gap: SP.sm, paddingHorizontal: SP.md, paddingVertical: SP.sm + 1, borderRadius: R.lg, borderWidth: 1 },
+  libPickerToggleText: { flex: 1, fontSize: FONT.sm, fontWeight: '600' },
+  libPickerPanel:      { borderRadius: R.lg, borderWidth: 1, overflow: 'hidden' },
+  libPickerSearch:     { margin: SP.md, borderRadius: R.sm, borderWidth: 1, paddingHorizontal: SP.md, paddingVertical: SP.sm, fontSize: FONT.sm, color: C.text },
+  libPickerEmpty:      { textAlign: 'center', fontSize: FONT.sm, paddingVertical: SP.lg, paddingHorizontal: SP.xl, fontStyle: 'italic' },
+  libPickerItem:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SP.md, paddingVertical: SP.md, borderBottomWidth: 1, gap: SP.sm },
+  libPickerItemInfo:   { flex: 1 },
+  libPickerItemName:   { fontSize: FONT.base, fontWeight: '600' },
+  libPickerItemParams: { fontSize: FONT.xs, fontFamily: FONT_MONO, marginTop: 2 },
+  libPickerAddBtn:     { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
 
   uebRow:       { flexDirection: 'row', alignItems: 'center', gap: SP.md, backgroundColor: C.surface, borderRadius: R.lg, borderWidth: 1, borderColor: C.border, padding: SP.md },
   uebRowActive: { borderColor: C.accent },
